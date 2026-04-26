@@ -41,7 +41,6 @@ AstrBot 的 Warframe 助手插件，目标实现与 nyxbot 功能相同。
 | `wf_update_interval` | 世界状态更新间隔（秒） | `600` |
 | `wf_notification_retention_hours` | 通知历史保留时长（小时） | `12` |
 | `wf_data_source_cdn` | 数据源CDN | `https://testingcf.jsdelivr.net/gh/KingPrimes/DataSource` |
-| `wf_arbitration_data` | 仲裁数据源Url地址 | `https://wf.555590.xyz/api/arbys?days=30` |
 | `wf_command_prefix` | 指令前缀（为空则无需前缀） | ` `（空） |
 
 ### 数据源CDN可选项
