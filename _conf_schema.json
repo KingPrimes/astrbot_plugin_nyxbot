@@ -1,0 +1,38 @@
+{
+  "wf_update_interval": {
+    "description": "世界状态更新间隔（秒）",
+    "type": "int",
+    "hint": "定时拉取Warframe世界状态的最小间隔，建议不低于60秒",
+    "default": 600
+  },
+  "wf_notification_retention_hours": {
+    "description": "通知历史保留时长（小时）",
+    "type": "int",
+    "hint": "超过此时长的通知记录将被自动清理",
+    "default": 12
+  },
+  "wf_data_source_cdn": {
+    "description": "数据源CDN",
+    "type": "list",
+    "hint": "用于加载翻译/别名等数据的CDN地址",
+    "options":[
+      "https://testingcf.jsdelivr.net/gh/KingPrimes/DataSource",
+      "https://jsd.onmicrosoft.cn/gh/KingPrimes/DataSource",
+      "https://cdn.jsdelivr.net/gh/KingPrimes/DataSource",
+      "https://kingprimes.top"
+    ],
+    "default":"https://testingcf.jsdelivr.net/gh/KingPrimes/DataSource"
+  },
+  "wf_arbitration_data":{
+    "description": "Warframe仲裁数据源Url地址",
+    "type": "string",
+    "hint": "Warframe仲裁数据源Url地址，需要返回类型为JSON格式的数据源，并且字段为：[{'id':'任务开始时间戳ID','activation':'任务开始日期','expiry':'任务结束日期','node':'V Prime (金星)','missionType':'生存','enemy':'Corpus'}]",
+    "default":"https://wf.555590.xyz/api/arbys?days=30"
+  },
+  "wf_command_prefix": {
+    "description": "Warframe 助手指令前缀",
+    "type": "string",
+    "hint": "指令组前缀，为空时指令无需前缀即可触发。例如设为 wf 则通过 /wf help 触发，留空则通过 /help 触发。修改后需重载插件生效。",
+    "default": ""
+  }
+}
