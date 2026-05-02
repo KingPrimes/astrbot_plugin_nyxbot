@@ -6,6 +6,8 @@ from __future__ import annotations
 from astrbot.api import logger, AstrBotConfig
 from astrbot.api.star import Context, Star
 
+from .init import init_alias_data
+
 
 class NyxBotPlugin(Star):
     """NyxBot Warframe assistant plugin / NyxBot Warframe 助手插件"""
@@ -15,6 +17,7 @@ class NyxBotPlugin(Star):
 
     async def initialize(self):
         """Plugin initialization / 插件初始化"""
+        await init_alias_data()
 
     async def terminate(self):
         """Plugin termination / 插件销毁"""

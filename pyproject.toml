@@ -1,0 +1,11 @@
+[project]
+name = "astrbot-plugin-nyxbot"
+version = "1.0.0"
+description = "astrbot的warframe助手插件，目标实现与nyxbot功能相同。"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "aiohttp>=3.13.5",
+    "orjson>=3.11.8",
+    "sqlmodel>=0.0.38",
+]
