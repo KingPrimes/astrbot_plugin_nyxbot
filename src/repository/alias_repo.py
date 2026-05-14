@@ -3,8 +3,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from sqlmodel import select
-from sqlmodel.ext.asyncio.session import AsyncSession
+from tortoise.exceptions import DoesNotExist
 
 from ..model.alias import Alias
 from .base import BaseRepository
@@ -16,26 +15,31 @@ class AliasRepository(BaseRepository[Alias]):
     def __init__(self):
         super().__init__(Alias)
 
-    async def find_by_cn(self, session: AsyncSession, cn: str) -> Optional[Alias]:
+    async def find_by_cn(self, cn: str) -> Optional[Alias]:
         """根据中文名称查找。"""
-        stmt = select(Alias).where(Alias.cn == cn)
-        result = await session.exec(stmt)
-        return result.first()
+        try:
+            return await Alias.get(cn=cn)
+        except DoesNotExist:
+            return None
 
-    async def find_by_en(self, session: AsyncSession, en: str) -> Optional[Alias]:
+    async def find_by_en(self, en: str) -> Optional[Alias]:
         """根据英文名称查找。"""
-        stmt = select(Alias).where(Alias.en == en)
-        result = await session.exec(stmt)
-        return result.first()
+        try:
+            return await Alias.get(en=en)
+        except DoesNotExist:
+            return None
 
     async def search_by_keyword(
-        self, session: AsyncSession, keyword: str, offset: int = 0, limit: int = 100
+        self, keyword: str, offset: int = 0, limit: int = 100
     ):
         """模糊搜索别名（同时搜索中文和英文）。"""
-        from sqlmodel import or_
-        pattern = f"%{keyword}%"
-        conditions = [or_(Alias.cn.like(pattern), Alias.en.like(pattern))]
-        return await self.search(session, conditions, offset, limit)
+        from tortoise.expressions import Q
+        qs = Alias.filter(
+            Q(cn__contains=keyword) | Q(en__contains=keyword)
+        )
+        total = await qs.count()
+        items = await qs.offset(offset).limit(limit)
+        return list(items), total
 
 
 # 模块级单例

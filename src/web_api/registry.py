@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from astrbot.api.star import Context
 
-from ..web_api.data_admin import register_data_apis
+from .data_admin import register_data_apis
 
 
 def register_web_apis(context: Context) -> None:

@@ -5,4 +5,5 @@ from .config import (
     get_wf_data_source_cdn,
     get_wf_arbitration_data,
     get_wf_command_prefix,
+    get_db_debug
 )

@@ -133,6 +133,11 @@ class PluginConfig:
         """Warframe 助手指令前缀，为空时指令无需前缀即可触发。"""
         return str(self.get("wf_command_prefix", "")).strip()
 
+    @property
+    def db_debug(self) -> bool:
+        """数据库调试模式开关，开启后输出 Tortoise ORM SQL 日志。"""
+        return bool(self.get("db_debug", False))
+
     # --- Representation / 表示 ---
 
     def __repr__(self) -> str:
@@ -176,3 +181,8 @@ def get_wf_arbitration_data() -> str:
 def get_wf_command_prefix() -> str:
     """获取Warframe 助手指令前缀，为空时指令无需前缀即可触发。"""
     return _get_default_config().wf_command_prefix
+
+
+def get_db_debug() -> bool:
+    """获取数据库调试模式开关。"""
+    return _get_default_config().db_debug

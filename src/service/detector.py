@@ -31,14 +31,7 @@ class BaseChangeDetector(ABC):
         Returns:
             新增或变更的条目列表。
         """
-        current = await self.fetch_current()
-        if self._previous_state is None:
-            self._previous_state = current
-            return []
-
-        changes = self._compute_changes(self._previous_state, current)
-        self._previous_state = current
-        return changes
+        ...
 
     def _compute_changes(
         self,
@@ -49,55 +42,30 @@ class BaseChangeDetector(ABC):
 
         默认实现：按所有键名对比每个键下的条目 ID。
         """
-        changes = []
-        for key in new:
-            old_items = old.get(key, [])
-            new_items = new.get(key, [])
-
-            if not isinstance(old_items, list) or not isinstance(new_items, list):
-                continue
-
-            old_ids = {self._get_item_id(item) for item in old_items}
-            for item in new_items:
-                item_id = self._get_item_id(item)
-                if item_id and item_id not in old_ids:
-                    changes.append(item)
-
-        return changes
+        ...
 
     @staticmethod
     def _get_item_id(item: Any) -> Optional[str]:
         """从条目中获取唯一 ID。"""
-        if isinstance(item, dict):
-            return item.get("id", item.get("_id", item.get("Id", "")))
-        return None
+        ...
 
 
 class AlertsChangeDetector(BaseChangeDetector):
     """警报变更检测器。"""
 
     async def fetch_current(self) -> dict[str, Any]:
-        from ..api import WorldStateClient
-
-        raw = await WorldStateClient.fetch_raw()
-        return {"Alerts": raw.get("Alerts", []) if raw else []}
+        ...
 
 
 class FissuresChangeDetector(BaseChangeDetector):
     """裂隙变更检测器。"""
 
     async def fetch_current(self) -> dict[str, Any]:
-        from ..api import WorldStateClient
-
-        raw = await WorldStateClient.fetch_raw()
-        return {"Fissures": raw.get("Fissures", []) if raw else []}
+        ...
 
 
 class InvasionsChangeDetector(BaseChangeDetector):
     """入侵变更检测器。"""
 
     async def fetch_current(self) -> dict[str, Any]:
-        from ..api import WorldStateClient
-
-        raw = await WorldStateClient.fetch_raw()
-        return {"Invasions": raw.get("Invasions", []) if raw else []}
+        ...

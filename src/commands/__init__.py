@@ -13,19 +13,19 @@ def register_all() -> None:
     导入所有指令模块以触发 Handler 注册。
     """
     # 每个指令文件在此导入一次即可完成注册
-    from commands import wf_help  # noqa: F401
-    from commands import wf_alerts  # noqa: F401
-    from commands import wf_sorties  # noqa: F401
-    from commands import wf_fissures  # noqa: F401
-    from commands import wf_invasions  # noqa: F401
-    from commands import wf_void_trader  # noqa: F401
-    from commands import wf_arbitration  # noqa: F401
-    from commands import wf_cycle  # noqa: F401
-    from commands import wf_duviri  # noqa: F401
-    from commands import wf_daily_deals  # noqa: F401
-    from commands import wf_steel_path  # noqa: F401
-    from commands import wf_nightwave  # noqa: F401
-    from commands import wf_relics  # noqa: F401
+    from . import wf_help  # noqa: F401
+    from . import wf_alerts  # noqa: F401
+    from . import wf_sorties  # noqa: F401
+    from . import wf_fissures  # noqa: F401
+    from . import wf_invasions  # noqa: F401
+    from . import wf_void_trader  # noqa: F401
+    from . import wf_arbitration  # noqa: F401
+    from . import wf_cycle  # noqa: F401
+    from . import wf_duviri  # noqa: F401
+    from . import wf_daily_deals  # noqa: F401
+    from . import wf_steel_path  # noqa: F401
+    from . import wf_nightwave  # noqa: F401
+    from . import wf_relics  # noqa: F401
 
 
 # 模块导入时自动注册所有指令

@@ -34,5 +34,11 @@
     "type": "string",
     "hint": "指令组前缀，为空时指令无需前缀即可触发。例如设为 wf 则通过 /wf help 触发，留空则通过 /help 触发。修改后需重载插件生效。",
     "default": ""
+  },
+  "db_debug": {
+    "description": "数据库调试日志",
+    "type": "bool",
+    "hint": "启用后将输出 Tortoise ORM 的 SQL 查询日志，用于调试数据库操作。默认关闭。",
+    "default": false
   }
 }

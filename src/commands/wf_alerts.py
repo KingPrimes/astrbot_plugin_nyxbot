@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from astrbot.api.event import AstrMessageEvent
+import astrbot.api.message_components as Comp
 
 from ...registry import wf
 from ..service.world_state import WorldStateService
@@ -54,4 +55,4 @@ async def wf_alerts(self, event: AstrMessageEvent):
     renderer = CardRenderer()
     img = renderer.create_alert_card(alerts)
     img_bytes = CardRenderer.render_to_bytes(img)
-    yield event.image_result(img_bytes)
+    yield event.chain_result([Comp.Image.fromBytes(img_bytes)])

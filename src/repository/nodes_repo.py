@@ -3,10 +3,9 @@ from __future__ import annotations
 
 from typing import Optional
 
-from sqlmodel import select
-from sqlmodel.ext.asyncio.session import AsyncSession
+from tortoise.exceptions import DoesNotExist
 
-from ..model.nodes import Nodes
+from ..model.exprot.nodes import ExprotNodes as Nodes
 from .base import BaseRepository
 
 
@@ -16,15 +15,21 @@ class NodesRepository(BaseRepository[Nodes]):
     def __init__(self):
         super().__init__(Nodes)
 
-    async def find_by_name(self, session: AsyncSession, name: str) -> Optional[Nodes]:
+    async def find_by_name(self, name: str) -> Optional[Nodes]:
         """根据节点名称查找。"""
-        stmt = select(Nodes).where(Nodes.name == name)
-        result = await session.exec(stmt)
-        return result.first()
+        try:
+            return await Nodes.get(name=name)
+        except DoesNotExist:
+            return None
 
-    async def find_by_unique_name(self, session: AsyncSession, unique_name: str) -> Optional[Nodes]:
+    async def find_by_unique_name(
+        self, uniqueName: str
+    ) -> Optional[Nodes]:
         """根据唯一标识查找。"""
-        return await self.get_by_id(session, unique_name)
+        try:
+            return await Nodes.get(uniqueName=uniqueName)
+        except DoesNotExist:
+            return None
 
 
 # 模块级单例

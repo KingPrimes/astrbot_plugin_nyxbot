@@ -1,17 +1,15 @@
 """Base repository / 仓库基类
 
-提供通用的 SQLModel CRUD 操作封装。
+提供通用的 TortoiseORM CRUD 操作。
 """
 from __future__ import annotations
 
-from typing import Any, Generic, Optional, Sequence, TypeVar
+from typing import Any, Generic, Optional, TypeVar
 
-from sqlmodel import SQLModel, select, func, delete as sql_delete
-from sqlmodel.ext.asyncio.session import AsyncSession
+from tortoise.exceptions import DoesNotExist
+from tortoise.models import Model
 
-from ..init import get_session
-
-T = TypeVar("T", bound=SQLModel)
+T = TypeVar("T", bound=Model)
 
 
 class BaseRepository(Generic[T]):
@@ -20,13 +18,15 @@ class BaseRepository(Generic[T]):
     def __init__(self, model_cls: type[T]) -> None:
         self._model_cls = model_cls
 
-    async def get_by_id(self, session: AsyncSession, id_val: Any) -> Optional[T]:
+    async def get_by_id(self, id_val: Any) -> Optional[T]:
         """根据主键获取记录。"""
-        return await session.get(self._model_cls, id_val)
+        try:
+            return await self._model_cls.get(id=id_val)
+        except DoesNotExist:
+            return None
 
     async def list_all(
         self,
-        session: AsyncSession,
         offset: int = 0,
         limit: int = 100,
         order_field: Optional[str] = None,
@@ -36,73 +36,55 @@ class BaseRepository(Generic[T]):
         Returns:
             (记录列表, 总记录数) 的元组。
         """
-        # 查询总数
-        count_stmt = select(func.count()).select_from(self._model_cls)
-        total = (await session.exec(count_stmt)).one()
-
-        # 分页查询
-        stmt = select(self._model_cls).offset(offset).limit(limit)
+        qs = self._model_cls.all()
+        total = await qs.count()
         if order_field:
-            stmt = stmt.order_by(order_field)
-        results = await session.exec(stmt)
-        return list(results.all()), total
+            qs = qs.order_by(order_field)
+        items = await qs.offset(offset).limit(limit)
+        return list(items), total
 
-    async def add(self, session: AsyncSession, instance: T) -> T:
+    async def add(self, instance: T) -> T:
         """添加新记录。"""
-        session.add(instance)
-        await session.commit()
-        await session.refresh(instance)
+        await instance.save()
         return instance
 
-    async def update(self, session: AsyncSession, instance: T) -> T:
+    async def update(self, instance: T) -> T:
         """更新已有记录。"""
-        session.add(instance)
-        await session.commit()
-        await session.refresh(instance)
+        await instance.save()
         return instance
 
-    async def delete(self, session: AsyncSession, id_val: Any) -> bool:
+    async def delete(self, id_val: Any) -> bool:
         """根据主键删除记录。"""
-        instance = await self.get_by_id(session, id_val)
-        if instance is None:
-            return False
-        await session.delete(instance)
-        await session.commit()
-        return True
+        deleted = await self._model_cls.filter(id=id_val).delete()
+        return deleted > 0
 
-    async def delete_all(self, session: AsyncSession) -> int:
+    async def delete_all(self) -> int:
         """清空表数据。
 
         Returns:
             删除的记录数。
         """
-        result = await session.exec(sql_delete(self._model_cls))
-        await session.commit()
-        return result.rowcount
+        return await self._model_cls.all().delete()
 
     async def search(
         self,
-        session: AsyncSession,
-        conditions: list,
+        conditions: dict[str, Any] | None = None,
         offset: int = 0,
         limit: int = 100,
     ) -> tuple[list[T], int]:
         """带条件的分页查询。
 
         Args:
-            session: 数据库会话。
-            conditions: SQLModel 条件列表（如 [Alias.cn == "xxx"]）。
+            conditions: TortoiseORM filter kwargs（如 {"cn__contains": "xxx"}）。
             offset: 偏移量。
             limit: 每页大小。
 
         Returns:
             (记录列表, 总记录数) 的元组。
         """
-        # 总数
-        count_stmt = select(func.count()).select_from(self._model_cls).where(*conditions)
-        total = (await session.exec(count_stmt)).one()
-
-        # 查询
-        stmt = select(self._model_cls).where(*conditions).offset(offset).limit(limit)
-        results = await session.exec(stmt)
-        return list(results.all()), total
+        qs = self._model_cls.all()
+        if conditions:
+            qs = qs.filter(**conditions)
+        total = await qs.count()
+        items = await qs.offset(offset).limit(limit)
+        return list(items), total

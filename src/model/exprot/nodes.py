@@ -1,11 +1,14 @@
 """
-Nodes Model / 节点模型
-包含星图节点基本信息
-"""
-from typing import Optional
-from sqlmodel import SQLModel,Field
-from ..wenum import FactionEnum, MissionTypeEnum
+Nodes Model (exprot) / 星图节点模型（导出数据）
 
+对应 Java: Nodes.java (exprot)
+"""
+from __future__ import annotations
+
+from tortoise import fields
+from tortoise.models import Model
+
+from ...wenum import FactionEnum, MissionTypeEnum
 
 # faction_index → FactionEnum 映射
 _FACTION_INDEX_MAP: dict[int, FactionEnum] = {
@@ -67,35 +70,35 @@ _MISSION_INDEX_MAP: dict[int, MissionTypeEnum] = {
 }
 
 
+class ExprotNodes(Model):
+    """星图节点（导出数据）"""
 
-class Nodes(SQLModel, table=True):
-    """星图节点"""
-    
-    __table_args__ = {'extend_existing': True}
-    
-    unique_name:str = Field(primary_key=True,unique=True,alias="uniqueName",description="唯一标识")
-    name:str = Field(alias="name",description="节点名称")
-    system_name:Optional[str] = Field(default=None,alias="systemName",description="星系名称")
-    system_index:Optional[int] = Field(default=None,alias="systemIndex",description="星系索引")
-    node_type:Optional[int] = Field(default=None,alias="nodeType",description="节点类型")
-    mastery_req:Optional[int] = Field(default=None,alias="masteryReq",description="段位需求")
-    mission_index:Optional[int] = Field(default=None,alias="missionIdex",description="任务类型索引")
-    faction_index:Optional[int] = Field(default=None,alias="facionIndex",description="派系索引")
-    min_enemy_level:Optional[int] = Field(default=None,alias="minEnemyLevel",description="最低敌人等级")
-    max_enemy_level:Optional[int] = Field(default=None,alias="maxEnemyLevel",description="最高敌人等级")
-    
+    uniqueName = fields.CharField(max_length=255, pk=True, source_field="unique_name", description="唯一标识")
+    name = fields.CharField(max_length=255, description="节点名称")
+    systemName = fields.CharField(max_length=255, null=True, source_field="system_name", description="星系名称")
+    systemIndex = fields.IntField(null=True, source_field="system_index", description="星系索引")
+    nodeType = fields.IntField(null=True, source_field="node_type", description="节点类型")
+    masteryReq = fields.IntField(null=True, source_field="mastery_req", description="段位需求")
+    missionIndex = fields.IntField(null=True, source_field="mission_index", description="任务类型索引")
+    factionIndex = fields.IntField(null=True, source_field="faction_index", description="派系索引")
+    minEnemyLevel = fields.IntField(null=True, source_field="min_enemy_level", description="最低敌人等级")
+    maxEnemyLevel = fields.IntField(null=True, source_field="max_enemy_level", description="最高敌人等级")
+
+    class Meta:
+        table = "exprotnodes"
+
     @property
     def faction(self) -> FactionEnum:
-        """根据 faction_index 获取派系枚举"""
-        if self.faction_index is not None:
-            return _FACTION_INDEX_MAP.get(self.faction_index, FactionEnum.FC_NONE)
+        """根据 factionIndex 获取派系枚举"""
+        if self.factionIndex is not None:
+            return _FACTION_INDEX_MAP.get(self.factionIndex, FactionEnum.FC_NONE)
         return FactionEnum.FC_NONE
 
     @property
     def mission_type(self) -> MissionTypeEnum:
-        """根据 mission_index 获取任务类型枚举"""
-        if self.mission_index is not None:
+        """根据 missionIndex 获取任务类型枚举"""
+        if self.missionIndex is not None:
             return _MISSION_INDEX_MAP.get(
-                self.mission_index, MissionTypeEnum.MT_DEFAULT
+                self.missionIndex, MissionTypeEnum.MT_DEFAULT
             )
         return MissionTypeEnum.MT_DEFAULT

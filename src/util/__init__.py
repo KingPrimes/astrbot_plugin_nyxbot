@@ -20,6 +20,7 @@ from .http_utils import (
     get_session,
     close_session,
 )
+from .string_utils import to_title_case
 
 __all__ = [
     "_get_db_path",

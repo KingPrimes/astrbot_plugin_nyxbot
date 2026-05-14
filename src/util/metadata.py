@@ -3,7 +3,7 @@
 # ==================================================================
 from pathlib import Path
 
-_METADATA_PATH = Path(__file__).resolve().parent.parent / "metadata.yaml"
+_METADATA_PATH = Path(__file__).resolve().parents[2] / "metadata.yaml"
 
 
 def get_plugin_name() -> str:
