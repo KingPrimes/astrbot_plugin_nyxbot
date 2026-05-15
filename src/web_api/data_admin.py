@@ -45,18 +45,18 @@ from ..model.riven_items import RivenItems
 from ..model.riven_tion import RivenTion
 from ..model.riven_tion_alias import RivenTionAlias
 from ..model.state_translation import StateTranslation
-from ..model.exprot.customs import Customs
-from ..model.exprot.mod_set import ModSet
-from ..model.exprot.night_wave import NightWave
-from ..model.exprot.nodes import ExprotNodes as Nodes
-from ..model.exprot.relic_rewards import RelicRewards
-from ..model.exprot.relics import Relics
-from ..model.exprot.sentinels import Sentinels
-from ..model.exprot.upgrades import Upgrades
-from ..model.exprot.warframes import Warframes, WarframeAbility
-from ..model.exprot.weapons import Weapons
-from ..model.exprot.reward.reward import Reward
-from ..model.exprot.reward.reward_pool import RewardPool
+from ..model.export.customs import Customs
+from ..model.export.mod_set import ModSet
+from ..model.export.night_wave import NightWave
+from ..model.export.nodes import ExprotNodes as Nodes
+from ..model.export.relic_rewards import RelicRewards
+from ..model.export.relics import Relics
+from ..model.export.sentinels import Sentinels
+from ..model.export.upgrades import Upgrades
+from ..model.export.warframes import Warframes, WarframeAbility
+from ..model.export.weapons import Weapons
+from ..model.export.reward.reward import Reward
+from ..model.export.reward.reward_pool import RewardPool
 
 PLUGIN_NAME = "astrbot_plugin_nyxbot"
 

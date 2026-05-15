@@ -13,7 +13,7 @@
   },
   "wf_data_source_cdn": {
     "description": "数据源CDN",
-    "type": "list",
+    "type": "string",
     "hint": "用于加载翻译/别名等数据的CDN地址",
     "options":[
       "https://testingcf.jsdelivr.net/gh/KingPrimes/DataSource",

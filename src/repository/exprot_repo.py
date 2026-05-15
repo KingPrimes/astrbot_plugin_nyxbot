@@ -8,17 +8,17 @@ from typing import Optional
 
 from tortoise.exceptions import DoesNotExist
 
-from ..model.exprot.customs import Customs
-from ..model.exprot.mod_set import ModSet
-from ..model.exprot.night_wave import NightWave
-from ..model.exprot.relics import Relics
-from ..model.exprot.relic_rewards import RelicRewards
-from ..model.exprot.sentinels import Sentinels
-from ..model.exprot.upgrades import Upgrades
-from ..model.exprot.warframes import Warframes, WarframeAbility
-from ..model.exprot.weapons import Weapons
-from ..model.exprot.reward.reward import Reward
-from ..model.exprot.reward.reward_pool import RewardPool
+from ..model.export.customs import Customs
+from ..model.export.mod_set import ModSet
+from ..model.export.night_wave import NightWave
+from ..model.export.relics import Relics
+from ..model.export.relic_rewards import RelicRewards
+from ..model.export.sentinels import Sentinels
+from ..model.export.upgrades import Upgrades
+from ..model.export.warframes import Warframes, WarframeAbility
+from ..model.export.weapons import Weapons
+from ..model.export.reward.reward import Reward
+from ..model.export.reward.reward_pool import RewardPool
 from .base import BaseRepository
 
 

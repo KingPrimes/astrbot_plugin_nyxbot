@@ -5,6 +5,7 @@ Data Sources Initialization / 数据源初始化
 from __future__ import annotations
 
 import logging
+import os
 
 from tortoise import Tortoise
 from astrbot.api import logger
@@ -12,7 +13,7 @@ from astrbot.api import logger
 from ..api import DataSourceClient
 from ..config import get_db_debug
 from ..model import Alias
-from ..model.exprot.nodes import ExprotNodes as Nodes
+from ..model.export.nodes import ExprotNodes as Nodes
 from ..util import _get_db_path
 
 # ============================================================
@@ -38,7 +39,7 @@ _tortoise_initialized: bool = False
 
 async def get_engine():
     """初始化 Tortoise ORM 并建表（单例）。"""
-    _db_path: str = _get_db_path() + "\\nyxbot.db"
+    _db_path: str = os.path.join(_get_db_path(),"nyxbot.db")
     print(_db_path)
     global _tortoise_initialized
     if not _tortoise_initialized:

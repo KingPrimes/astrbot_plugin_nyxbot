@@ -54,7 +54,8 @@ class CardRenderer:
         self.font_small = ImageFont.truetype(self.font_path, 13)
         self.font_tiny = ImageFont.truetype(self.font_path, 11)
 
-    def _find_font(self) -> str:
+    @staticmethod
+    def _find_font() -> str:
         """查找中文字体，回退到系统字体。"""
         # 优先使用项目内置字体
         script_dir = Path(__file__).parent
@@ -778,9 +779,10 @@ class CardRenderer:
         """
         img = Image.new("RGB", (width, height), (26, 26, 46))
         draw = ImageDraw.Draw(img)
-        # 使用默认字体
+        # 使用多平台字体回退
         try:
-            font = ImageFont.truetype("C:/Windows/Fonts/msyh.ttc", 20)
+            font_path = CardRenderer._find_font()
+            font = ImageFont.truetype(font_path, 20)
         except Exception:
             font = ImageFont.load_default()
 

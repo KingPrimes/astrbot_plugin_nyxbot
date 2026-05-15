@@ -24,7 +24,7 @@ class WorldStateClient:
         Returns:
             原始 JSON 字典，失败返回 None。
         """
-        return await fetch_json(cls.BASE_URL, content_type=None)
+        return await fetch_json(cls.BASE_URL)
 
     @classmethod
     async def get_alerts(cls, raw_data: Optional[dict] = None) -> list[dict]:

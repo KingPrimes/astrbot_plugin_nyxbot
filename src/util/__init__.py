@@ -17,6 +17,8 @@ from .time_utils import (
 from .http_utils import (
     fetch_json,
     fetch_text,
+    fetch_json_with_retry,
+    RetryLogLevel,
     get_session,
     close_session,
 )
@@ -40,6 +42,8 @@ __all__ = [
     # HTTP
     "fetch_json",
     "fetch_text",
+    "fetch_json_with_retry",
+    "RetryLogLevel",
     "get_session",
     "close_session",
 ]
