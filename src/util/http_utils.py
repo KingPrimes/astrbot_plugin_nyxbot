@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 from enum import Enum
+from pathlib import Path
 from typing import Any, Optional
 
 import aiohttp
@@ -18,6 +19,21 @@ class RetryLogLevel(Enum):
     INFO = "info"
     WARNING = "warning"
     ERROR = "error"
+
+
+class HttpMethod(str, Enum):
+    """HTTP 请求方法枚举。
+
+    继承 str 以便直接传入 aiohttp 的 method 参数。
+    """
+
+    GET = "GET"
+    POST = "POST"
+    PUT = "PUT"
+    DELETE = "DELETE"
+    PATCH = "PATCH"
+    HEAD = "HEAD"
+    OPTIONS = "OPTIONS"
 
 # 默认超时设置（秒）
 DEFAULT_TIMEOUT = aiohttp.ClientTimeout(total=30)
@@ -200,3 +216,88 @@ async def fetch_json_with_retry(
             max_retries=max_retries, retry_delay=retry_delay,
         ))
     return None
+
+
+async def download_file(
+    url: str,
+    method: HttpMethod = HttpMethod.GET,
+    request_body: Optional[Any] = None,
+    extra_headers: Optional[dict[str, str]] = None,
+    output: str | Path = "download.tmp",
+    timeout: aiohttp.ClientTimeout = DEFAULT_TIMEOUT,
+    chunk_size: int = 8192,
+    show_progress: bool = True,
+) -> bool:
+    """通过 HTTP 请求下载文件并保存到本地。
+
+    支持任意 HTTP 方法、自定义请求头、JSON 请求体，采用流式分块写入
+    以避免大文件撑爆内存。
+
+    Args:
+        url: 请求 URL。
+        method: HTTP 方法，默认 GET。
+        request_body: JSON 请求体，传入 None 时不发送 body。
+        extra_headers: 额外请求头，会合并到默认头之后。
+        output: 输出文件路径，默认 "download.tmp"。
+        timeout: 超时设置。
+        chunk_size: 流式读取块大小（字节），默认 8192 (8KB)。
+        show_progress: 是否输出下载进度日志，默认 True。
+
+    Returns:
+        bool: 下载成功返回 True，失败返回 False。
+    """
+    # 构建默认请求头
+    headers: dict[str, str] = {
+        "Content-Type": "application/json",
+        "Accept-Encoding": "application/octet-stream",
+    }
+    if extra_headers:
+        headers.update(extra_headers)
+
+    session = await get_session()
+    output_path = Path(output)
+    # 确保目标目录存在
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # 构造请求参数
+    kwargs: dict[str, Any] = {
+        "url": url,
+        "headers": headers,
+        "timeout": timeout,
+    }
+    if request_body is not None:
+        kwargs["json"] = request_body
+
+    try:
+        async with session.request(method.value, **kwargs) as resp:
+            if resp.status < 200 or resp.status >= 300:
+                logger.warning(
+                    f"downloadFile 失败: {url} "
+                    f"状态码={resp.status} 响应头={dict(resp.headers)}"
+                )
+                return False
+
+            # 流式读取并写入文件
+            total_read = 0
+            with open(output_path, "wb") as f:
+                while True:
+                    chunk = await resp.content.read(chunk_size)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+                    total_read += len(chunk)
+                    if show_progress and total_read % (1024 * 1024) < chunk_size:
+                        logger.info(
+                            f"下载进度: {url} — {total_read} bytes"
+                        )
+            return True
+
+    except asyncio.TimeoutError:
+        logger.error(f"downloadFile 超时: {url}")
+        return False
+    except aiohttp.ClientError as e:
+        logger.error(f"downloadFile 网络错误: {url} - {e}")
+        return False
+    except Exception as e:
+        logger.error(f"downloadFile 未知错误: {url} - {e}")
+        return False

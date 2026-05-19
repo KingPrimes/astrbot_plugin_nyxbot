@@ -9,7 +9,7 @@ from .api import (
 )
 from .world_state import WorldStateClient
 from .market import MarketClient
-from .data_source import DataSourceClient
+from .data_source import DataSourceClient,sever_export_files
 
 __all__ = [
     "WF_WORLD_STATE",
@@ -27,4 +27,5 @@ __all__ = [
     "WorldStateClient",
     "MarketClient",
     "DataSourceClient",
+    "sever_export_files",
 ]

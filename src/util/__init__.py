@@ -1,4 +1,4 @@
-from .data_path import _get_db_path
+from .data_path import get_public_data_path
 from .metadata import get_plugin_name
 from .cache_utils import (
     world_state_cache,
@@ -19,13 +19,19 @@ from .http_utils import (
     fetch_text,
     fetch_json_with_retry,
     RetryLogLevel,
+    HttpMethod,
     get_session,
     close_session,
+    download_file,
 )
 from .string_utils import to_title_case
+from .compress_utils import (
+    decompress_lzma,
+    decompress_lzma_auto,
+)
 
 __all__ = [
-    "_get_db_path",
+    "get_public_data_path",
     "get_plugin_name",
     # Cache
     "world_state_cache",
@@ -44,6 +50,11 @@ __all__ = [
     "fetch_text",
     "fetch_json_with_retry",
     "RetryLogLevel",
+    "HttpMethod",
     "get_session",
     "close_session",
+    "download_file",
+    # Compress
+    "decompress_lzma",
+    "decompress_lzma_auto",
 ]
