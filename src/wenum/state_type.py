@@ -48,9 +48,9 @@ class StateTypeEnum(Enum):
     SHIP_SCENES = ("/Lotus/Types/StoreItems/ShipScenes/.*", "轨道飞行器装饰")
     BLUEPRINT = ("/Lotus/.*Blueprint", "蓝图")
 
-    def __init__(self, key: str, name: str) -> None:
+    def __init__(self, key: str, label: str) -> None:
         self._key = key
-        self._name = name
+        self._label = label
 
     @property
     def key(self) -> str:
@@ -58,6 +58,6 @@ class StateTypeEnum(Enum):
         return self._key
 
     @property
-    def name(self) -> str:
-        """显示名称"""
-        return self._name
+    def label(self) -> str:
+        """显示名称（如"完整遗物"），不覆盖 Enum 内置的 .name 成员名"""
+        return self._label

@@ -25,8 +25,8 @@ class OrdersItems(Model):
     maxAmberStars = fields.IntField(null=True, source_field="max_amber_stars", description="阿耶檀识黄星星")
     maxCyanStars = fields.IntField(null=True, source_field="max_cyan_stars", description="阿耶檀识蓝星星")
     baseEndo = fields.IntField(null=True, source_field="base_endo", description="基础内融核心")
-    reqMasteryRank = fields.IntField(null=True, source_field="base_endo", description="段位等级限制")
-    tradingTax = fields.IntField(null=True, source_field="base_endo", description="交易税")
+    reqMasteryRank = fields.IntField(null=True, source_field="req_mastery_rank", description="段位等级限制")
+    tradingTax = fields.IntField(null=True, source_field="trading_tax", description="交易税")
 
     class Meta:
         table = "ordersitems"

@@ -211,7 +211,7 @@ class DataSourceClient:
         )
 
     @classmethod
-    async def fetch_state_translations(cls) -> Optional[dict]:
+    async def fetch_state_translations(cls) -> Optional[list[dict]]:
         """获取翻译数据"""
         url = f"{cls._base_url()}/warframe/state_translation.json"
         return await fetch_json_with_retry(
