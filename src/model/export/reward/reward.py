@@ -18,7 +18,7 @@ class Reward(Model):
     id = fields.CharField(max_length=255, pk=True, description="UUID 主键")
     item = fields.CharField(max_length=255, default="", description="奖励物品名称")
     rarity = fields.CharField(max_length=50, null=True, description="稀有度")
-    itemCount = fields.IntField(null=True, source_field="unique_name", description="物品数量")
+    itemCount = fields.IntField(null=True, description="物品数量")
 
     reward_pool: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
         "models.RewardPool", related_name="rewards", null=True, on_delete=fields.CASCADE

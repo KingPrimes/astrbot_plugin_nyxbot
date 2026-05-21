@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from cachetools import TTLCache
-from typing import Any, Callable, TypeVar
+from typing import Any, Callable, TypeVar, cast
 
 T = TypeVar("T")
 
@@ -14,20 +14,20 @@ T = TypeVar("T")
 # ============================================================================
 
 # WorldState 缓存：最多缓存 1 份完整数据，5 分钟过期
-world_state_cache: TTLCache[str, Any] = TTLCache(maxsize=1, ttl=300)
+world_state_cache: TTLCache[str, Any] = cast(TTLCache[str, Any], TTLCache(maxsize=1, ttl=300))
 
 # Market API 查询缓存：最多 50 个查询条件，**2 分钟固定过期**
 # Market API 有频率限制，2 分钟 TTL 确保数据时效性同时避免触发限流
-market_cache: TTLCache[str, Any] = TTLCache(maxsize=50, ttl=120)
+market_cache: TTLCache[str, Any] = cast(TTLCache[str, Any], TTLCache(maxsize=50, ttl=120))
 
 # Market 搜索结果缓存：最多 200 个独立搜索词，2 分钟过期
-market_search_cache: TTLCache[str, Any] = TTLCache(maxsize=200, ttl=120)
+market_search_cache: TTLCache[str, Any] = cast(TTLCache[str, Any], TTLCache(maxsize=200, ttl=120))
 
 # 通用缓存（可自定义 TTL）
-_general_caches: dict[str, TTLCache] = {}
+_general_caches: dict[str, TTLCache[str, Any]] = {}
 
 
-def get_cache(name: str, maxsize: int = 100, ttl: int = 300) -> TTLCache:
+def get_cache(name: str, maxsize: int = 100, ttl: int = 300) -> TTLCache[str, Any]:
     """获取或创建指定名称的缓存实例。
 
     Args:
@@ -39,11 +39,11 @@ def get_cache(name: str, maxsize: int = 100, ttl: int = 300) -> TTLCache:
         TTLCache 实例。
     """
     if name not in _general_caches:
-        _general_caches[name] = TTLCache(maxsize=maxsize, ttl=ttl)
+        _general_caches[name] = cast(TTLCache[str, Any], TTLCache(maxsize=maxsize, ttl=ttl))
     return _general_caches[name]
 
 
-def cached(key: str, fetch_func: Callable[[], T], cache: TTLCache) -> T:
+def cached(key: str, fetch_func: Callable[[], T], cache: TTLCache[str, Any]) -> T:
     """缓存装饰器模式：缓存命中则返回，否则调用 fetch_func 获取并缓存。
 
     Args:
@@ -61,7 +61,7 @@ def cached(key: str, fetch_func: Callable[[], T], cache: TTLCache) -> T:
     return value
 
 
-async def async_cached(key: str, fetch_func: Callable[[], Any], cache: TTLCache) -> Any:
+async def async_cached(key: str, fetch_func: Callable[[], Any], cache: TTLCache[str, Any]) -> Any:
     """异步版本的缓存装饰器模式。
 
     Args:

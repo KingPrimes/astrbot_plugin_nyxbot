@@ -73,16 +73,16 @@ _MISSION_INDEX_MAP: dict[int, MissionTypeEnum] = {
 class ExprotNodes(Model):
     """星图节点（导出数据）"""
 
-    uniqueName = fields.CharField(max_length=255, pk=True, source_field="unique_name", description="唯一标识")
+    uniqueName = fields.CharField(max_length=255, pk=True, description="唯一标识")
     name = fields.CharField(max_length=255, description="节点名称")
-    systemName = fields.CharField(max_length=255, null=True, source_field="system_name", description="星系名称")
-    systemIndex = fields.IntField(null=True, source_field="system_index", description="星系索引")
-    nodeType = fields.IntField(null=True, source_field="node_type", description="节点类型")
-    masteryReq = fields.IntField(null=True, source_field="mastery_req", description="段位需求")
-    missionIndex = fields.IntField(null=True, source_field="mission_index", description="任务类型索引")
-    factionIndex = fields.IntField(null=True, source_field="faction_index", description="派系索引")
-    minEnemyLevel = fields.IntField(null=True, source_field="min_enemy_level", description="最低敌人等级")
-    maxEnemyLevel = fields.IntField(null=True, source_field="max_enemy_level", description="最高敌人等级")
+    systemName = fields.CharField(max_length=255, null=True, description="星系名称")
+    systemIndex = fields.IntField(null=True, description="星系索引")
+    nodeType = fields.IntField(null=True, description="节点类型")
+    masteryReq = fields.IntField(null=True, description="段位需求")
+    missionIndex = fields.IntField(null=True, description="任务类型索引")
+    factionIndex = fields.IntField(null=True, description="派系索引")
+    minEnemyLevel = fields.IntField(null=True, description="最低敌人等级")
+    maxEnemyLevel = fields.IntField(null=True, description="最高敌人等级")
 
     class Meta:
         table = "exprotnodes"

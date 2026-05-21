@@ -1,24 +1,24 @@
-"""CDN Data Source client / CDN 数据源客户端
+"""Warframe Public Export Data Downloader / Warframe 公共导出数据下载器
 
-封装从 CDN 获取 Warframe 配置数据（别名、节点等）的接口。
+提供从 CDN 下载、解压、校验 Warframe 公共导出数据文件的工具函数。
+原位于 src/api/data_source.py，现迁移至此。
+
+Functions:
+    sever_export_files() — 主入口：下载并同步最新的导出数据
 """
 from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Optional
 
 from astrbot.api import logger
 
-from ..config import get_wf_data_source_cdn
+from ..api.api import WF_PUBLIC_EXPORT_INDEX, WF_PUBLIC_EXPORT_MANIFESTS
 from ..util import (
-    fetch_json_with_retry,
-    RetryLogLevel,
     get_public_data_path,
     download_file,
     decompress_lzma_auto,
 )
-from .api import WF_PUBLIC_EXPORT_INDEX, WF_PUBLIC_EXPORT_MANIFESTS
 
 
 ExportDir: str = get_public_data_path() + "/export"
@@ -40,6 +40,7 @@ async def _fetch_export_lzma_file() -> bool:
     url = WF_PUBLIC_EXPORT_INDEX % Key
     output = str(Path(ExportDir) / f"index_{Key}.txt.lzma")
     return await download_file(url=url, output=output)
+
 
 async def _dc_export_lzma() -> bool:
     """下载并解压 Warframe 公共导出索引文件。
@@ -64,6 +65,7 @@ async def _dc_export_lzma() -> bool:
         return True
 
     return False
+
 
 async def _compare_hash(lines: list[str]) -> dict[str, str]:
     """对比 LZMA 索引 Hash 值并保存快照，返回发生变化的条目。
@@ -111,6 +113,7 @@ async def _compare_hash(lines: list[str]) -> dict[str, str]:
 
     return changed
 
+
 async def _get_export_file(line: str) -> bool:
     """下载单个 Warframe 公共导出文件。
 
@@ -124,6 +127,7 @@ async def _get_export_file(line: str) -> bool:
     filename = line.split("!", 1)[0]
     output = str(Path(ExportDir) / filename)
     return await download_file(url=url, output=output)
+
 
 async def sever_export_files() -> bool:
     """下载 Warframe 公共导出数据文件。
@@ -175,97 +179,36 @@ async def sever_export_files() -> bool:
     return success
 
 
-class DataSourceClient:
-    """CDN 数据源客户端。
+async def resolve_export_filename(prefix: str) -> str | None:
+    """从 Hash.json 中查找匹配指定前缀的导出文件名，避免硬编码语言后缀。
 
-    用于从 CDN 获取 Warframe 辅助数据，如别名映射、星图节点等。
+    例如:
+        resolve_export_filename("ExportRegions") → "ExportRegions_zh.json"
+        resolve_export_filename("ExportWeapons") → "ExportWeapons_zh.json"
+
+    Hash.json 的 key 是完整的导出文件名（含语言后缀），
+    因此只需遍历 key 并匹配前缀即可支持任意语言。
+
+    Args:
+        prefix: 文件前缀，如 "ExportRegions", "ExportWeapons", "ExportSortieRewards"
+
+    Returns:
+        str | None: 实际文件名（含扩展名），未找到时返回 None
     """
+    hash_path = Path(ExportHash)
+    if not hash_path.exists():
+        logger.warning(f"Hash.json 不存在，无法解析导出文件名: {prefix}")
+        return None
 
-    @classmethod
-    def _base_url(cls) -> str:
-        """获取当前配置的 CDN 基础 URL。"""
-        return get_wf_data_source_cdn()
+    try:
+        hash_data = json.loads(hash_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        logger.warning(f"Hash.json 解析失败: {e}")
+        return None
 
-    @classmethod
-    async def fetch_alias(cls) -> Optional[list[dict]]:
-        """获取别名数据"""
-        url = f"{cls._base_url()}/warframe/alias.json"
-        return await fetch_json_with_retry(
-            url,
-            log_templates={
-                RetryLogLevel.WARNING: "获取别名数据失败（第 {attempt}/{max_retries} 次），{retry_delay} 秒后重试...",
-                RetryLogLevel.ERROR: "获取别名数据失败，已重试 {max_retries} 次，放弃",
-            },
-        )
+    for filename in hash_data:
+        if isinstance(filename, str) and filename.startswith(prefix):
+            return filename
 
-    @classmethod
-    async def fetch_nodes(cls) -> Optional[list[dict]]:
-        """获取星图节点数据"""
-        url = f"{cls._base_url()}/warframe/nodes.json"
-        return await fetch_json_with_retry(
-            url,
-            log_templates={
-                RetryLogLevel.WARNING: "获取星图节点数据失败（第 {attempt}/{max_retries} 次），{retry_delay} 秒后重试...",
-                RetryLogLevel.ERROR: "获取星图节点数据失败，已重试 {max_retries} 次，放弃",
-            },
-        )
-
-    @classmethod
-    async def fetch_state_translations(cls) -> Optional[list[dict]]:
-        """获取翻译数据"""
-        url = f"{cls._base_url()}/warframe/state_translation.json"
-        return await fetch_json_with_retry(
-            url,
-            log_templates={
-                RetryLogLevel.WARNING: "获取翻译数据失败（第 {attempt}/{max_retries} 次），{retry_delay} 秒后重试...",
-                RetryLogLevel.ERROR: "获取翻译数据失败，已重试 {max_retries} 次，放弃",
-            },
-        )
-
-    @classmethod
-    async def fetch_rive_tion(cls) -> Optional[list[dict]]:
-        """获取Riven Tion 紫卡属性查询参数"""
-        url = f"{cls._base_url()}/warframe/market_riven_tion.json"
-        return await fetch_json_with_retry(
-            url,
-            log_templates={
-                RetryLogLevel.WARNING: "获取紫卡属性查询参数失败（第 {attempt}/{max_retries} 次），{retry_delay} 秒后重试...",
-                RetryLogLevel.ERROR: "获取紫卡属性查询参数失败，已重试 {max_retries} 次，放弃",
-            },
-        )
-
-    @classmethod
-    async def fetch_riven_tion_alias(cls) -> Optional[list[dict]]:
-        """获取Riven Tion Alias 紫卡属性查询别名"""
-        url = f"{cls._base_url()}/warframe/market_riven_tion_alias.json"
-        return await fetch_json_with_retry(
-            url,
-            log_templates={
-                RetryLogLevel.WARNING: "获取紫卡属性查询别名失败（第 {attempt}/{max_retries} 次），{retry_delay} 秒后重试...",
-                RetryLogLevel.ERROR: "获取紫卡属性查询别名失败，已重试 {max_retries} 次，放弃",
-            },
-        )
-
-    @classmethod
-    async def fetch_reward_pool(cls) -> Optional[list[dict]]:
-        """获取 奖励池 数据"""
-        url = f"{cls._base_url()}/warframe/reward_pool.json"
-        return await fetch_json_with_retry(
-            url,
-            log_templates={
-                RetryLogLevel.WARNING: "获取奖励池数据失败（第 {attempt}/{max_retries} 次），{retry_delay} 秒后重试...",
-                RetryLogLevel.ERROR: "获取奖励池数据失败，已重试 {max_retries} 次，放弃",
-            },
-        )
-
-    @classmethod
-    async def fetch_riven_analyse_trend(cls) -> Optional[list[dict]]:
-        """获取 紫卡计算器 数据"""
-        url = f"{cls._base_url()}/warframe/riven_analyse_trend.json"
-        return await fetch_json_with_retry(
-            url,
-            log_templates={
-                RetryLogLevel.WARNING: "获取紫卡计算器数据失败（第 {attempt}/{max_retries} 次），{retry_delay} 秒后重试...",
-                RetryLogLevel.ERROR: "获取紫卡计算器数据失败，已重试 {max_retries} 次，放弃",
-            },
-        ) 
+    logger.warning(f"Hash.json 中未找到以 '{prefix}' 开头的文件")
+    return None

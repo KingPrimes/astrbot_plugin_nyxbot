@@ -15,8 +15,8 @@ class LichSisterWeapons(Model):
     id = fields.CharField(max_length=255, pk=True, description="唯一字符串武器ID")
     slug = fields.CharField(max_length=255, null=True, description="URL路径名称")
     icon = fields.CharField(max_length=500, null=True, description="武器图标")
-    gameRef = fields.CharField(max_length=255, null=True, source_field="game_ref", description="Lotus名称")
-    reqMasteryRank = fields.IntField(null=True, source_field="req_mastery_rank", description="段位限制")
+    gameRef = fields.CharField(max_length=255, null=True, description="Lotus名称")
+    reqMasteryRank = fields.IntField(null=True, description="段位限制")
     name = fields.CharField(max_length=255, null=True, description="武器名称")
     thumb = fields.CharField(max_length=500, null=True, description="缩略图")
 

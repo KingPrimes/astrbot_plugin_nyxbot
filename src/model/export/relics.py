@@ -12,9 +12,9 @@ from tortoise.models import Model
 class Relics(Model):
     """遗物"""
 
-    uniqueName = fields.CharField(max_length=255, pk=True, source_field="unique_name", description="唯一名称")
+    uniqueName = fields.CharField(max_length=255, pk=True, description="唯一名称")
     name = fields.CharField(max_length=255, null=True, description="名称")
-    codexSecret = fields.BooleanField(null=True, source_field="codex_secret", description="是否保密")
+    codexSecret = fields.BooleanField(null=True, description="是否保密")
     description = fields.TextField(null=True, description="描述")
 
     relic_rewards: fields.ReverseRelation

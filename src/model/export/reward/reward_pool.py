@@ -12,7 +12,7 @@ from tortoise.models import Model
 class RewardPool(Model):
     """奖励池"""
 
-    uniqueName = fields.CharField(max_length=255, pk=True, source_field="unique_name", description="唯一名称")
+    uniqueName = fields.CharField(max_length=255, pk=True, description="唯一名称")
     rewards: fields.ReverseRelation
 
     class Meta:

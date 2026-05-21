@@ -1,26 +1,67 @@
 """
 Data Sources Initialization / 数据源初始化
-从 CDN 获取 Warframe 数据并保存到 SQLite 数据库中。
+
+从导出 JSON 文件 + CDN 获取 Warframe 数据并保存到 SQLite 数据库中。
+
+架构说明：
+- 解析层（export_parsers.py）：负责读取 JSON → 数据清洗/转换 → 返回 list[dict]
+- 持久层（当前文件）：负责 DB 引擎初始化 → 调用解析层获取数据 → 批量 upsert
 """
 from __future__ import annotations
 
-import json
+import asyncio
 import logging
 import os
-import re
 from pathlib import Path
 
 from tortoise import Tortoise
 from astrbot.api import logger
 
-from ..api import DataSourceClient
-from ..api.data_source import ExportDir, ExportHash
+from ..api import CdnClient, MarketClient
+from .export_downloader import sever_export_files, ExportDir, resolve_export_filename
+from .export_parsers import (
+    parse_all_export_translations,
+    parse_cdn_translations,
+    # Nodes 解析
+    parse_export_regions_to_nodes,
+    # NightWave 解析
+    parse_export_sortie_rewards_to_nightwave,
+    # Weapons 解析
+    parse_export_weapons_to_weapons,
+)
 from ..config import get_db_debug
-from ..model import Alias
+from ..model import (
+    Alias,
+    Ephemeras,
+    LichSisterWeapons,
+    OrdersItems,
+    RivenItems,
+    RivenTion,
+    RivenTionAlias,
+    RivenAnalyseTrend,
+)
+from ..model.export.night_wave import NightWave
 from ..model.export.nodes import ExprotNodes as Nodes
+from ..model.export.reward.reward import Reward
+from ..model.export.reward.reward_pool import RewardPool
+from ..model.export.weapons import Weapons
 from ..model.state_translation import StateTranslation
 from ..util import get_public_data_path
-from ..wenum.state_type import StateTypeEnum
+
+# ============================================================
+# 初始化完成信号量（供命令/API 等待初始化完成）
+# ============================================================
+_init_complete: asyncio.Event = asyncio.Event()
+
+
+def set_init_complete() -> None:
+    """标记初始化完成，唤醒所有等待者。"""
+    _init_complete.set()
+
+
+async def init_ready() -> None:
+    """阻塞等待直到数据初始化完成。命令执行前可调用此函数确保数据就绪。"""
+    await _init_complete.wait()
 
 # ============================================================
 # Tortoise ORM 模型模块路径
@@ -41,6 +82,8 @@ _MODEL_MODULE = __name__.rsplit(".", 2)[0] + ".model"
 _MODELS_MODULES = [_MODEL_MODULE]
 
 _tortoise_initialized: bool = False
+
+_BATCH_SIZE = 500
 
 
 async def get_engine():
@@ -89,302 +132,319 @@ async def close_engine() -> None:
 
 
 async def init_alias_data() -> None:
-    """从 CDN 获取别名数据，对比插入新的记录（不做全量删除）。"""
-    logger.info("从 DataSourceClient 加载别名数据")
-    data = await DataSourceClient.fetch_alias()
+    """从 CDN 获取别名数据，对比插入新的记录（优化版：一次查询 + 批量插入）。"""
+    logger.info("从 CdnClient 加载别名数据")
+    data = await CdnClient.fetch_alias()
     if not data:
         logger.warning("别名数据为空，跳过初始化")
         return
     await get_engine()
-    new_count = 0
+
+    # 一次查询获取所有已存在的 cn
+    existing_cns: set[str] = {
+        row.cn async for row in Alias.filter(
+            cn__in=[item["cn"] for item in data]
+        ).only("cn")
+    }
+
+    # 过滤出新记录
+    new_items: list[Alias] = []
     for item in data:
-        _, created = await Alias.get_or_create(cn=item["cn"], defaults={"en": item["en"]})
-        if created:
-            new_count += 1
+        if item["cn"] not in existing_cns:
+            new_items.append(Alias(cn=item["cn"], en=item["en"]))
+
+    new_count = 0
+    if new_items:
+        created = await Alias.bulk_create(new_items)
+        new_count = len(created) if created else 0
+
     total = await Alias.all().count()
     logger.info(f"别名数据初始化完成，共 {total} 条记录（本次新增 {new_count} 条）")
 
 
-async def init_nodes_data() -> None:
-    """从 CDN 获取星图节点数据，对比插入新的记录（不做全量删除）。"""
-    logger.info("从 DataSourceClient 加载星图节点数据")
-    data = await DataSourceClient.fetch_nodes()
+async def init_riven_tion_data() -> None:
+    """初始化 RivenTion（紫卡词条参数）表数据 — 从 CDN。"""
+    logger.info("从 CdnClient 加载紫卡词条参数数据")
+    data = await CdnClient.fetch_rive_tion()
     if not data:
-        logger.warning("星图节点数据为空，跳过初始化")
+        logger.warning("紫卡词条参数数据为空，跳过初始化")
         return
     await get_engine()
-    new_count = 0
+
+    # 按 url_name 去重
+    url_names = [item.get("url_name", "") for item in data if item.get("url_name")]
+    existing_url_names: set[str] = {
+        row.url_name async for row in RivenTion.filter(
+            url_name__in=url_names
+        ).only("url_name")
+    }
+
+    new_items: list[RivenTion] = []
     for item in data:
-        _, created = await Nodes.get_or_create(uniqueName=item["uniqueName"], defaults=item)
-        if created:
-            new_count += 1
-    count = await Nodes.all().count()
-    logger.info(f"星图节点数据初始化完成，共 {count} 条记录（本次新增 {new_count} 条）")
+        url_name = item.get("url_name", "")
+        if url_name and url_name not in existing_url_names:
+            new_items.append(RivenTion(
+                effect=item.get("effect"),
+                group=item.get("group"),
+                negative_only=item.get("negative_only"),
+                positive_is_negative=item.get("positive_is_negative"),
+                prefix=item.get("prefix"),
+                search_only=item.get("search_only"),
+                suffix=item.get("suffix"),
+                units=item.get("units"),
+                url_name=url_name,
+                exclusive_to=item.get("exclusive_to"),
+            ))
 
+    new_count = 0
+    if new_items:
+        created = await RivenTion.bulk_create(new_items)
+        new_count = len(created) if created else 0
 
-async def init_riven_tion_data() -> None:
-    """初始化 RivenTion（紫卡词条参数）表数据。"""
-    logger.info("初始化紫卡词条参数数据 (stub)")
-    await get_engine()
+    total = await RivenTion.all().count()
+    logger.info(f"紫卡词条参数数据初始化完成，共 {total} 条记录（本次新增 {new_count} 条）")
 
 
 async def init_riven_tion_alias_data() -> None:
-    """初始化 RivenTionAlias（紫卡词条别名）表数据。"""
-    logger.info("初始化紫卡词条别名数据 (stub)")
+    """初始化 RivenTionAlias（紫卡词条别名）表数据 — 从 CDN。"""
+    logger.info("从 CdnClient 加载紫卡词条别名数据")
+    data = await CdnClient.fetch_riven_tion_alias()
+    if not data:
+        logger.warning("紫卡词条别名数据为空，跳过初始化")
+        return
     await get_engine()
+
+    # 按 cn 去重（与 alias 初始化逻辑一致）
+    existing_cns: set[str] = {
+        row.cn async for row in RivenTionAlias.filter(
+            cn__in=[item["cn"] for item in data]
+        ).only("cn")
+    }
+
+    new_items: list[RivenTionAlias] = []
+    for item in data:
+        if item["cn"] not in existing_cns:
+            new_items.append(RivenTionAlias(cn=item["cn"], en=item.get("en")))
+
+    new_count = 0
+    if new_items:
+        created = await RivenTionAlias.bulk_create(new_items)
+        new_count = len(created) if created else 0
+
+    total = await RivenTionAlias.all().count()
+    logger.info(f"紫卡词条别名数据初始化完成，共 {total} 条记录（本次新增 {new_count} 条）")
 
 
 async def init_riven_analyse_trend_data() -> None:
-    """初始化 RivenAnalyseTrend（紫卡分析参数）表数据。"""
-    logger.info("初始化紫卡分析参数数据 (stub)")
+    """初始化 RivenAnalyseTrend（紫卡分析参数）表数据 — 从 CDN。"""
+    logger.info("从 CdnClient 加载紫卡分析参数数据")
+    data = await CdnClient.fetch_riven_analyse_trend()
+    if not data:
+        logger.warning("紫卡分析参数数据为空，跳过初始化")
+        return
     await get_engine()
+
+    # 按 name 去重
+    existing_names: set[str] = {
+        row.name async for row in RivenAnalyseTrend.filter(
+            name__in=[item["name"] for item in data]
+        ).only("name")
+    }
+
+    new_items: list[RivenAnalyseTrend] = []
+    for item in data:
+        if item["name"] not in existing_names:
+            new_items.append(RivenAnalyseTrend(
+                archwing=item.get("archwing"),
+                melle=item.get("melle"),
+                name=item["name"],
+                pistol=item.get("pistol"),
+                prefix=item.get("prefix"),
+                rifle=item.get("rifle"),
+                shotgun=item.get("shotgun"),
+                suffix=item.get("suffix"),
+            ))
+
+    new_count = 0
+    if new_items:
+        created = await RivenAnalyseTrend.bulk_create(new_items)
+        new_count = len(created) if created else 0
+
+    total = await RivenAnalyseTrend.all().count()
+    logger.info(f"紫卡分析参数数据初始化完成，共 {total} 条记录（本次新增 {new_count} 条）")
 
 
 async def init_riven_items_data() -> None:
-    """初始化 RivenItems（紫卡物品）表数据。"""
-    logger.info("初始化紫卡物品数据 (stub)")
+    """初始化 RivenItems（紫卡物品）表数据 — 从 Market API。"""
+    logger.info("从 Market API 加载紫卡武器数据...")
     await get_engine()
+
+    resp = await MarketClient.fetch_riven_weapons()
+    if not resp:
+        logger.warning("紫卡武器数据为空，跳过初始化")
+        return
+
+    data: list[dict] = resp.get("data", [])
+    if not data:
+        logger.warning("紫卡武器数据为空，跳过")
+        return
+
+    items: list[dict] = []
+    for item in data:
+        item.update(_extract_i18n(item))
+        items.append(item)
+
+    total_upserted = await _batch_upsert_riven_items(items)
+    total = await RivenItems.all().count()
+    logger.info(f"紫卡武器数据初始化完成，共 {total} 条记录（本次处理 {total_upserted} 条）")
 
 
 async def init_orders_items_data() -> None:
-    """初始化 OrdersItems（市场订单物品）表数据。"""
-    logger.info("初始化市场订单物品数据 (stub)")
+    """初始化 OrdersItems（市场订单物品）表数据 — 从 Market API。
+
+    从 /items 端点获取所有可交易物品列表，提取基础字段并通过
+    _batch_upsert_orders_items() 进行对比插入。
+    注意：ducats/vaulted/tradingTax 等字段在 /items 端点中不可用。
+    """
+    logger.info("从 Market API 加载物品数据...")
     await get_engine()
+
+    resp = await MarketClient.fetch_items()
+    if not resp:
+        logger.warning("物品数据为空，跳过初始化")
+        return
+
+    data: list[dict] = resp.get("data", [])
+    if not data:
+        logger.warning("物品数据为空，跳过")
+        return
+
+    items: list[dict] = []
+    for item in data:
+        item.update(_extract_i18n(item))
+        items.append(item)
+
+    total_upserted = await _batch_upsert_orders_items(items)
+    total = await OrdersItems.all().count()
+    logger.info(f"物品数据初始化完成，共 {total} 条记录（本次处理 {total_upserted} 条）")
 
 
 async def init_ephemeras_data() -> None:
-    """初始化 Ephemeras（幻纹）表数据。"""
-    logger.info("初始化幻纹数据 (stub)")
+    """初始化 Ephemeras（幻纹）表数据 — 从 Market API。
+
+    从 /lich/ephemeras 和 /sister/ephemeras 两个端点获取数据，
+    合并后通过 _batch_upsert_ephemeras() 统一 upsert。
+    """
+    logger.info("从 Market API 加载幻纹数据...")
     await get_engine()
+
+    all_data: list[dict] = []
+
+    # 赤毒幻纹
+    lich_resp = await MarketClient.fetch_lich_ephemeras()
+    if lich_resp:
+        lich_data = lich_resp.get("data", [])
+        for item in lich_data:
+            item.update(_extract_i18n(item))
+        all_data.extend(lich_data)
+        logger.info(f"赤毒幻纹: {len(lich_data)} 条")
+    else:
+        logger.warning("赤毒幻纹数据为空")
+
+    # 信条幻纹
+    sister_resp = await MarketClient.fetch_sister_ephemeras()
+    if sister_resp:
+        sister_data = sister_resp.get("data", [])
+        for item in sister_data:
+            item.update(_extract_i18n(item))
+        all_data.extend(sister_data)
+        logger.info(f"信条幻纹: {len(sister_data)} 条")
+    else:
+        logger.warning("信条幻纹数据为空")
+
+    if not all_data:
+        logger.warning("无幻纹数据可插入")
+        return
+
+    total_upserted = await _batch_upsert_ephemeras(all_data)
+    total = await Ephemeras.all().count()
+    logger.info(f"幻纹数据初始化完成，共 {total} 条记录（本次处理 {total_upserted} 条）")
 
 
 async def init_lich_sister_weapons_data() -> None:
-    """初始化 LichSisterWeapons（信条/赤毒武器）表数据。"""
-    logger.info("初始化信条/赤毒武器数据 (stub)")
+    """初始化 LichSisterWeapons（信条/赤毒武器）表数据 — 从 Market API。
+
+    从 /lich/weapons 和 /sister/weapons 两个端点获取数据，
+    合并后通过 _batch_upsert_lich_sister_weapons() 统一 upsert。
+    """
+    logger.info("从 Market API 加载信条/赤毒武器数据...")
     await get_engine()
 
+    all_data: list[dict] = []
 
-# ======================================================================
-# StateTranslation 初始化辅助
-# ======================================================================
-
-_ST_FILE_CONFIG: dict[str, dict[str, object]] = {
-    "ExportCustoms":       {"json_key": "ExportCustoms",       "default_type": StateTypeEnum.ALL},
-    "ExportDrones":        {"json_key": "ExportDrones",        "default_type": StateTypeEnum.ALL},
-    "ExportFlavour":       {"json_key": "ExportFlavour",       "default_type": StateTypeEnum.ALL},
-    "ExportGear":          {"json_key": "ExportGear",          "default_type": StateTypeEnum.GEAR},
-    "ExportKeys":          {"json_key": "ExportKeys",          "default_type": StateTypeEnum.KEYS},
-    "ExportRelicArcane":   {"json_key": "ExportRelicArcane",   "default_type": StateTypeEnum.ALL},
-    "ExportResources":     {"json_key": "ExportResources",     "default_type": StateTypeEnum.RESOURCES},
-    "ExportSentinels":     {"json_key": "ExportSentinels",     "default_type": StateTypeEnum.SENTINELS},
-    "ExportSortieRewards": {"json_key": "ExportOther",         "default_type": StateTypeEnum.OTHER},  # 特例
-    "ExportUpgrades":      {"json_key": "ExportUpgrades",      "default_type": StateTypeEnum.MODS},
-    "ExportWarframes":     {"json_key": "ExportWarframes",     "default_type": StateTypeEnum.WARFRAMES},
-    "ExportWeapons":       {"json_key": "ExportWeapons",       "default_type": StateTypeEnum.WEAPONS},
-}
-
-_BATCH_SIZE = 500
-
-
-def _resolve_state_type(unique_name: str, default_type: StateTypeEnum) -> str:
-    """根据 uniqueName 正则匹配 StateTypeEnum，返回枚举的成员名。
-
-    镜像 Java 端逻辑 (WarframeDataSource.java:289-290, 383-388):
-
-    1. 遍历 StateTypeEnum 所有枚举值
-    2. 如果枚举的 key (正则) 非空 → re.fullmatch(key, unique_name)
-    3. 匹配成功则返回该枚举的 .name（如 "RELIC_BRONZE"）
-    4. 全部不匹配 → 返回 default_type.name
-
-    Java 的 String.matches() 等价于 Python 的 re.fullmatch()。
-    """
-    for enum_val in StateTypeEnum:
-        if enum_val.key:  # 空 KEY 跳过（空正则会匹配空字符串，不会误匹配）
-            if re.fullmatch(enum_val.key, unique_name):
-                return enum_val.name
-    return default_type.name
-
-
-async def _parse_export_to_translations(
-    export_path: str,
-    json_key: str,
-    default_type: StateTypeEnum,
-) -> list[dict]:
-    """解析单个 DE 导出 JSON 文件，返回带 type 字段的 dict 列表。
-
-    镜像 Java parsingExportJsonToStateTranslation() (WarframeDataSource.java:274):
-    1. 读取 JSON 文件
-    2. 提取 json_key 对应的数组
-    3. 过滤 name 为空的项
-    4. 对每项调用 _resolve_state_type 进行 type 正则匹配
-    5. 处理 description 字段（支持 list/str，镜像 Java setDescription()）
-    """
-    result: list[dict] = []
-    raw = json.loads(Path(export_path).read_text(encoding="utf-8"))
-    items = raw.get(json_key, [])
-    if not isinstance(items, list):
-        return result
-
-    for item in items:
-        if not isinstance(item, dict):
-            continue
-        name = item.get("name")
-        if not name:
-            continue
-
-        unique_name = item.get("uniqueName", "")
-        item["type"] = _resolve_state_type(unique_name, default_type)
-
-        # 处理 description 字段（镜像 Java StateTranslation.setDescription()）
-        desc = item.get("description")
-        if isinstance(desc, list):
-            item["description"] = str(desc[0]) if desc else ""
-        elif desc is not None:
-            item["description"] = str(desc)
-        else:
-            item["description"] = ""
-
-        # 确保 parentName 字段存在
-        if "parentName" not in item:
-            item["parentName"] = None
-
-        result.append(item)
-
-    return result
-
-
-async def _batch_upsert_translations(items: list[dict]) -> int:
-    """分批 upsert StateTranslation，覆盖更新已有记录所有字段。
-
-    两步走策略（镜像 Java saveAll 覆盖语义）:
-    Phase A - bulk_create(ignore_conflicts=True): 快速批量插入新记录（占大多数）
-    Phase B - update_or_create: 逐条覆盖更新已存在记录的所有字段
-
-    Args:
-        items: 已处理好的 dict 列表
-
-    Returns:
-        int: 插入 + 更新的记录总数
-    """
-    total_upserted = 0
-
-    # Phase A: 批量插入新记录（首次运行时大部分是新数据，性能最优）
-    batch: list[StateTranslation] = []
-    for item in items:
-        batch.append(StateTranslation(
-            uniqueName=item["uniqueName"],
-            name=item.get("name", ""),
-            description=str(item.get("description", "")) if item.get("description") is not None else "",
-            type=item.get("type", ""),
-            parentName=item.get("parentName"),
-        ))
-        if len(batch) >= _BATCH_SIZE:
-            created = await StateTranslation.bulk_create(batch, ignore_conflicts=True)
-            if created:
-                total_upserted += len(created)
-            batch.clear()
-    if batch:
-        created = await StateTranslation.bulk_create(batch, ignore_conflicts=True)
-        if created:
-            total_upserted += len(created)
-
-    # Phase B: 覆盖更新已存在的记录
-    for item in items:
-        _, created = await StateTranslation.update_or_create(
-            uniqueName=item["uniqueName"],
-            defaults={
-                "name": item.get("name", ""),
-                "description": str(item.get("description", "")) if item.get("description") is not None else "",
-                "type": item.get("type", ""),
-                "parentName": item.get("parentName"),
-            },
-        )
-        if not created:
-            total_upserted += 1
-
-    return total_upserted
-
-
-async def init_state_translation_data() -> None:
-    """初始化 StateTranslation（状态翻译）表数据。"""
-    logger.info("开始初始化状态翻译数据...")
-    await get_engine()
-
-    all_items: list[dict] = []
-
-    # ========== Phase 1: 从 Hash.json 动态获取导出文件列表 ==========
-    hash_path = Path(ExportHash)
-    if hash_path.exists():
-        hash_data = json.loads(hash_path.read_text(encoding="utf-8"))
-        for filename in hash_data:
-            if not filename.endswith("_zh.json"):
-                continue
-            base_name = filename[:-len("_zh.json")]
-            config = _ST_FILE_CONFIG.get(base_name)
-            if config is None:
-                continue
-            export_path = Path(ExportDir) / filename
-            if not export_path.exists():
-                logger.warning(f"导出文件不存在，跳过: {export_path}")
-                continue
-            default_type = config["default_type"]
-            assert isinstance(default_type, StateTypeEnum)
-            items = await _parse_export_to_translations(
-                str(export_path), str(config["json_key"]), default_type
-            )
-            all_items.extend(items)
-            logger.info(f"已解析 {filename}: {len(items)} 条")
+    # 赤毒武器
+    lich_resp = await MarketClient.fetch_lich_weapons()
+    if lich_resp:
+        lich_data = lich_resp.get("data", [])
+        for item in lich_data:
+            item.update(_extract_i18n(item))
+        all_data.extend(lich_data)
+        logger.info(f"赤毒武器: {len(lich_data)} 条")
     else:
-        logger.warning("Hash.json 不存在，跳过导出文件解析阶段")
+        logger.warning("赤毒武器数据为空")
 
-    # ========== Phase 2: 从 CDN 获取自定义 state_translation 数据 ==========
-    logger.info("从 CDN 获取自定义状态翻译数据...")
-    data = await DataSourceClient.fetch_state_translations()
-    if data:
-        for item in data:
-            unique_name = item.get("uniqueName", "")
-            if not unique_name:
-                continue
-            item["type"] = _resolve_state_type(unique_name, StateTypeEnum.RESOURCES)
-            desc = item.get("description")
-            if isinstance(desc, list):
-                item["description"] = str(desc[0]) if desc else ""
-            elif desc is not None:
-                item["description"] = str(desc)
-            # 确保 parentName 字段存在
-            if "parentName" not in item:
-                item["parentName"] = None
-        all_items.extend(data)
-        logger.info(f"CDN 数据: {len(data)} 条")
+    # 信条武器
+    sister_resp = await MarketClient.fetch_sister_weapons()
+    if sister_resp:
+        sister_data = sister_resp.get("data", [])
+        for item in sister_data:
+            item.update(_extract_i18n(item))
+        all_data.extend(sister_data)
+        logger.info(f"信条武器: {len(sister_data)} 条")
     else:
-        logger.warning("CDN 状态翻译数据为空，跳过")
+        logger.warning("信条武器数据为空")
 
-    # ========== 统一两步走 upsert ==========
-    if not all_items:
-        logger.warning("无状态翻译数据可插入")
+    if not all_data:
+        logger.warning("无信条/赤毒武器数据可插入")
         return
 
-    total_upserted = await _batch_upsert_translations(all_items)
-    total = await StateTranslation.all().count()
-    logger.info(f"状态翻译数据初始化完成，共 {total} 条记录（本次处理 {total_upserted} 条）")
-
-
-async def init_customs_data() -> None:
-    """初始化 Customs（外观）表数据。"""
-    logger.info("初始化外观数据 (stub)")
-    await get_engine()
-
-
-async def init_mod_set_data() -> None:
-    """初始化 ModSet（MOD 套装）表数据。"""
-    logger.info("初始化MOD套装数据 (stub)")
-    await get_engine()
+    total_upserted = await _batch_upsert_lich_sister_weapons(all_data)
+    total = await LichSisterWeapons.all().count()
+    logger.info(f"信条/赤毒武器数据初始化完成，共 {total} 条记录（本次处理 {total_upserted} 条）")
 
 
 async def init_night_wave_data() -> None:
-    """初始化 NightWave（电波任务）表数据。"""
-    logger.info("初始化电波任务数据 (stub)")
+    """初始化 NightWave（电波任务）表数据 — 从导出文件。
+
+    镜像 Java initNightWave() (WarframeDataSource.java:395-414):
+    解析 ExportSortieRewards_zh.json → ExportNightwave.challenges
+    → 批量 upsert 到 NightWave 表
+    """
     await get_engine()
+
+    if not await sever_export_files():
+        return
+
+    filename = await resolve_export_filename("ExportSortieRewards")
+    if not filename:
+        logger.warning("未找到 ExportSortieRewards 导出文件，跳过电波任务数据初始化")
+        return
+
+    export_path = Path(ExportDir) / filename
+    if not export_path.exists():
+        logger.warning(f"{filename} 不存在，跳过电波任务数据初始化")
+        return
+
+    logger.info(f"从 {filename} 解析电波任务数据...")
+    items = parse_export_sortie_rewards_to_nightwave(str(export_path))
+    if not items:
+        logger.warning("电波任务数据为空，跳过")
+        return
+
+    logger.info(f"已解析 {filename}: {len(items)} 条")
+    total_upserted = await _batch_upsert_night_wave(items)
+    total = await NightWave.all().count()
+    logger.info(f"电波任务数据初始化完成，共 {total} 条记录（本次处理 {total_upserted} 条）")
 
 
 async def init_relics_data() -> None:
@@ -411,19 +471,654 @@ async def init_warframes_data() -> None:
     await get_engine()
 
 
-async def init_weapons_data() -> None:
-    """初始化 Weapons（武器）表数据。"""
-    logger.info("初始化武器数据 (stub)")
-    await get_engine()
-
-
-async def init_reward_data() -> None:
-    """初始化 Reward（具体奖励）表数据。"""
-    logger.info("初始化奖励数据 (stub)")
-    await get_engine()
-
-
 async def init_reward_pool_data() -> None:
-    """初始化 RewardPool（奖励池）表数据（含关联的 Reward）。"""
-    logger.info("初始化奖励池数据 (stub)")
+    """初始化 RewardPool（奖励池）表数据 — 从 CDN，含嵌套 Rewards。"""
+    logger.info("从 CdnClient 加载奖励池数据")
+    data = await CdnClient.fetch_reward_pool()
+    if not data:
+        logger.warning("奖励池数据为空，跳过初始化")
+        return
     await get_engine()
+
+    # Phase 1: 按 uniqueName 去重，插入 RewardPool
+    existing_pools: set[str] = {
+        row.uniqueName async for row in RewardPool.filter(
+            uniqueName__in=[item["uniqueName"] for item in data]
+        ).only("uniqueName")
+    }
+
+    new_pools: list[RewardPool] = []
+    for item in data:
+        if item["uniqueName"] not in existing_pools:
+            new_pools.append(RewardPool(uniqueName=item["uniqueName"]))
+
+    new_pool_count = 0
+    if new_pools:
+        created = await RewardPool.bulk_create(new_pools)
+        new_pool_count = len(created) if created else 0
+
+    # Phase 2: 处理嵌套的 rewards 子表
+    all_rewards_data: list[dict] = []
+    for item in data:
+        rewards = item.get("rewards", [])
+        for r in rewards:
+            r["_pool_uniqueName"] = item["uniqueName"]
+        all_rewards_data.extend(rewards)
+
+    new_reward_count = 0
+    if all_rewards_data:
+        reward_ids = [r["id"] for r in all_rewards_data if r.get("id")]
+        existing_reward_ids: set[str] = {
+            row.id async for row in Reward.filter(
+                id__in=reward_ids
+            ).only("id")
+        }
+
+        new_rewards: list[Reward] = []
+        for r in all_rewards_data:
+            rid = r.get("id")
+            if rid and rid not in existing_reward_ids:
+                new_rewards.append(Reward(
+                    id=rid,
+                    item=r.get("item", ""),
+                    rarity=r.get("rarity"),
+                    itemCount=r.get("itemCount"),
+                    reward_pool_id=r.get("_pool_uniqueName"),
+                ))
+
+        if new_rewards:
+            created_r = await Reward.bulk_create(new_rewards)
+            new_reward_count = len(created_r) if created_r else 0
+
+    total_pools = await RewardPool.all().count()
+    total_rewards = await Reward.all().count()
+    logger.info(
+        f"奖励池数据初始化完成，共 {total_pools} 个奖励池（本次新增 {new_pool_count} 个），"
+        f"共 {total_rewards} 条奖励记录（本次新增 {new_reward_count} 条）"
+    )
+
+
+# ======================================================================
+# 批量 Upsert 辅助（模块内部私有）
+#
+# 优化策略：
+# - Phase A: bulk_create(ignore_conflicts=True) 批量插入新记录
+# - Phase B: 一次 SELECT 找到所有已存在的 uniqueName → 在 Python 侧
+#   更新已存在对象的字段 → 分批 bulk_update() 批量写回
+#   将 O(N) 次 SQL 往返降到 O(1) 次查询 + O(N/batch_size) 次更新
+# ======================================================================
+
+
+async def _batch_upsert_translations(items: list[dict]) -> int:
+    """分批 upsert StateTranslation（优化版）。
+
+    Phase A - bulk_create(ignore_conflicts=True): 批量插入新记录
+    Phase B - SELECT existing → 更新字段 → 分批 bulk_update(): 批量更新已有记录
+    """
+    total_upserted = 0
+
+    # Phase A: 批量插入新记录
+    batch: list[StateTranslation] = []
+    for item in items:
+        batch.append(StateTranslation(
+            uniqueName=item["uniqueName"],
+            name=item.get("name", ""),
+            description=str(item.get("description", "")) if item.get("description") is not None else "",
+            type=item.get("type", ""),
+            parentName=item.get("parentName"),
+        ))
+        if len(batch) >= _BATCH_SIZE:
+            created = await StateTranslation.bulk_create(batch, ignore_conflicts=True)
+            if created:
+                total_upserted += len(created)
+            batch.clear()
+    if batch:
+        created = await StateTranslation.bulk_create(batch, ignore_conflicts=True)
+        if created:
+            total_upserted += len(created)
+
+    # Phase B: 批量更新已存在的记录（1 次 SELECT + 分批 bulk_update）
+    unique_names = [item["uniqueName"] for item in items]
+    existing_map = {
+        obj.uniqueName: obj
+        async for obj in StateTranslation.filter(uniqueName__in=unique_names)
+    }
+    to_update: list[StateTranslation] = []
+    for item in items:
+        obj = existing_map.get(item["uniqueName"])
+        if obj is not None:
+            obj.name = item.get("name", "")
+            obj.description = str(item.get("description", "")) if item.get("description") is not None else ""
+            obj.type = item.get("type", "")
+            obj.parentName = item.get("parentName")
+            to_update.append(obj)
+            if len(to_update) >= _BATCH_SIZE:
+                await StateTranslation.bulk_update(
+                    to_update,
+                    fields=["name", "description", "type", "parentName"],
+                )
+                total_upserted += len(to_update)
+                to_update.clear()
+    if to_update:
+        await StateTranslation.bulk_update(
+            to_update,
+            fields=["name", "description", "type", "parentName"],
+        )
+        total_upserted += len(to_update)
+
+    return total_upserted
+
+
+async def _batch_upsert_nodes(items: list[dict]) -> int:
+    """分批 upsert ExprotNodes（优化版）。"""
+    total_upserted = 0
+
+    # Phase A: 批量插入新记录
+    batch: list[Nodes] = []
+    for item in items:
+        batch.append(Nodes(**item))
+        if len(batch) >= _BATCH_SIZE:
+            created = await Nodes.bulk_create(batch, ignore_conflicts=True)
+            if created:
+                total_upserted += len(created)
+            batch.clear()
+    if batch:
+        created = await Nodes.bulk_create(batch, ignore_conflicts=True)
+        if created:
+            total_upserted += len(created)
+
+    # Phase B: 批量更新已存在的记录
+    unique_names = [item["uniqueName"] for item in items]
+    existing_map = {
+        obj.uniqueName: obj
+        async for obj in Nodes.filter(uniqueName__in=unique_names)
+    }
+    # 动态确定需要更新的字段（排除 uniqueName/pk）
+    node_fields = [f for f in items[0].keys() if f != "uniqueName"] if items else []
+    to_update: list[Nodes] = []
+    for item in items:
+        obj = existing_map.get(item["uniqueName"])
+        if obj is not None:
+            for field in node_fields:
+                if field in item:
+                    setattr(obj, field, item[field])
+            to_update.append(obj)
+            if len(to_update) >= _BATCH_SIZE:
+                await Nodes.bulk_update(to_update, fields=node_fields)
+                total_upserted += len(to_update)
+                to_update.clear()
+    if to_update:
+        await Nodes.bulk_update(to_update, fields=node_fields)
+        total_upserted += len(to_update)
+
+    return total_upserted
+
+
+async def _batch_upsert_weapons(items: list[dict]) -> int:
+    """分批 upsert Weapons（优化版）。"""
+    total_upserted = 0
+
+    # Phase A: 批量插入新记录
+    batch: list[Weapons] = []
+    for item in items:
+        batch.append(Weapons(**item))
+        if len(batch) >= _BATCH_SIZE:
+            created = await Weapons.bulk_create(batch, ignore_conflicts=True)
+            if created:
+                total_upserted += len(created)
+            batch.clear()
+    if batch:
+        created = await Weapons.bulk_create(batch, ignore_conflicts=True)
+        if created:
+            total_upserted += len(created)
+
+    # Phase B: 批量更新已存在的记录
+    unique_names = [item["uniqueName"] for item in items]
+    existing_map = {
+        obj.uniqueName: obj
+        async for obj in Weapons.filter(uniqueName__in=unique_names)
+    }
+    weapon_fields = [f for f in items[0].keys() if f != "uniqueName"] if items else []
+    to_update: list[Weapons] = []
+    for item in items:
+        obj = existing_map.get(item["uniqueName"])
+        if obj is not None:
+            for field in weapon_fields:
+                if field in item:
+                    setattr(obj, field, item[field])
+            to_update.append(obj)
+            if len(to_update) >= _BATCH_SIZE:
+                await Weapons.bulk_update(to_update, fields=weapon_fields)
+                total_upserted += len(to_update)
+                to_update.clear()
+    if to_update:
+        await Weapons.bulk_update(to_update, fields=weapon_fields)
+        total_upserted += len(to_update)
+
+    return total_upserted
+
+
+async def _batch_upsert_night_wave(items: list[dict]) -> int:
+    """分批 upsert NightWave（优化版）。"""
+    total_upserted = 0
+
+    # Phase A: 批量插入新记录
+    batch: list[NightWave] = []
+    for item in items:
+        batch.append(NightWave(**item))
+        if len(batch) >= _BATCH_SIZE:
+            created = await NightWave.bulk_create(batch, ignore_conflicts=True)
+            if created:
+                total_upserted += len(created)
+            batch.clear()
+    if batch:
+        created = await NightWave.bulk_create(batch, ignore_conflicts=True)
+        if created:
+            total_upserted += len(created)
+
+    # Phase B: 批量更新已存在的记录
+    unique_names = [item["uniqueName"] for item in items]
+    existing_map = {
+        obj.uniqueName: obj
+        async for obj in NightWave.filter(uniqueName__in=unique_names)
+    }
+    nw_fields = [f for f in items[0].keys() if f != "uniqueName"] if items else []
+    to_update: list[NightWave] = []
+    for item in items:
+        obj = existing_map.get(item["uniqueName"])
+        if obj is not None:
+            for field in nw_fields:
+                if field in item:
+                    setattr(obj, field, item[field])
+            to_update.append(obj)
+            if len(to_update) >= _BATCH_SIZE:
+                await NightWave.bulk_update(to_update, fields=nw_fields)
+                total_upserted += len(to_update)
+                to_update.clear()
+    if to_update:
+        await NightWave.bulk_update(to_update, fields=nw_fields)
+        total_upserted += len(to_update)
+
+    return total_upserted
+
+
+# ======================================================================
+# 辅助函数：从 API item 中提取 i18n 本地化字段
+# ======================================================================
+
+
+def _extract_i18n(item: dict, lang: str = "zh-hans") -> dict:
+    """从 API 返回的 item 中提取 i18n 本地化 name/icon/thumb。
+
+    所有 Market API 端点返回的 item 都遵循统一结构:
+        item["i18n"][lang] = {"name": "...", "icon": "...", "thumb": "..."}
+
+    Args:
+        item: API 返回的原始 item 字典。
+        lang: 目标语言代码，默认 "zh-hans"。
+
+    Returns:
+        包含 name/icon/thumb 的 dict，缺失时值为 None。
+    """
+    i18n = item.get("i18n", {})
+    localized = i18n.get(lang, {})
+    return {
+        "name": localized.get("name"),
+        "icon": localized.get("icon"),
+        "thumb": localized.get("thumb"),
+    }
+
+
+# ======================================================================
+# 批量 Upsert 辅助 — OrdersItems / Ephemeras / LichSisterWeapons / RivenItems
+# ======================================================================
+
+
+async def _batch_upsert_orders_items(items: list[dict]) -> int:
+    """分批 upsert OrdersItems。
+
+    Phase A: bulk_create(ignore_conflicts=True) 插入新记录
+    Phase B: SELECT 已有记录 → 更新字段 → 分批 bulk_update()
+    """
+    total_upserted = 0
+
+    # Phase A: 批量插入新记录
+    batch: list[OrdersItems] = []
+    for item in items:
+        batch.append(OrdersItems(
+            id=item["id"],
+            slug=item.get("slug"),
+            gameRef=item.get("gameRef"),
+            maxRank=item.get("maxRank"),
+            name=item.get("name"),
+            icon=item.get("icon"),
+            thumb=item.get("thumb"),
+        ))
+        if len(batch) >= _BATCH_SIZE:
+            created = await OrdersItems.bulk_create(batch, ignore_conflicts=True)
+            if created:
+                total_upserted += len(created)
+            batch.clear()
+    if batch:
+        created = await OrdersItems.bulk_create(batch, ignore_conflicts=True)
+        if created:
+            total_upserted += len(created)
+
+    # Phase B: 批量更新已存在的记录
+    ids = [item["id"] for item in items]
+    existing_map = {
+        obj.id: obj
+        async for obj in OrdersItems.filter(id__in=ids)
+    }
+    update_fields = ["slug", "gameRef", "maxRank", "name", "icon", "thumb"]
+    to_update: list[OrdersItems] = []
+    for item in items:
+        obj = existing_map.get(item["id"])
+        if obj is not None:
+            obj.slug = item.get("slug")
+            obj.gameRef = item.get("gameRef")
+            obj.maxRank = item.get("maxRank")
+            obj.name = item.get("name")
+            obj.icon = item.get("icon")
+            obj.thumb = item.get("thumb")
+            to_update.append(obj)
+            if len(to_update) >= _BATCH_SIZE:
+                await OrdersItems.bulk_update(to_update, fields=update_fields)
+                total_upserted += len(to_update)
+                to_update.clear()
+    if to_update:
+        await OrdersItems.bulk_update(to_update, fields=update_fields)
+        total_upserted += len(to_update)
+
+    return total_upserted
+
+
+async def _batch_upsert_ephemeras(items: list[dict]) -> int:
+    """分批 upsert Ephemeras。"""
+    total_upserted = 0
+
+    # Phase A: 批量插入新记录
+    batch: list[Ephemeras] = []
+    for item in items:
+        batch.append(Ephemeras(
+            id=item["id"],
+            slug=item.get("slug"),
+            gameRef=item.get("gameRef"),
+            animation=item.get("animation"),
+            element=item.get("element"),
+            name=item.get("name"),
+            icon=item.get("icon"),
+            thumb=item.get("thumb"),
+        ))
+        if len(batch) >= _BATCH_SIZE:
+            created = await Ephemeras.bulk_create(batch, ignore_conflicts=True)
+            if created:
+                total_upserted += len(created)
+            batch.clear()
+    if batch:
+        created = await Ephemeras.bulk_create(batch, ignore_conflicts=True)
+        if created:
+            total_upserted += len(created)
+
+    # Phase B: 批量更新已存在的记录
+    ids = [item["id"] for item in items]
+    existing_map = {
+        obj.id: obj
+        async for obj in Ephemeras.filter(id__in=ids)
+    }
+    update_fields = ["slug", "gameRef", "animation", "element", "name", "icon", "thumb"]
+    to_update: list[Ephemeras] = []
+    for item in items:
+        obj = existing_map.get(item["id"])
+        if obj is not None:
+            obj.slug = item.get("slug")
+            obj.gameRef = item.get("gameRef")
+            obj.animation = item.get("animation")
+            obj.element = item.get("element")
+            obj.name = item.get("name")
+            obj.icon = item.get("icon")
+            obj.thumb = item.get("thumb")
+            to_update.append(obj)
+            if len(to_update) >= _BATCH_SIZE:
+                await Ephemeras.bulk_update(to_update, fields=update_fields)
+                total_upserted += len(to_update)
+                to_update.clear()
+    if to_update:
+        await Ephemeras.bulk_update(to_update, fields=update_fields)
+        total_upserted += len(to_update)
+
+    return total_upserted
+
+
+async def _batch_upsert_lich_sister_weapons(items: list[dict]) -> int:
+    """分批 upsert LichSisterWeapons。"""
+    total_upserted = 0
+
+    # Phase A: 批量插入新记录
+    batch: list[LichSisterWeapons] = []
+    for item in items:
+        batch.append(LichSisterWeapons(
+            id=item["id"],
+            slug=item.get("slug"),
+            icon=item.get("icon"),
+            gameRef=item.get("gameRef"),
+            reqMasteryRank=item.get("reqMasteryRank"),
+            name=item.get("name"),
+            thumb=item.get("thumb"),
+        ))
+        if len(batch) >= _BATCH_SIZE:
+            created = await LichSisterWeapons.bulk_create(batch, ignore_conflicts=True)
+            if created:
+                total_upserted += len(created)
+            batch.clear()
+    if batch:
+        created = await LichSisterWeapons.bulk_create(batch, ignore_conflicts=True)
+        if created:
+            total_upserted += len(created)
+
+    # Phase B: 批量更新已存在的记录
+    ids = [item["id"] for item in items]
+    existing_map = {
+        obj.id: obj
+        async for obj in LichSisterWeapons.filter(id__in=ids)
+    }
+    update_fields = ["slug", "icon", "gameRef", "reqMasteryRank", "name", "thumb"]
+    to_update: list[LichSisterWeapons] = []
+    for item in items:
+        obj = existing_map.get(item["id"])
+        if obj is not None:
+            obj.slug = item.get("slug")
+            obj.icon = item.get("icon")
+            obj.gameRef = item.get("gameRef")
+            obj.reqMasteryRank = item.get("reqMasteryRank")
+            obj.name = item.get("name")
+            obj.thumb = item.get("thumb")
+            to_update.append(obj)
+            if len(to_update) >= _BATCH_SIZE:
+                await LichSisterWeapons.bulk_update(to_update, fields=update_fields)
+                total_upserted += len(to_update)
+                to_update.clear()
+    if to_update:
+        await LichSisterWeapons.bulk_update(to_update, fields=update_fields)
+        total_upserted += len(to_update)
+
+    return total_upserted
+
+
+async def _batch_upsert_riven_items(items: list[dict]) -> int:
+    """分批 upsert RivenItems。"""
+    total_upserted = 0
+
+    # Phase A: 批量插入新记录
+    batch: list[RivenItems] = []
+    for item in items:
+        batch.append(RivenItems(
+            id=item["id"],
+            slug=item.get("slug"),
+            gameRef=item.get("gameRef"),
+            group=item.get("group"),
+            rivenType=item.get("rivenType"),
+            disposition=item.get("disposition"),
+            reqMasteryRank=item.get("reqMasteryRank"),
+            name=item.get("name"),
+            icon=item.get("icon"),
+            thumb=item.get("thumb"),
+        ))
+        if len(batch) >= _BATCH_SIZE:
+            created = await RivenItems.bulk_create(batch, ignore_conflicts=True)
+            if created:
+                total_upserted += len(created)
+            batch.clear()
+    if batch:
+        created = await RivenItems.bulk_create(batch, ignore_conflicts=True)
+        if created:
+            total_upserted += len(created)
+
+    # Phase B: 批量更新已存在的记录
+    ids = [item["id"] for item in items]
+    existing_map = {
+        obj.id: obj
+        async for obj in RivenItems.filter(id__in=ids)
+    }
+    update_fields = [
+        "slug", "gameRef", "group", "rivenType",
+        "disposition", "reqMasteryRank", "name", "icon", "thumb",
+    ]
+    to_update: list[RivenItems] = []
+    for item in items:
+        obj = existing_map.get(item["id"])
+        if obj is not None:
+            obj.slug = item.get("slug")
+            obj.gameRef = item.get("gameRef")
+            obj.group = item.get("group")
+            obj.rivenType = item.get("rivenType")
+            obj.disposition = item.get("disposition")
+            obj.reqMasteryRank = item.get("reqMasteryRank")
+            obj.name = item.get("name")
+            obj.icon = item.get("icon")
+            obj.thumb = item.get("thumb")
+            to_update.append(obj)
+            if len(to_update) >= _BATCH_SIZE:
+                await RivenItems.bulk_update(to_update, fields=update_fields)
+                total_upserted += len(to_update)
+                to_update.clear()
+    if to_update:
+        await RivenItems.bulk_update(to_update, fields=update_fields)
+        total_upserted += len(to_update)
+
+    return total_upserted
+
+
+# ======================================================================
+# 编排函数（薄包装：调解析 → 调 upsert → 日志）
+# ======================================================================
+
+
+async def init_state_translation_data() -> bool:
+    """初始化 StateTranslation（状态翻译）表数据。
+
+    镜像 Java initStateTranslation() (WarframeDataSource.java:364-393):
+    Phase 1: 遍历 Export*.json 导出文件 → parse_all_export_translations()
+    Phase 2: 从 CDN 获取自定义数据 → parse_cdn_translations()
+    统一 _batch_upsert_translations()
+    """
+    logger.info("开始初始化状态翻译数据...")
+    await get_engine()
+
+    if not await sever_export_files():
+        return True
+
+    # Phase 1: 从导出文件解析
+    all_items = await parse_all_export_translations()
+
+    # Phase 2: 从 CDN 获取自定义数据
+    cdn_items = await parse_cdn_translations()
+    all_items.extend(cdn_items)
+
+    if not all_items:
+        logger.warning("无状态翻译数据可插入")
+        return False
+
+    total_upserted = await _batch_upsert_translations(all_items)
+    total = await StateTranslation.all().count()
+    logger.info(f"状态翻译数据初始化完成，共 {total} 条记录（本次处理 {total_upserted} 条）")
+    return False
+
+
+async def init_nodes_data() -> None:
+    """初始化星图节点数据 — 从导出文件 + CDN。
+
+    镜像 Java initNodes() (WarframeDataSource.java:416-426):
+    Phase 1: 解析 ExportRegions_zh.json → Nodes dicts
+    Phase 2: 从 CDN 获取自定义 Nodes 数据
+    统一 _batch_upsert_nodes()
+    """
+    await get_engine()
+
+    all_items: list[dict] = []
+
+    # Phase 1: 从导出文件解析
+    filename = await resolve_export_filename("ExportRegions")
+    if filename:
+        export_path = Path(ExportDir) / filename
+        if export_path.exists():
+            logger.info(f"从 {filename} 解析星图节点数据...")
+            items = parse_export_regions_to_nodes(str(export_path))
+            all_items.extend(items)
+            logger.info(f"已解析 {filename}: {len(items)} 条")
+        else:
+            logger.warning(f"{filename} 不存在，跳过导出文件解析")
+    else:
+        logger.warning("未找到 ExportRegions 导出文件，跳过导出文件解析")
+
+    # Phase 2: 从 CDN 获取自定义 Nodes 数据
+    logger.info("从 CDN 获取自定义星图节点数据...")
+    cdn_data = await CdnClient.fetch_nodes()
+    if cdn_data:
+        all_items.extend(cdn_data)
+        logger.info(f"CDN 节点数据: {len(cdn_data)} 条")
+    else:
+        logger.warning("CDN 星图节点数据为空，跳过")
+
+    if not all_items:
+        logger.warning("无星图节点数据可插入")
+        return
+
+    total_upserted = await _batch_upsert_nodes(all_items)
+    total = await Nodes.all().count()
+    logger.info(f"星图节点数据初始化完成，共 {total} 条记录（本次处理 {total_upserted} 条）")
+
+
+async def init_weapons_data() -> None:
+    """初始化武器数据 — 从导出文件。
+
+    镜像 Java initWeapons() (WarframeDataSource.java:436-442):
+    Phase 1: 解析 ExportWeapons_zh.json → Weapons dicts
+    （含 damagePerShot 序列化 + englishName 提取）
+    统一 _batch_upsert_weapons()
+    """
+    await get_engine()
+
+    if not await sever_export_files():
+        return
+
+    filename = await resolve_export_filename("ExportWeapons")
+    if not filename:
+        logger.warning("未找到 ExportWeapons 导出文件，跳过武器数据初始化")
+        return
+
+    export_path = Path(ExportDir) / filename
+    if not export_path.exists():
+        logger.warning(f"{filename} 不存在，跳过武器数据初始化")
+        return
+
+    logger.info(f"从 {filename} 解析武器数据...")
+    items = parse_export_weapons_to_weapons(str(export_path))
+    if not items:
+        logger.warning("武器数据为空，跳过")
+        return
+
+    logger.info(f"已解析 {filename}: {len(items)} 条")
+    total_upserted = await _batch_upsert_weapons(items)
+    total = await Weapons.all().count()
+    logger.info(f"武器数据初始化完成，共 {total} 条记录（本次处理 {total_upserted} 条）")

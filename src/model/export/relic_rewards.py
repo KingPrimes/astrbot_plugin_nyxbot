@@ -16,10 +16,10 @@ class RelicRewards(Model):
     """遗物奖励"""
 
     id = fields.CharField(max_length=255, pk=True, description="UUID 主键")
-    rewardName = fields.CharField(max_length=255, null=True, source_field="reward_name", description="奖励名称")
+    rewardName = fields.CharField(max_length=255, null=True, description="奖励名称")
     rarity = fields.CharField(max_length=50, null=True, description="稀有度")
     tier = fields.IntField(null=True, description="等级")
-    itemCount = fields.IntField(null=True, source_field="item_count", description="物品数量")
+    itemCount = fields.IntField(null=True, description="物品数量")
 
     relics: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
         "models.Relics", related_name="relic_rewards", null=True, on_delete=fields.CASCADE

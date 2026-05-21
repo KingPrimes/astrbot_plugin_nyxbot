@@ -22,8 +22,6 @@ from ..init import (
     init_ephemeras_data,
     init_lich_sister_weapons_data,
     init_state_translation_data,
-    init_customs_data,
-    init_mod_set_data,
     init_night_wave_data,
     init_relics_data,
     init_sentinels_data,
@@ -165,8 +163,6 @@ def register_data_apis(context: Context) -> None:
     )
 
     # ── Exprot ──
-    _register_model("customs", Customs, search_fields=["name", "unique_name"], sync_func=init_customs_data)
-    _register_model("mod_set", ModSet, search_fields=["unique_name"], sync_func=init_mod_set_data)
     _register_model("night_wave", NightWave, search_fields=["name", "unique_name"], sync_func=init_night_wave_data)
     _register_model("relics", Relics, search_fields=["name", "unique_name"], sync_func=init_relics_data)
     _register_model("relic_rewards", RelicRewards, search_fields=["reward_name"], sync_func=None)

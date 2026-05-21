@@ -15,11 +15,11 @@ from ..wenum.state_type import StateTypeEnum
 class StateTranslation(Model):
     """Warframe 物品状态/翻译"""
 
-    uniqueName = fields.CharField(max_length=255, pk=True, source_field="unique_name", description="唯一名词")
+    uniqueName = fields.CharField(max_length=255, pk=True, description="唯一名词")
     name = fields.CharField(max_length=255, description="名称")
     description = fields.TextField(null=True, description="解释")
     type = fields.CharField(max_length=50, null=True, description="类型")
-    parentName = fields.CharField(max_length=255, null=True, source_field="parent_name", description="能否交易")
+    parentName = fields.CharField(max_length=255, null=True, description="能否交易")
 
     class Meta:
         table = "statetranslation"
