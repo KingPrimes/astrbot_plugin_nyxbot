@@ -12,13 +12,35 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from collections.abc import Callable
 from pathlib import Path
+from typing import TypeVar
 
 from tortoise import Tortoise
+from tortoise.models import Model as TortoiseModel
+
 from astrbot.api import logger
 
 from ..api import CdnClient, MarketClient
-from .export_downloader import sever_export_files, ExportDir, resolve_export_filename
+from ..config import get_db_debug
+from ..model import (
+    Alias,
+    Ephemeras,
+    LichSisterWeapons,
+    OrdersItems,
+    RivenAnalyseTrend,
+    RivenItems,
+    RivenTion,
+    RivenTionAlias,
+)
+from ..model.export.night_wave import NightWave
+from ..model.export.nodes import Nodes
+from ..model.export.reward.reward import Reward
+from ..model.export.reward.reward_pool import RewardPool
+from ..model.export.weapons import Weapons
+from ..model.state_translation import StateTranslation
+from ..util import get_public_data_path
+from .export_downloader import ExportDir, resolve_export_filename, sever_export_files
 from .export_parsers import (
     parse_all_export_translations,
     parse_cdn_translations,
@@ -29,24 +51,8 @@ from .export_parsers import (
     # Weapons 解析
     parse_export_weapons_to_weapons,
 )
-from ..config import get_db_debug
-from ..model import (
-    Alias,
-    Ephemeras,
-    LichSisterWeapons,
-    OrdersItems,
-    RivenItems,
-    RivenTion,
-    RivenTionAlias,
-    RivenAnalyseTrend,
-)
-from ..model.export.night_wave import NightWave
-from ..model.export.nodes import Nodes
-from ..model.export.reward.reward import Reward
-from ..model.export.reward.reward_pool import RewardPool
-from ..model.export.weapons import Weapons
-from ..model.state_translation import StateTranslation
-from ..util import get_public_data_path
+
+_T = TypeVar("_T", bound=TortoiseModel)
 
 # ============================================================
 # 初始化完成信号量（供命令/API 等待初始化完成）
@@ -83,13 +89,13 @@ _MODELS_MODULES = [_MODEL_MODULE]
 
 _tortoise_initialized: bool = False
 
-_BATCH_SIZE = 500
+_BATCH_SIZE = 1000
 
 
 async def get_engine():
     """初始化 Tortoise ORM 并建表（单例）。"""
     _db_path: str = os.path.join(get_public_data_path(),"nyxbot.db")
-    print(_db_path)
+    logger.debug(f"数据库路径: {_db_path}")
     global _tortoise_initialized
     if not _tortoise_initialized:
         # 根据配置开关控制 Tortoise ORM 的 SQL 日志输出
@@ -291,8 +297,7 @@ async def init_riven_items_data() -> None:
 
     items: list[dict] = []
     for item in data:
-        item.update(_extract_i18n(item))
-        items.append(item)
+        items.append({**item, **_extract_i18n(item)})
 
     total_upserted = await _batch_upsert_riven_items(items)
     total = await RivenItems.all().count()
@@ -321,8 +326,7 @@ async def init_orders_items_data() -> None:
 
     items: list[dict] = []
     for item in data:
-        item.update(_extract_i18n(item))
-        items.append(item)
+        items.append({**item, **_extract_i18n(item)})
 
     total_upserted = await _batch_upsert_orders_items(items)
     total = await OrdersItems.all().count()
@@ -345,8 +349,7 @@ async def init_ephemeras_data() -> None:
     if lich_resp:
         lich_data = lich_resp.get("data", [])
         for item in lich_data:
-            item.update(_extract_i18n(item))
-        all_data.extend(lich_data)
+            all_data.append({**item, **_extract_i18n(item)})
         logger.info(f"赤毒幻纹: {len(lich_data)} 条")
     else:
         logger.warning("赤毒幻纹数据为空")
@@ -356,8 +359,7 @@ async def init_ephemeras_data() -> None:
     if sister_resp:
         sister_data = sister_resp.get("data", [])
         for item in sister_data:
-            item.update(_extract_i18n(item))
-        all_data.extend(sister_data)
+            all_data.append({**item, **_extract_i18n(item)})
         logger.info(f"信条幻纹: {len(sister_data)} 条")
     else:
         logger.warning("信条幻纹数据为空")
@@ -387,8 +389,7 @@ async def init_lich_sister_weapons_data() -> None:
     if lich_resp:
         lich_data = lich_resp.get("data", [])
         for item in lich_data:
-            item.update(_extract_i18n(item))
-        all_data.extend(lich_data)
+            all_data.append({**item, **_extract_i18n(item)})
         logger.info(f"赤毒武器: {len(lich_data)} 条")
     else:
         logger.warning("赤毒武器数据为空")
@@ -398,8 +399,7 @@ async def init_lich_sister_weapons_data() -> None:
     if sister_resp:
         sister_data = sister_resp.get("data", [])
         for item in sister_data:
-            item.update(_extract_i18n(item))
-        all_data.extend(sister_data)
+            all_data.append({**item, **_extract_i18n(item)})
         logger.info(f"信条武器: {len(sister_data)} 条")
     else:
         logger.warning("信条武器数据为空")
@@ -449,26 +449,22 @@ async def init_night_wave_data() -> None:
 
 async def init_relics_data() -> None:
     """初始化 Relics（遗物）表数据（含关联的 RelicRewards）。"""
-    logger.info("初始化遗物数据 (stub)")
-    await get_engine()
+    logger.info("初始化遗物数据 (stub) — 待实现")
 
 
 async def init_sentinels_data() -> None:
     """初始化 Sentinels（守护/宠物）表数据。"""
-    logger.info("初始化守护/宠物数据 (stub)")
-    await get_engine()
+    logger.info("初始化守护/宠物数据 (stub) — 待实现")
 
 
 async def init_upgrades_data() -> None:
     """初始化 Upgrades（MOD/升级组件）表数据。"""
-    logger.info("初始化MOD/升级组件数据 (stub)")
-    await get_engine()
+    logger.info("初始化MOD/升级组件数据 (stub) — 待实现")
 
 
 async def init_warframes_data() -> None:
     """初始化 Warframes（战甲）表数据（含关联的 WarframeAbility）。"""
-    logger.info("初始化战甲数据 (stub)")
-    await get_engine()
+    logger.info("初始化战甲数据 (stub) — 待实现")
 
 
 async def init_reward_pool_data() -> None:
@@ -539,207 +535,143 @@ async def init_reward_pool_data() -> None:
 
 
 # ======================================================================
-# 批量 Upsert 辅助（模块内部私有）
+# 通用批量 Upsert（模块内部私有）
 #
 # 优化策略：
 # - Phase A: bulk_create(ignore_conflicts=True) 批量插入新记录
-# - Phase B: 一次 SELECT 找到所有已存在的 uniqueName → 在 Python 侧
-#   更新已存在对象的字段 → 分批 bulk_update() 批量写回
-#   将 O(N) 次 SQL 往返降到 O(1) 次查询 + O(N/batch_size) 次更新
+# - Phase B: 一次 SELECT 找到所有已存在的记录 → 脏检测 (dirty checking)
+#   仅当字段值实际变化时才加入更新列表 → 分批 bulk_update() 批量写回
+#   将 O(N) 次 SQL 往返降到 O(1) 次查询 + O(N/batch_size) 次更新，
+#   且避免数据未变化时的冗余 UPDATE。
+# ======================================================================
+
+
+async def _generic_batch_upsert(
+    model_cls: type[_T],
+    items: list[dict],
+    key_field: str,
+    build_instance: Callable[[dict], _T],
+    update_fields: list[str],
+    batch_size: int = _BATCH_SIZE,
+) -> int:
+    """通用分批 Upsert（Phase A + Phase B 脏检测）。
+
+    Args:
+        model_cls: TortoiseORM 模型类。
+        items: 待 upsert 的数据字典列表。
+        key_field: 唯一键字段名（如 "uniqueName" 或 "id"）。
+        build_instance: 从 dict 构建模型实例的工厂函数。
+        update_fields: Phase B 需要比较并更新的字段列表。
+        batch_size: 批处理大小，默认 _BATCH_SIZE。
+
+    Returns:
+        本次处理的记录总数（Phase A 新增 + Phase B 实际变更数）。
+    """
+    total_upserted = 0
+
+    # --- Phase A: bulk_create(ignore_conflicts=True) 批量插入新记录 ---
+    batch: list[_T] = []
+    for item in items:
+        batch.append(build_instance(item))
+        if len(batch) >= batch_size:
+            created = await model_cls.bulk_create(batch, ignore_conflicts=True)
+            if created:
+                total_upserted += len(created)
+            batch.clear()
+    if batch:
+        created = await model_cls.bulk_create(batch, ignore_conflicts=True)
+        if created:
+            total_upserted += len(created)
+
+    # --- Phase B: 脏检测 + 分批 bulk_update ---
+    keys = [item[key_field] for item in items]
+    existing_map = {
+        getattr(obj, key_field): obj
+        async for obj in model_cls.filter(**{f"{key_field}__in": keys})
+    }
+
+    to_update: list[_T] = []
+    for item in items:
+        obj = existing_map.get(item[key_field])
+        if obj is not None:
+            # 构建新实例用于值比较
+            new_instance = build_instance(item)
+            changed = False
+            for field in update_fields:
+                old_val = getattr(obj, field)
+                new_val = getattr(new_instance, field)
+                if old_val != new_val:
+                    setattr(obj, field, new_val)
+                    changed = True
+            if changed:
+                to_update.append(obj)
+                if len(to_update) >= batch_size:
+                    await model_cls.bulk_update(to_update, fields=update_fields)
+                    total_upserted += len(to_update)
+                    to_update.clear()
+    if to_update:
+        await model_cls.bulk_update(to_update, fields=update_fields)
+        total_upserted += len(to_update)
+
+    return total_upserted
+
+
+# ======================================================================
+# 各模型的批量 Upsert 函数（thin wrappers，调用 _generic_batch_upsert）
 # ======================================================================
 
 
 async def _batch_upsert_translations(items: list[dict]) -> int:
-    """分批 upsert StateTranslation（优化版）。
-
-    Phase A - bulk_create(ignore_conflicts=True): 批量插入新记录
-    Phase B - SELECT existing → 更新字段 → 分批 bulk_update(): 批量更新已有记录
-    """
-    total_upserted = 0
-
-    # Phase A: 批量插入新记录
-    batch: list[StateTranslation] = []
-    for item in items:
-        batch.append(StateTranslation(
+    """分批 upsert StateTranslation（含脏检测）。"""
+    return await _generic_batch_upsert(
+        model_cls=StateTranslation,
+        items=items,
+        key_field="uniqueName",
+        build_instance=lambda item: StateTranslation(
             uniqueName=item["uniqueName"],
             name=item.get("name", ""),
             description=str(item.get("description", "")) if item.get("description") is not None else "",
             type=item.get("type", ""),
             parentName=item.get("parentName"),
-        ))
-        if len(batch) >= _BATCH_SIZE:
-            created = await StateTranslation.bulk_create(batch, ignore_conflicts=True)
-            if created:
-                total_upserted += len(created)
-            batch.clear()
-    if batch:
-        created = await StateTranslation.bulk_create(batch, ignore_conflicts=True)
-        if created:
-            total_upserted += len(created)
-
-    # Phase B: 批量更新已存在的记录（1 次 SELECT + 分批 bulk_update）
-    unique_names = [item["uniqueName"] for item in items]
-    existing_map = {
-        obj.uniqueName: obj
-        async for obj in StateTranslation.filter(uniqueName__in=unique_names)
-    }
-    to_update: list[StateTranslation] = []
-    for item in items:
-        obj = existing_map.get(item["uniqueName"])
-        if obj is not None:
-            obj.name = item.get("name", "")
-            obj.description = str(item.get("description", "")) if item.get("description") is not None else ""
-            obj.type = item.get("type", "")
-            obj.parentName = item.get("parentName")
-            to_update.append(obj)
-            if len(to_update) >= _BATCH_SIZE:
-                await StateTranslation.bulk_update(
-                    to_update,
-                    fields=["name", "description", "type", "parentName"],
-                )
-                total_upserted += len(to_update)
-                to_update.clear()
-    if to_update:
-        await StateTranslation.bulk_update(
-            to_update,
-            fields=["name", "description", "type", "parentName"],
-        )
-        total_upserted += len(to_update)
-
-    return total_upserted
+        ),
+        update_fields=["name", "description", "type", "parentName"],
+    )
 
 
 async def _batch_upsert_nodes(items: list[dict]) -> int:
-    """分批 upsert Nodes（优化版）。"""
-    total_upserted = 0
-
-    # Phase A: 批量插入新记录
-    batch: list[Nodes] = []
-    for item in items:
-        batch.append(Nodes(**item))
-        if len(batch) >= _BATCH_SIZE:
-            created = await Nodes.bulk_create(batch, ignore_conflicts=True)
-            if created:
-                total_upserted += len(created)
-            batch.clear()
-    if batch:
-        created = await Nodes.bulk_create(batch, ignore_conflicts=True)
-        if created:
-            total_upserted += len(created)
-
-    # Phase B: 批量更新已存在的记录
-    unique_names = [item["uniqueName"] for item in items]
-    existing_map = {
-        obj.uniqueName: obj
-        async for obj in Nodes.filter(uniqueName__in=unique_names)
-    }
-    # 动态确定需要更新的字段（排除 uniqueName/pk）
+    """分批 upsert Nodes（含脏检测）。"""
     node_fields = [f for f in items[0].keys() if f != "uniqueName"] if items else []
-    to_update: list[Nodes] = []
-    for item in items:
-        obj = existing_map.get(item["uniqueName"])
-        if obj is not None:
-            for field in node_fields:
-                if field in item:
-                    setattr(obj, field, item[field])
-            to_update.append(obj)
-            if len(to_update) >= _BATCH_SIZE:
-                await Nodes.bulk_update(to_update, fields=node_fields)
-                total_upserted += len(to_update)
-                to_update.clear()
-    if to_update:
-        await Nodes.bulk_update(to_update, fields=node_fields)
-        total_upserted += len(to_update)
-
-    return total_upserted
+    return await _generic_batch_upsert(
+        model_cls=Nodes,
+        items=items,
+        key_field="uniqueName",
+        build_instance=lambda item: Nodes(**item),
+        update_fields=node_fields,
+    )
 
 
 async def _batch_upsert_weapons(items: list[dict]) -> int:
-    """分批 upsert Weapons（优化版）。"""
-    total_upserted = 0
-
-    # Phase A: 批量插入新记录
-    batch: list[Weapons] = []
-    for item in items:
-        batch.append(Weapons(**item))
-        if len(batch) >= _BATCH_SIZE:
-            created = await Weapons.bulk_create(batch, ignore_conflicts=True)
-            if created:
-                total_upserted += len(created)
-            batch.clear()
-    if batch:
-        created = await Weapons.bulk_create(batch, ignore_conflicts=True)
-        if created:
-            total_upserted += len(created)
-
-    # Phase B: 批量更新已存在的记录
-    unique_names = [item["uniqueName"] for item in items]
-    existing_map = {
-        obj.uniqueName: obj
-        async for obj in Weapons.filter(uniqueName__in=unique_names)
-    }
+    """分批 upsert Weapons（含脏检测）。"""
     weapon_fields = [f for f in items[0].keys() if f != "uniqueName"] if items else []
-    to_update: list[Weapons] = []
-    for item in items:
-        obj = existing_map.get(item["uniqueName"])
-        if obj is not None:
-            for field in weapon_fields:
-                if field in item:
-                    setattr(obj, field, item[field])
-            to_update.append(obj)
-            if len(to_update) >= _BATCH_SIZE:
-                await Weapons.bulk_update(to_update, fields=weapon_fields)
-                total_upserted += len(to_update)
-                to_update.clear()
-    if to_update:
-        await Weapons.bulk_update(to_update, fields=weapon_fields)
-        total_upserted += len(to_update)
-
-    return total_upserted
+    return await _generic_batch_upsert(
+        model_cls=Weapons,
+        items=items,
+        key_field="uniqueName",
+        build_instance=lambda item: Weapons(**item),
+        update_fields=weapon_fields,
+    )
 
 
 async def _batch_upsert_night_wave(items: list[dict]) -> int:
-    """分批 upsert NightWave（优化版）。"""
-    total_upserted = 0
-
-    # Phase A: 批量插入新记录
-    batch: list[NightWave] = []
-    for item in items:
-        batch.append(NightWave(**item))
-        if len(batch) >= _BATCH_SIZE:
-            created = await NightWave.bulk_create(batch, ignore_conflicts=True)
-            if created:
-                total_upserted += len(created)
-            batch.clear()
-    if batch:
-        created = await NightWave.bulk_create(batch, ignore_conflicts=True)
-        if created:
-            total_upserted += len(created)
-
-    # Phase B: 批量更新已存在的记录
-    unique_names = [item["uniqueName"] for item in items]
-    existing_map = {
-        obj.uniqueName: obj
-        async for obj in NightWave.filter(uniqueName__in=unique_names)
-    }
+    """分批 upsert NightWave（含脏检测）。"""
     nw_fields = [f for f in items[0].keys() if f != "uniqueName"] if items else []
-    to_update: list[NightWave] = []
-    for item in items:
-        obj = existing_map.get(item["uniqueName"])
-        if obj is not None:
-            for field in nw_fields:
-                if field in item:
-                    setattr(obj, field, item[field])
-            to_update.append(obj)
-            if len(to_update) >= _BATCH_SIZE:
-                await NightWave.bulk_update(to_update, fields=nw_fields)
-                total_upserted += len(to_update)
-                to_update.clear()
-    if to_update:
-        await NightWave.bulk_update(to_update, fields=nw_fields)
-        total_upserted += len(to_update)
-
-    return total_upserted
+    return await _generic_batch_upsert(
+        model_cls=NightWave,
+        items=items,
+        key_field="uniqueName",
+        build_instance=lambda item: NightWave(**item),
+        update_fields=nw_fields,
+    )
 
 
 # ======================================================================
@@ -770,22 +702,17 @@ def _extract_i18n(item: dict, lang: str = "zh-hans") -> dict:
 
 
 # ======================================================================
-# 批量 Upsert 辅助 — OrdersItems / Ephemeras / LichSisterWeapons / RivenItems
+# 批量 Upsert 函数 — OrdersItems / Ephemeras / LichSisterWeapons / RivenItems
 # ======================================================================
 
 
 async def _batch_upsert_orders_items(items: list[dict]) -> int:
-    """分批 upsert OrdersItems。
-
-    Phase A: bulk_create(ignore_conflicts=True) 插入新记录
-    Phase B: SELECT 已有记录 → 更新字段 → 分批 bulk_update()
-    """
-    total_upserted = 0
-
-    # Phase A: 批量插入新记录
-    batch: list[OrdersItems] = []
-    for item in items:
-        batch.append(OrdersItems(
+    """分批 upsert OrdersItems（含脏检测）。"""
+    return await _generic_batch_upsert(
+        model_cls=OrdersItems,
+        items=items,
+        key_field="id",
+        build_instance=lambda item: OrdersItems(
             id=item["id"],
             slug=item.get("slug"),
             gameRef=item.get("gameRef"),
@@ -798,64 +725,23 @@ async def _batch_upsert_orders_items(items: list[dict]) -> int:
             vaulted=item.get("vaulted"),
             maxAmberStars=item.get("maxAmberStars"),
             maxCyanStars=item.get("maxCyanStars"),
-            baseEndo=item.get("baseEndo")
-        ))
-        if len(batch) >= _BATCH_SIZE:
-            created = await OrdersItems.bulk_create(batch, ignore_conflicts=True)
-            if created:
-                total_upserted += len(created)
-            batch.clear()
-    if batch:
-        created = await OrdersItems.bulk_create(batch, ignore_conflicts=True)
-        if created:
-            total_upserted += len(created)
-
-    # Phase B: 批量更新已存在的记录
-    ids = [item["id"] for item in items]
-    existing_map = {
-        obj.id: obj
-        async for obj in OrdersItems.filter(id__in=ids)
-    }
-    update_fields = ["slug", "gameRef", "maxRank", "name", "icon", 
-                     "thumb","bulkTradable","ducats","vaulted",
-                     "maxAmberStars","maxCyanStars","baseEndo"
-                     ]
-    to_update: list[OrdersItems] = []
-    for item in items:
-        obj = existing_map.get(item["id"])
-        if obj is not None:
-            obj.slug = item.get("slug")
-            obj.gameRef = item.get("gameRef")
-            obj.maxRank = item.get("maxRank")
-            obj.name = item.get("name")
-            obj.icon = item.get("icon")
-            obj.thumb = item.get("thumb")
-            obj.bulkTradable = item.get("bulkTradable"),
-            obj.ducats = item.get("ducats"),
-            obj.vaulted = item.get("vaulted"),
-            obj.maxAmberStars = item.get("maxAmberStars"),
-            obj.maxCyanStars = item.get("maxCyanStars"),
-            obj.baseEndo = item.get("baseEndo")
-            to_update.append(obj)
-            if len(to_update) >= _BATCH_SIZE:
-                await OrdersItems.bulk_update(to_update, fields=update_fields)
-                total_upserted += len(to_update)
-                to_update.clear()
-    if to_update:
-        await OrdersItems.bulk_update(to_update, fields=update_fields)
-        total_upserted += len(to_update)
-
-    return total_upserted
+            baseEndo=item.get("baseEndo"),
+        ),
+        update_fields=[
+            "slug", "gameRef", "maxRank", "name", "icon",
+            "thumb", "bulkTradable", "ducats", "vaulted",
+            "maxAmberStars", "maxCyanStars", "baseEndo",
+        ],
+    )
 
 
 async def _batch_upsert_ephemeras(items: list[dict]) -> int:
-    """分批 upsert Ephemeras。"""
-    total_upserted = 0
-
-    # Phase A: 批量插入新记录
-    batch: list[Ephemeras] = []
-    for item in items:
-        batch.append(Ephemeras(
+    """分批 upsert Ephemeras（含脏检测）。"""
+    return await _generic_batch_upsert(
+        model_cls=Ephemeras,
+        items=items,
+        key_field="id",
+        build_instance=lambda item: Ephemeras(
             id=item["id"],
             slug=item.get("slug"),
             gameRef=item.get("gameRef"),
@@ -864,55 +750,18 @@ async def _batch_upsert_ephemeras(items: list[dict]) -> int:
             name=item.get("name"),
             icon=item.get("icon"),
             thumb=item.get("thumb"),
-        ))
-        if len(batch) >= _BATCH_SIZE:
-            created = await Ephemeras.bulk_create(batch, ignore_conflicts=True)
-            if created:
-                total_upserted += len(created)
-            batch.clear()
-    if batch:
-        created = await Ephemeras.bulk_create(batch, ignore_conflicts=True)
-        if created:
-            total_upserted += len(created)
-
-    # Phase B: 批量更新已存在的记录
-    ids = [item["id"] for item in items]
-    existing_map = {
-        obj.id: obj
-        async for obj in Ephemeras.filter(id__in=ids)
-    }
-    update_fields = ["slug", "gameRef", "animation", "element", "name", "icon", "thumb"]
-    to_update: list[Ephemeras] = []
-    for item in items:
-        obj = existing_map.get(item["id"])
-        if obj is not None:
-            obj.slug = item.get("slug")
-            obj.gameRef = item.get("gameRef")
-            obj.animation = item.get("animation")
-            obj.element = item.get("element")
-            obj.name = item.get("name")
-            obj.icon = item.get("icon")
-            obj.thumb = item.get("thumb")
-            to_update.append(obj)
-            if len(to_update) >= _BATCH_SIZE:
-                await Ephemeras.bulk_update(to_update, fields=update_fields)
-                total_upserted += len(to_update)
-                to_update.clear()
-    if to_update:
-        await Ephemeras.bulk_update(to_update, fields=update_fields)
-        total_upserted += len(to_update)
-
-    return total_upserted
+        ),
+        update_fields=["slug", "gameRef", "animation", "element", "name", "icon", "thumb"],
+    )
 
 
 async def _batch_upsert_lich_sister_weapons(items: list[dict]) -> int:
-    """分批 upsert LichSisterWeapons。"""
-    total_upserted = 0
-
-    # Phase A: 批量插入新记录
-    batch: list[LichSisterWeapons] = []
-    for item in items:
-        batch.append(LichSisterWeapons(
+    """分批 upsert LichSisterWeapons（含脏检测）。"""
+    return await _generic_batch_upsert(
+        model_cls=LichSisterWeapons,
+        items=items,
+        key_field="id",
+        build_instance=lambda item: LichSisterWeapons(
             id=item["id"],
             slug=item.get("slug"),
             icon=item.get("icon"),
@@ -920,54 +769,18 @@ async def _batch_upsert_lich_sister_weapons(items: list[dict]) -> int:
             reqMasteryRank=item.get("reqMasteryRank"),
             name=item.get("name"),
             thumb=item.get("thumb"),
-        ))
-        if len(batch) >= _BATCH_SIZE:
-            created = await LichSisterWeapons.bulk_create(batch, ignore_conflicts=True)
-            if created:
-                total_upserted += len(created)
-            batch.clear()
-    if batch:
-        created = await LichSisterWeapons.bulk_create(batch, ignore_conflicts=True)
-        if created:
-            total_upserted += len(created)
-
-    # Phase B: 批量更新已存在的记录
-    ids = [item["id"] for item in items]
-    existing_map = {
-        obj.id: obj
-        async for obj in LichSisterWeapons.filter(id__in=ids)
-    }
-    update_fields = ["slug", "icon", "gameRef", "reqMasteryRank", "name", "thumb"]
-    to_update: list[LichSisterWeapons] = []
-    for item in items:
-        obj = existing_map.get(item["id"])
-        if obj is not None:
-            obj.slug = item.get("slug")
-            obj.icon = item.get("icon")
-            obj.gameRef = item.get("gameRef")
-            obj.reqMasteryRank = item.get("reqMasteryRank")
-            obj.name = item.get("name")
-            obj.thumb = item.get("thumb")
-            to_update.append(obj)
-            if len(to_update) >= _BATCH_SIZE:
-                await LichSisterWeapons.bulk_update(to_update, fields=update_fields)
-                total_upserted += len(to_update)
-                to_update.clear()
-    if to_update:
-        await LichSisterWeapons.bulk_update(to_update, fields=update_fields)
-        total_upserted += len(to_update)
-
-    return total_upserted
+        ),
+        update_fields=["slug", "icon", "gameRef", "reqMasteryRank", "name", "thumb"],
+    )
 
 
 async def _batch_upsert_riven_items(items: list[dict]) -> int:
-    """分批 upsert RivenItems。"""
-    total_upserted = 0
-
-    # Phase A: 批量插入新记录
-    batch: list[RivenItems] = []
-    for item in items:
-        batch.append(RivenItems(
+    """分批 upsert RivenItems（含脏检测）。"""
+    return await _generic_batch_upsert(
+        model_cls=RivenItems,
+        items=items,
+        key_field="id",
+        build_instance=lambda item: RivenItems(
             id=item["id"],
             slug=item.get("slug"),
             gameRef=item.get("gameRef"),
@@ -978,50 +791,12 @@ async def _batch_upsert_riven_items(items: list[dict]) -> int:
             name=item.get("name"),
             icon=item.get("icon"),
             thumb=item.get("thumb"),
-        ))
-        if len(batch) >= _BATCH_SIZE:
-            created = await RivenItems.bulk_create(batch, ignore_conflicts=True)
-            if created:
-                total_upserted += len(created)
-            batch.clear()
-    if batch:
-        created = await RivenItems.bulk_create(batch, ignore_conflicts=True)
-        if created:
-            total_upserted += len(created)
-
-    # Phase B: 批量更新已存在的记录
-    ids = [item["id"] for item in items]
-    existing_map = {
-        obj.id: obj
-        async for obj in RivenItems.filter(id__in=ids)
-    }
-    update_fields = [
-        "slug", "gameRef", "group", "rivenType",
-        "disposition", "reqMasteryRank", "name", "icon", "thumb",
-    ]
-    to_update: list[RivenItems] = []
-    for item in items:
-        obj = existing_map.get(item["id"])
-        if obj is not None:
-            obj.slug = item.get("slug")
-            obj.gameRef = item.get("gameRef")
-            obj.group = item.get("group")
-            obj.rivenType = item.get("rivenType")
-            obj.disposition = item.get("disposition")
-            obj.reqMasteryRank = item.get("reqMasteryRank")
-            obj.name = item.get("name")
-            obj.icon = item.get("icon")
-            obj.thumb = item.get("thumb")
-            to_update.append(obj)
-            if len(to_update) >= _BATCH_SIZE:
-                await RivenItems.bulk_update(to_update, fields=update_fields)
-                total_upserted += len(to_update)
-                to_update.clear()
-    if to_update:
-        await RivenItems.bulk_update(to_update, fields=update_fields)
-        total_upserted += len(to_update)
-
-    return total_upserted
+        ),
+        update_fields=[
+            "slug", "gameRef", "group", "rivenType",
+            "disposition", "reqMasteryRank", "name", "icon", "thumb",
+        ],
+    )
 
 
 # ======================================================================
@@ -1036,12 +811,16 @@ async def init_state_translation_data() -> bool:
     Phase 1: 遍历 Export*.json 导出文件 → parse_all_export_translations()
     Phase 2: 从 CDN 获取自定义数据 → parse_cdn_translations()
     统一 _batch_upsert_translations()
+
+    Returns:
+        True 表示初始化成功完成；False 表示导出文件下载失败（应跳过后续初始化）。
     """
     logger.info("开始初始化状态翻译数据...")
     await get_engine()
 
     if not await sever_export_files():
-        return True
+        logger.warning("导出文件下载失败，跳过所有数据初始化")
+        return False
 
     # Phase 1: 从导出文件解析
     all_items = await parse_all_export_translations()
@@ -1052,12 +831,12 @@ async def init_state_translation_data() -> bool:
 
     if not all_items:
         logger.warning("无状态翻译数据可插入")
-        return False
+        return True
 
     total_upserted = await _batch_upsert_translations(all_items)
     total = await StateTranslation.all().count()
     logger.info(f"状态翻译数据初始化完成，共 {total} 条记录（本次处理 {total_upserted} 条）")
-    return False
+    return True
 
 
 async def init_nodes_data() -> None:

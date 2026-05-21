@@ -5,11 +5,12 @@ from __future__ import annotations
 import asyncio
 from typing import cast
 
-from astrbot.api import logger, AstrBotConfig
+from astrbot.api import AstrBotConfig, logger
 from astrbot.api.star import Context, Star
 
 from .src.init import *
 from .src.web_api.registry import register_web_apis
+
 #from .src.task.warframe_status import WarframeStatusTask
 
 
@@ -32,40 +33,61 @@ class NyxBotPlugin(Star):
         self._init_task = asyncio.create_task(self._do_initialize())
 
     async def _do_initialize(self):
-        """后台执行的完整初始化逻辑。"""
+        """后台执行的完整初始化逻辑。
+
+        优化策略：将独立数据源的网络拉取并发化，减少启动延迟：
+        - Group 1: CDN 数据（互不依赖，访问不同表）
+        - Group 2: Market API 数据（互不依赖，访问不同表）
+        - Group 3: 导出文件数据（互不依赖，访问不同表）
+        - Stub 函数串行执行（无实际开销）
+        """
         try:
             # 初始化数据库（TortoiseORM 连接 + 建表）
             await get_engine()
-            flag = await init_state_translation_data()
-            if flag:
+            if not await init_state_translation_data():
                 set_init_complete()
                 return
-            else:
-                # 初始化数据（别名、节点、电波任务数据）
-                await init_alias_data()
-                await init_riven_tion_data()
-                await init_riven_tion_alias_data()
-                await init_riven_analyse_trend_data()
-                await init_riven_items_data()
-                await init_orders_items_data()
-                await init_ephemeras_data()
-                await init_lich_sister_weapons_data()
-                await init_night_wave_data()
-                await init_relics_data()
-                await init_sentinels_data()
-                await init_upgrades_data()
-                await init_warframes_data()
-                await init_reward_pool_data()
-                await init_nodes_data()
-                await init_weapons_data()
 
-                # 注册数据管理 API（Plugin Pages 后端）
-                register_web_apis(cast(Context, self.context))
-                logger.info("数据管理 API 已注册")
+            # Group 1: CDN 数据源并发拉取
+            await asyncio.gather(
+                init_alias_data(),
+                init_riven_tion_data(),
+                init_riven_tion_alias_data(),
+                init_riven_analyse_trend_data(),
+                init_reward_pool_data(),
+                return_exceptions=True,
+            )
 
-                # 启动定时拉取 WorldState 任务
-                #self._ws_task = WarframeStatusTask()
-                #await self._ws_task.start()
+            # Group 2: Market API 数据源并发拉取
+            await asyncio.gather(
+                init_riven_items_data(),
+                init_orders_items_data(),
+                init_ephemeras_data(),
+                init_lich_sister_weapons_data(),
+                return_exceptions=True,
+            )
+
+            # Group 3: 导出文件数据源并发拉取
+            await asyncio.gather(
+                init_night_wave_data(),
+                init_nodes_data(),
+                init_weapons_data(),
+                return_exceptions=True,
+            )
+
+            # Stub 函数（无网络开销，串行即可）
+            await init_relics_data()
+            await init_sentinels_data()
+            await init_upgrades_data()
+            await init_warframes_data()
+
+            # 注册数据管理 API（Plugin Pages 后端）
+            register_web_apis(cast(Context, self.context))
+            logger.info("数据管理 API 已注册")
+
+            # 启动定时拉取 WorldState 任务
+            #self._ws_task = WarframeStatusTask()
+            #await self._ws_task.start()
 
             # 标记初始化完成
             set_init_complete()
