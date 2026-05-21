@@ -28,7 +28,6 @@ from ..init import (
     init_upgrades_data,
     init_warframes_data,
     init_weapons_data,
-    init_reward_data,
     init_reward_pool_data,
 )
 from ..model.alias import Alias
@@ -43,10 +42,8 @@ from ..model.riven_items import RivenItems
 from ..model.riven_tion import RivenTion
 from ..model.riven_tion_alias import RivenTionAlias
 from ..model.state_translation import StateTranslation
-from ..model.export.customs import Customs
-from ..model.export.mod_set import ModSet
 from ..model.export.night_wave import NightWave
-from ..model.export.nodes import ExprotNodes as Nodes
+from ..model.export.nodes import Nodes
 from ..model.export.relic_rewards import RelicRewards
 from ..model.export.relics import Relics
 from ..model.export.sentinels import Sentinels
@@ -171,7 +168,6 @@ def register_data_apis(context: Context) -> None:
     _register_model("warframes", Warframes, search_fields=["name", "unique_name"], sync_func=init_warframes_data)
     _register_model("warframe_ability", WarframeAbility, search_fields=["ability_name"], sync_func=None)
     _register_model("weapons", Weapons, search_fields=["name", "unique_name"], sync_func=init_weapons_data)
-    _register_model("reward", Reward, search_fields=["item"], sync_func=init_reward_data)
     _register_model("reward_pool", RewardPool, search_fields=["unique_name"], sync_func=init_reward_pool_data)
 
     # ========================================================================

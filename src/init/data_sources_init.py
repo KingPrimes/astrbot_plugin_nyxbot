@@ -41,7 +41,7 @@ from ..model import (
     RivenAnalyseTrend,
 )
 from ..model.export.night_wave import NightWave
-from ..model.export.nodes import ExprotNodes as Nodes
+from ..model.export.nodes import Nodes
 from ..model.export.reward.reward import Reward
 from ..model.export.reward.reward_pool import RewardPool
 from ..model.export.weapons import Weapons
@@ -610,7 +610,7 @@ async def _batch_upsert_translations(items: list[dict]) -> int:
 
 
 async def _batch_upsert_nodes(items: list[dict]) -> int:
-    """分批 upsert ExprotNodes（优化版）。"""
+    """分批 upsert Nodes（优化版）。"""
     total_upserted = 0
 
     # Phase A: 批量插入新记录
@@ -793,6 +793,12 @@ async def _batch_upsert_orders_items(items: list[dict]) -> int:
             name=item.get("name"),
             icon=item.get("icon"),
             thumb=item.get("thumb"),
+            bulkTradable=item.get("bulkTradable"),
+            ducats=item.get("ducats"),
+            vaulted=item.get("vaulted"),
+            maxAmberStars=item.get("maxAmberStars"),
+            maxCyanStars=item.get("maxCyanStars"),
+            baseEndo=item.get("baseEndo")
         ))
         if len(batch) >= _BATCH_SIZE:
             created = await OrdersItems.bulk_create(batch, ignore_conflicts=True)
@@ -810,7 +816,10 @@ async def _batch_upsert_orders_items(items: list[dict]) -> int:
         obj.id: obj
         async for obj in OrdersItems.filter(id__in=ids)
     }
-    update_fields = ["slug", "gameRef", "maxRank", "name", "icon", "thumb"]
+    update_fields = ["slug", "gameRef", "maxRank", "name", "icon", 
+                     "thumb","bulkTradable","ducats","vaulted",
+                     "maxAmberStars","maxCyanStars","baseEndo"
+                     ]
     to_update: list[OrdersItems] = []
     for item in items:
         obj = existing_map.get(item["id"])
@@ -821,6 +830,12 @@ async def _batch_upsert_orders_items(items: list[dict]) -> int:
             obj.name = item.get("name")
             obj.icon = item.get("icon")
             obj.thumb = item.get("thumb")
+            obj.bulkTradable = item.get("bulkTradable"),
+            obj.ducats = item.get("ducats"),
+            obj.vaulted = item.get("vaulted"),
+            obj.maxAmberStars = item.get("maxAmberStars"),
+            obj.maxCyanStars = item.get("maxCyanStars"),
+            obj.baseEndo = item.get("baseEndo")
             to_update.append(obj)
             if len(to_update) >= _BATCH_SIZE:
                 await OrdersItems.bulk_update(to_update, fields=update_fields)

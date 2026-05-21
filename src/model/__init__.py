@@ -19,7 +19,7 @@ from .state_translation import StateTranslation
 from .export.customs import Customs
 from .export.mod_set import ModSet
 from .export.night_wave import NightWave
-from .export.nodes import ExprotNodes
+from .export.nodes import Nodes
 from .export.relic_rewards import RelicRewards
 from .export.relics import Relics
 from .export.sentinels import Sentinels
@@ -50,7 +50,7 @@ __all__ = [
     "Customs",
     "ModSet",
     "NightWave",
-    "ExprotNodes",
+    "Nodes",
     "RelicRewards",
     "Relics",
     "Sentinels",

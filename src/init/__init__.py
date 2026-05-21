@@ -27,8 +27,7 @@ from .data_sources_init import (
     init_sentinels_data,
     init_upgrades_data,
     init_warframes_data,
-    init_weapons_data,
-    init_reward_data,
+    init_weapons_data,    
     init_reward_pool_data,
 )
 from .export_downloader import (
@@ -74,7 +73,6 @@ __all__ = [
     "init_upgrades_data",
     "init_warframes_data",
     "init_weapons_data",
-    "init_reward_data",
     "init_reward_pool_data",
     # Export 数据源
     "sever_export_files",

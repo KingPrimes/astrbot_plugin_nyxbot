@@ -238,12 +238,12 @@ async def parse_cdn_translations() -> list[dict]:
 
 
 def parse_export_regions_to_nodes(export_path: str) -> list[dict]:
-    """解析 ExportRegions_zh.json，返回 ExprotNodes 兼容的 dict 列表。
+    """解析 ExportRegions_zh.json，返回 Nodes 兼容的 dict 列表。
 
     镜像 Java parsingExportJson("ExportRegions_zh.json", "ExportRegions", Nodes.class)
     (WarframeDataSource.java:418):
 
-    字段直通映射（Java Nodes.java ↔ Python ExprotNodes 字段完全一致）:
+    字段直通映射（Java Nodes.java ↔ Python Nodes 字段完全一致）:
     - uniqueName / name / systemName / systemIndex / nodeType
     - masteryReq / missionIndex / factionIndex / minEnemyLevel / maxEnemyLevel
 

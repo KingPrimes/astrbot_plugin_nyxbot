@@ -70,7 +70,7 @@ _MISSION_INDEX_MAP: dict[int, MissionTypeEnum] = {
 }
 
 
-class ExprotNodes(Model):
+class Nodes(Model):
     """星图节点（导出数据）"""
 
     uniqueName = fields.CharField(max_length=255, pk=True, description="唯一标识")
@@ -85,7 +85,7 @@ class ExprotNodes(Model):
     maxEnemyLevel = fields.IntField(null=True, description="最高敌人等级")
 
     class Meta:
-        table = "exprotnodes"
+        table = "nodes"
 
     @property
     def faction(self) -> FactionEnum:

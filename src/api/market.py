@@ -16,7 +16,7 @@ from ..util import (
     fetch_json_with_retry,
     RetryLogLevel,
 )
-from api import (
+from .api import (
     WF_MARKET_BASE_URL,
     WF_MARKET_LICH_EPHEMERAS,
     WF_MARKET_SISTER_EPHEMERAS,

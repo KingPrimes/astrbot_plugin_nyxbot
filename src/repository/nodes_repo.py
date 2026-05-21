@@ -5,7 +5,7 @@ from typing import Optional
 
 from tortoise.exceptions import DoesNotExist
 
-from ..model.export.nodes import ExprotNodes as Nodes
+from ..model.export.nodes import Nodes
 from .base import BaseRepository
 
 
