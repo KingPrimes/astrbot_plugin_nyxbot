@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+
 from tortoise import fields
 from tortoise.models import Model
 
@@ -20,7 +21,7 @@ class MissionSubscribe(Model):
     sub_bot_uid = fields.IntField(description="发送消息的Bot UID")
     sub_group = fields.IntField(unique=True, description="订阅群组")
 
-    users: fields.ReverseRelation["MissionSubscribeUser"]
+    users: fields.ReverseRelation[MissionSubscribeUser]
 
     class Meta:
         table = "missionsubscribe"
@@ -36,7 +37,7 @@ class MissionSubscribeUser(Model):
     mission_subscribe: fields.ForeignKeyNullableRelation[MissionSubscribe] = fields.ForeignKeyField(
         "models.MissionSubscribe", related_name="users", null=True, on_delete=fields.CASCADE
     )
-    check_types: fields.ReverseRelation["MissionSubscribeUserCheckType"]
+    check_types: fields.ReverseRelation[MissionSubscribeUserCheckType]
 
     class Meta:
         table = "missionsubscribeuser"

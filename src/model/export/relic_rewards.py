@@ -5,7 +5,6 @@ RelicRewards Model / 遗物奖励模型
 """
 from __future__ import annotations
 
-from typing import Optional
 from tortoise import fields
 from tortoise.models import Model
 
@@ -29,7 +28,7 @@ class RelicRewards(Model):
         table = "relicrewards"
 
     @property
-    def rarity_enum(self) -> Optional[RarityEnum]:
+    def rarity_enum(self) -> RarityEnum | None:
         """获取稀有度枚举"""
         if self.rarity:
             try:

@@ -1,8 +1,6 @@
 """Nodes repository / 星图节点数据访问层"""
 from __future__ import annotations
 
-from typing import Optional
-
 from tortoise.exceptions import DoesNotExist
 
 from ..model.export.nodes import Nodes
@@ -15,7 +13,7 @@ class NodesRepository(BaseRepository[Nodes]):
     def __init__(self):
         super().__init__(Nodes)
 
-    async def find_by_name(self, name: str) -> Optional[Nodes]:
+    async def find_by_name(self, name: str) -> Nodes | None:
         """根据节点名称查找。"""
         try:
             return await Nodes.get(name=name)
@@ -24,7 +22,7 @@ class NodesRepository(BaseRepository[Nodes]):
 
     async def find_by_unique_name(
         self, uniqueName: str
-    ) -> Optional[Nodes]:
+    ) -> Nodes | None:
         """根据唯一标识查找。"""
         try:
             return await Nodes.get(uniqueName=uniqueName)

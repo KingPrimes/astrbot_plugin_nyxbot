@@ -3,7 +3,7 @@ Alias Model / 别名模型
 包含 Warframe 可交易物品的别名映射
 """
 import re
-from typing import Optional
+
 from tortoise import fields
 from tortoise.models import Model
 

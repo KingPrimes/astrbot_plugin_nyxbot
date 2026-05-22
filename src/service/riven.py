@@ -4,8 +4,6 @@
 """
 from __future__ import annotations
 
-from typing import Any, Optional
-
 
 class RivenAttributeCalculator:
     """紫卡属性计算器（参考 Java RivenAnalyseTrendCompute）。"""
@@ -42,7 +40,7 @@ class RivenService:
     # ── 远程 API ──────────────────────────────────────────────────────
 
     @classmethod
-    async def get_weapon_list(cls) -> Optional[list[dict]]:
+    async def get_weapon_list(cls) -> list[dict] | None:
         """获取紫卡武器列表（远程）。"""
         ...
 
@@ -52,7 +50,7 @@ class RivenService:
         weapon_url_name: str,
         sort_by: str = "price_asc",
         page: int = 0,
-    ) -> Optional[dict]:
+    ) -> dict | None:
         """搜索紫卡拍卖。
 
         Args:
@@ -68,7 +66,7 @@ class RivenService:
     # ── 本地数据库 ────────────────────────────────────────────────────
 
     @classmethod
-    async def get_riven_item(cls, slug: str) -> Optional[dict]:
+    async def get_riven_item(cls, slug: str) -> dict | None:
         """从本地 RivenItems 表查询紫卡物品信息。
 
         Args:
@@ -80,7 +78,7 @@ class RivenService:
         ...
 
     @classmethod
-    async def get_analysis_params(cls, name: str) -> Optional[dict]:
+    async def get_analysis_params(cls, name: str) -> dict | None:
         """从本地 RivenAnalyseTrend 表查询分析参数。
 
         Args:
@@ -92,7 +90,7 @@ class RivenService:
         ...
 
     @classmethod
-    async def get_tion_params(cls, effect: str) -> Optional[dict]:
+    async def get_tion_params(cls, effect: str) -> dict | None:
         """从本地 RivenTion 表查询词条参数。
 
         Args:

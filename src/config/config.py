@@ -10,7 +10,9 @@ from __future__ import annotations
 import json
 import os
 from typing import Any
+
 from astrbot.core.utils.astrbot_path import get_astrbot_config_path
+
 from ..util import get_plugin_name
 
 

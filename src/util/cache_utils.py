@@ -4,8 +4,10 @@
 """
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import Any, TypeVar, cast
+
 from cachetools import TTLCache
-from typing import Any, Callable, TypeVar, cast
 
 T = TypeVar("T")
 

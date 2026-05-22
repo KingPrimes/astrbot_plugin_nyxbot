@@ -41,7 +41,7 @@ class Warframes(Model):
     sprintSpeed = fields.IntField(null=True, description="冲刺速度")
     productCategory = fields.CharField(max_length=100, null=True, description="类别")
 
-    abilities: fields.ReverseRelation["WarframeAbility"]
+    abilities: fields.ReverseRelation[WarframeAbility]
 
     class Meta:
         table = "warframes"

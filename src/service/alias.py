@@ -1,8 +1,6 @@
 """Alias service / 别名服务层"""
 from __future__ import annotations
 
-from typing import Optional
-
 from ..model.alias import Alias
 
 
@@ -10,12 +8,12 @@ class AliasService:
     """别名查询/管理服务。"""
 
     @classmethod
-    async def find_by_cn(cls, cn: str) -> Optional[Alias]:
+    async def find_by_cn(cls, cn: str) -> Alias | None:
         """根据中文名称查找别名。"""
         ...
 
     @classmethod
-    async def find_by_en(cls, en: str) -> Optional[Alias]:
+    async def find_by_en(cls, en: str) -> Alias | None:
         """根据英文名称查找别名。"""
         ...
 
@@ -43,7 +41,7 @@ class AliasService:
         ...
 
     @classmethod
-    async def update(cls, alias_id: int, cn: str, en: str) -> Optional[Alias]:
+    async def update(cls, alias_id: int, cn: str, en: str) -> Alias | None:
         """更新别名。"""
         ...
 

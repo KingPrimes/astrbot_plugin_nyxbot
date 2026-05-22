@@ -4,12 +4,12 @@
 """
 from __future__ import annotations
 
-from typing import Optional, Sequence
+from collections.abc import Sequence
 
 from tortoise.exceptions import DoesNotExist
 
-from ..model.mission_subscription import MissionSubscribe, MissionSubscribeUser
 from ..model.mission_subscribe_user_check_type import MissionSubscribeUserCheckType
+from ..model.mission_subscription import MissionSubscribe, MissionSubscribeUser
 from .base import BaseRepository
 
 
@@ -23,7 +23,7 @@ class SubscriptionRepository(BaseRepository[MissionSubscribe]):
 
     async def find_by_sub_group(
         self, sub_group: int
-    ) -> Optional[MissionSubscribe]:
+    ) -> MissionSubscribe | None:
         """根据 sub_group 查找订阅群组。"""
         try:
             return await MissionSubscribe.get(sub_group=sub_group)

@@ -1,12 +1,12 @@
 """wf_invasions - /invasions or /入侵 - 查看当前入侵"""
 from __future__ import annotations
 
-from astrbot.api.event import AstrMessageEvent
 import astrbot.api.message_components as Comp
+from astrbot.api.event import AstrMessageEvent
 
 from ...registry import wf
-from ..service.world_state import WorldStateService
 from ..render.card_renderer import CardRenderer
+from ..service.world_state import WorldStateService
 
 
 @wf.command("入侵")
@@ -18,7 +18,6 @@ async def wf_invasions(self, event: AstrMessageEvent):
         yield event.plain_result("当前没有活跃的入侵")
         return
 
-    from ..util.time_utils import format_time_remaining_short, parse_wf_timestamp
 
     invasions = []
     for inv in invasions_raw:

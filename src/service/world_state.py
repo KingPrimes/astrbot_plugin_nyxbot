@@ -4,7 +4,7 @@
 """
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 
 class WorldStateService:
@@ -16,7 +16,7 @@ class WorldStateService:
     CACHE_KEY = "world_state_raw"
 
     @classmethod
-    async def get_raw(cls) -> Optional[dict[str, Any]]:
+    async def get_raw(cls) -> dict[str, Any] | None:
         """获取原始 WorldState 数据（带缓存）。"""
         ...
 
@@ -41,22 +41,22 @@ class WorldStateService:
         ...
 
     @classmethod
-    async def get_void_trader(cls) -> Optional[dict]:
+    async def get_void_trader(cls) -> dict | None:
         """获取虚空商人数据。"""
         ...
 
     @classmethod
-    async def get_cetus_cycle(cls) -> Optional[dict]:
+    async def get_cetus_cycle(cls) -> dict | None:
         """获取希图斯周期。"""
         ...
 
     @classmethod
-    async def get_duviri_cycle(cls) -> Optional[dict]:
+    async def get_duviri_cycle(cls) -> dict | None:
         """获取双衍王境周期。"""
         ...
 
     @classmethod
-    async def get_nightwave(cls) -> Optional[dict]:
+    async def get_nightwave(cls) -> dict | None:
         """获取午夜电波数据。"""
         ...
 
@@ -66,12 +66,12 @@ class WorldStateService:
         ...
 
     @classmethod
-    async def get_steel_path(cls) -> Optional[dict]:
+    async def get_steel_path(cls) -> dict | None:
         """获取钢铁之路数据。"""
         ...
 
     @classmethod
-    async def get_arbitration(cls) -> Optional[dict]:
+    async def get_arbitration(cls) -> dict | None:
         """获取仲裁数据。"""
         ...
 

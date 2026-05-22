@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any
 
 
 class BaseChangeDetector(ABC):
@@ -45,7 +45,7 @@ class BaseChangeDetector(ABC):
         ...
 
     @staticmethod
-    def _get_item_id(item: Any) -> Optional[str]:
+    def _get_item_id(item: Any) -> str | None:
         """从条目中获取唯一 ID。"""
         ...
 

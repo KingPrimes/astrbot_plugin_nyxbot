@@ -27,8 +27,8 @@ class Alert(BaseModel):
     id: str = ""
     activation: str = ""
     expiry: str = ""
-    mission: Optional[AlertMission] = None
-    reward: Optional[Reward] = None
+    mission: AlertMission | None = None
+    reward: Reward | None = None
 
 
 class SortieVariant(BaseModel):

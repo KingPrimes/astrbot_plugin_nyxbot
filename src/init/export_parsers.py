@@ -16,8 +16,8 @@ from pathlib import Path
 from astrbot.api import logger
 
 from ..api import CdnClient
-from ..wenum.state_type import StateTypeEnum
 from ..util import to_title_case
+from ..wenum.state_type import StateTypeEnum
 
 # ======================================================================
 # StateTranslation 文件配置

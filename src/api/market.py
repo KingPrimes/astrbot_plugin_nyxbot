@@ -6,27 +6,26 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from astrbot.api import logger
 
 from ..util import (
-    fetch_json,
-    market_cache,
-    fetch_json_with_retry,
     RetryLogLevel,
+    fetch_json,
+    fetch_json_with_retry,
+    market_cache,
 )
 from .api import (
     WF_MARKET_BASE_URL,
-    WF_MARKET_LICH_EPHEMERAS,
-    WF_MARKET_SISTER_EPHEMERAS,
     WF_MARKET_ITEMS,
-    WF_MARKET_RIVEN_WEAPONS,
+    WF_MARKET_LICH_EPHEMERAS,
     WF_MARKET_LICH_WEAPONS,
+    WF_MARKET_RIVEN_WEAPONS,
+    WF_MARKET_SEARCH,
+    WF_MARKET_SISTER_EPHEMERAS,
     WF_MARKET_SISTER_WEAPONS,
-    WF_MARKET_SEARCH
 )
-
 
 
 class MarketClient:
@@ -34,23 +33,23 @@ class MarketClient:
 
     所有公共查询方法均带有 2 分钟本地缓存，避免触发 API 频率限制。
     """
-    
+
     headers: dict[str, str] = {
             "Content-Type": "application/json",
             "language": "zh-hans",
         }
-    
+
     @classmethod
     async def _fetch_with_cache(
         cls,
         url: str,
         cache_key: str,
-        params: Optional[dict[str, Any]] = None,
-        platform: Optional[Platform] = None,
+        params: dict[str, Any] | None = None,
+        platform: Platform | None = None,
         retry: bool = False,
         retry_count: int = 3,
         retry_delay: float = 5.0,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """带缓存的 GET 请求（2 分钟 TTL）。
 
         先从 market_cache 中查找缓存，命中则直接返回；未命中时请求 API，
@@ -103,7 +102,7 @@ class MarketClient:
     # ========================================================================
 
     @classmethod
-    async def fetch_items(cls) -> Optional[dict[str, Any]]:
+    async def fetch_items(cls) -> dict[str, Any] | None:
         """获取所有可交易物品列表。
 
         Returns:
@@ -149,7 +148,7 @@ class MarketClient:
             )
 
     @classmethod
-    async def fetch_items_orders(cls, slug: str,platform: Optional[Platform] = None) -> Optional[dict[str, Any]]:
+    async def fetch_items_orders(cls, slug: str,platform: Platform | None = None) -> dict[str, Any] | None:
         """获取指定物品的订单数据。
 
         Args:
@@ -199,7 +198,7 @@ class MarketClient:
         )
 
     @classmethod
-    async def fetch_items_set(cls,slug:str,platform: Optional[Platform] = None) -> Optional[dict[str, Any]]:
+    async def fetch_items_set(cls,slug:str,platform: Platform | None = None) -> dict[str, Any] | None:
         """获取指定物品的详细数据。
 
         Args:
@@ -256,7 +255,7 @@ class MarketClient:
     # ========================================================================
 
     @classmethod
-    async def fetch_lich_ephemeras(cls) -> Optional[dict[str, Any]]:
+    async def fetch_lich_ephemeras(cls) -> dict[str, Any] | None:
         """获取赤毒幻纹列表。
 
         Returns:
@@ -298,7 +297,7 @@ class MarketClient:
             )
 
     @classmethod
-    async def fetch_sister_ephemeras(cls) -> Optional[dict[str, Any]]:
+    async def fetch_sister_ephemeras(cls) -> dict[str, Any] | None:
         """获取信条幻纹列表。
 
         Returns:
@@ -340,7 +339,7 @@ class MarketClient:
                 )
 
     @classmethod
-    async def fetch_lich_weapons(cls) -> Optional[dict[str, Any]]:
+    async def fetch_lich_weapons(cls) -> dict[str, Any] | None:
         """获取赤毒武器列表。
 
         Returns:
@@ -381,7 +380,7 @@ class MarketClient:
                     )
 
     @classmethod
-    async def fetch_sister_weapons(cls) -> Optional[dict[str, Any]]:
+    async def fetch_sister_weapons(cls) -> dict[str, Any] | None:
         """获取信条武器列表。
 
         Returns:
@@ -428,7 +427,7 @@ class MarketClient:
     # ========================================================================
 
     @classmethod
-    async def fetch_riven_weapons(cls) -> Optional[dict[str, Any]]:
+    async def fetch_riven_weapons(cls) -> dict[str, Any] | None:
         """获取紫卡武器列表。
 
         Returns:
@@ -477,7 +476,7 @@ class MarketClient:
         weapon_url_name: str,
         sort_by: str = "price_asc",
         page: int = 0,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """搜索紫卡拍卖。
 
         Args:

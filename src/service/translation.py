@@ -5,8 +5,6 @@
 """
 from __future__ import annotations
 
-from typing import Optional
-
 
 class TranslationService:
     """翻译服务：中英文名称互查 + 状态翻译。"""
@@ -14,7 +12,7 @@ class TranslationService:
     # ── Alias 翻译 ────────────────────────────────────────────────────
 
     @classmethod
-    async def cn_to_en(cls, cn_name: str) -> Optional[str]:
+    async def cn_to_en(cls, cn_name: str) -> str | None:
         """中文名 → 英文名。
 
         Args:
@@ -26,7 +24,7 @@ class TranslationService:
         ...
 
     @classmethod
-    async def en_to_cn(cls, en_name: str) -> Optional[str]:
+    async def en_to_cn(cls, en_name: str) -> str | None:
         """英文名 → 中文名。
 
         Args:
@@ -51,7 +49,7 @@ class TranslationService:
     @classmethod
     async def get_state_translation(
         cls, unique_name: str
-    ) -> Optional[str]:
+    ) -> str | None:
         """根据唯一名称获取状态翻译名称。
 
         Args:

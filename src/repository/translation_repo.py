@@ -1,8 +1,6 @@
 """Translation repository / 状态翻译数据访问层"""
 from __future__ import annotations
 
-from typing import Optional
-
 from tortoise.exceptions import DoesNotExist
 
 from ..model.state_translation import StateTranslation
@@ -17,7 +15,7 @@ class StateTranslationRepository(BaseRepository[StateTranslation]):
 
     async def find_by_unique_name(
         self, unique_name: str
-    ) -> Optional[StateTranslation]:
+    ) -> StateTranslation | None:
         """根据唯一名称查找。"""
         try:
             return await StateTranslation.get(unique_name=unique_name)

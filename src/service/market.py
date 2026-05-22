@@ -4,8 +4,6 @@
 """
 from __future__ import annotations
 
-from typing import Optional
-
 
 class MarketService:
     """市场数据服务。"""
@@ -13,7 +11,7 @@ class MarketService:
     # ── 远程 API ──────────────────────────────────────────────────────
 
     @classmethod
-    async def search_items(cls, query: str) -> Optional[list[dict]]:
+    async def search_items(cls, query: str) -> list[dict] | None:
         """远程搜索物品。
 
         Args:
@@ -25,7 +23,7 @@ class MarketService:
         ...
 
     @classmethod
-    async def get_item_orders(cls, url_name: str) -> Optional[dict]:
+    async def get_item_orders(cls, url_name: str) -> dict | None:
         """获取指定物品的订单。
 
         Args:
@@ -37,12 +35,12 @@ class MarketService:
         ...
 
     @classmethod
-    async def get_lich_weapons(cls) -> Optional[list[dict]]:
+    async def get_lich_weapons(cls) -> list[dict] | None:
         """获取赤毒武器列表（远程）。"""
         ...
 
     @classmethod
-    async def get_sister_weapons(cls) -> Optional[list[dict]]:
+    async def get_sister_weapons(cls) -> list[dict] | None:
         """获取信条武器列表（远程）。"""
         ...
 
@@ -52,7 +50,7 @@ class MarketService:
         weapon_url_name: str,
         sort_by: str = "price_asc",
         page: int = 0,
-    ) -> Optional[dict]:
+    ) -> dict | None:
         """搜索紫卡拍卖。
 
         Args:
@@ -70,7 +68,7 @@ class MarketService:
     @classmethod
     async def get_local_orders_item(
         cls, slug: str
-    ) -> Optional[dict]:
+    ) -> dict | None:
         """从本地 OrdersItems 表查询物品信息。
 
         Args:

@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Optional
 
 from astrbot.api import logger
 
@@ -19,7 +18,7 @@ class WarframeStatusTask:
     """
 
     def __init__(self):
-        self._task: Optional[asyncio.Task] = None
+        self._task: asyncio.Task | None = None
         self._running = False
 
     async def start(self):
@@ -70,7 +69,6 @@ class WarframeStatusTask:
         2. 检测变更
         3. 推送通知给订阅用户
         """
-        from ..api import WorldStateClient
         from ..service.detector import (
             AlertsChangeDetector,
             FissuresChangeDetector,

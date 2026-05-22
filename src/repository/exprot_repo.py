@@ -4,21 +4,19 @@
 """
 from __future__ import annotations
 
-from typing import Optional
-
 from tortoise.exceptions import DoesNotExist
 
 from ..model.export.customs import Customs
 from ..model.export.mod_set import ModSet
 from ..model.export.night_wave import NightWave
-from ..model.export.relics import Relics
 from ..model.export.relic_rewards import RelicRewards
-from ..model.export.sentinels import Sentinels
-from ..model.export.upgrades import Upgrades
-from ..model.export.warframes import Warframes, WarframeAbility
-from ..model.export.weapons import Weapons
+from ..model.export.relics import Relics
 from ..model.export.reward.reward import Reward
 from ..model.export.reward.reward_pool import RewardPool
+from ..model.export.sentinels import Sentinels
+from ..model.export.upgrades import Upgrades
+from ..model.export.warframes import WarframeAbility, Warframes
+from ..model.export.weapons import Weapons
 from .base import BaseRepository
 
 
@@ -30,7 +28,7 @@ class CustomsRepository(BaseRepository[Customs]):
 
     async def find_by_unique_name(
         self, unique_name: str
-    ) -> Optional[Customs]:
+    ) -> Customs | None:
         """根据唯一名称查找。"""
         try:
             return await Customs.get(unique_name=unique_name)
@@ -46,7 +44,7 @@ class ModSetRepository(BaseRepository[ModSet]):
 
     async def find_by_unique_name(
         self, unique_name: str
-    ) -> Optional[ModSet]:
+    ) -> ModSet | None:
         """根据唯一名称查找。"""
         try:
             return await ModSet.get(unique_name=unique_name)
@@ -62,7 +60,7 @@ class NightWaveRepository(BaseRepository[NightWave]):
 
     async def find_by_unique_name(
         self, unique_name: str
-    ) -> Optional[NightWave]:
+    ) -> NightWave | None:
         """根据唯一名称查找。"""
         try:
             return await NightWave.get(unique_name=unique_name)
@@ -78,7 +76,7 @@ class RelicsRepository(BaseRepository[Relics]):
 
     async def find_by_unique_name(
         self, unique_name: str
-    ) -> Optional[Relics]:
+    ) -> Relics | None:
         """根据唯一名称查找（含关联的 RelicRewards）。"""
         try:
             return await Relics.get(unique_name=unique_name).prefetch_related("relic_rewards")
@@ -116,7 +114,7 @@ class SentinelsRepository(BaseRepository[Sentinels]):
 
     async def find_by_unique_name(
         self, unique_name: str
-    ) -> Optional[Sentinels]:
+    ) -> Sentinels | None:
         """根据唯一名称查找。"""
         try:
             return await Sentinels.get(unique_name=unique_name)
@@ -132,7 +130,7 @@ class UpgradesRepository(BaseRepository[Upgrades]):
 
     async def find_by_unique_name(
         self, unique_name: str
-    ) -> Optional[Upgrades]:
+    ) -> Upgrades | None:
         """根据唯一名称查找。"""
         try:
             return await Upgrades.get(unique_name=unique_name)
@@ -148,7 +146,7 @@ class WarframesRepository(BaseRepository[Warframes]):
 
     async def find_by_unique_name(
         self, unique_name: str
-    ) -> Optional[Warframes]:
+    ) -> Warframes | None:
         """根据唯一名称查找（含关联的 Abilities）。"""
         try:
             return await Warframes.get(unique_name=unique_name).prefetch_related("abilities")
@@ -177,7 +175,7 @@ class WeaponsRepository(BaseRepository[Weapons]):
 
     async def find_by_unique_name(
         self, unique_name: str
-    ) -> Optional[Weapons]:
+    ) -> Weapons | None:
         """根据唯一名称查找。"""
         try:
             return await Weapons.get(unique_name=unique_name)
@@ -215,7 +213,7 @@ class RewardPoolRepository(BaseRepository[RewardPool]):
 
     async def find_by_unique_name(
         self, unique_name: str
-    ) -> Optional[RewardPool]:
+    ) -> RewardPool | None:
         """根据唯一名称查找（含关联的 Rewards）。"""
         try:
             return await RewardPool.get(unique_name=unique_name).prefetch_related("rewards")

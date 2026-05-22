@@ -5,10 +5,11 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 from PIL import Image
+
 from astrbot.api import logger
 
 
@@ -18,7 +19,7 @@ class OcrService:
     单例模式，延迟初始化 OCR 引擎。
     """
 
-    _instance: Optional[OcrService] = None
+    _instance: OcrService | None = None
     _ocr: Any = None
     _initialized: bool = False
 

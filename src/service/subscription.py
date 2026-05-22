@@ -10,10 +10,10 @@
 """
 from __future__ import annotations
 
-from typing import Optional, Sequence
+from collections.abc import Sequence
 
-from ..model.mission_subscription import MissionSubscribe, MissionSubscribeUser
 from ..model.mission_subscribe_user_check_type import MissionSubscribeUserCheckType
+from ..model.mission_subscription import MissionSubscribe, MissionSubscribeUser
 
 
 class SubscriptionService:
@@ -26,7 +26,7 @@ class SubscriptionService:
         cls,
         sub_bot_uid: int,
         sub_group: int,
-        group_name: Optional[str] = None,
+        group_name: str | None = None,
     ) -> MissionSubscribe:
         """添加群组订阅。
 
@@ -59,7 +59,7 @@ class SubscriptionService:
         cls,
         sub_id: int,
         user_id: int,
-        user_name: Optional[str] = None,
+        user_name: str | None = None,
     ) -> MissionSubscribeUser:
         """为指定订阅添加用户。
 
@@ -109,8 +109,8 @@ class SubscriptionService:
         cls,
         subscribe_user_id: int,
         subscribe_type: str,
-        mission_type: Optional[str] = None,
-        tier_num: Optional[int] = None,
+        mission_type: str | None = None,
+        tier_num: int | None = None,
     ) -> MissionSubscribeUserCheckType:
         """为用户订阅添加检查类型。
 
@@ -156,7 +156,7 @@ class SubscriptionService:
     @classmethod
     async def get_subscription_by_group(
         cls, sub_group: int
-    ) -> Optional[MissionSubscribe]:
+    ) -> MissionSubscribe | None:
         """根据群组 ID 获取订阅。
 
         Args:

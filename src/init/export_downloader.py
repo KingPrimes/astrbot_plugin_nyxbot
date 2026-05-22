@@ -15,11 +15,10 @@ from astrbot.api import logger
 
 from ..api.api import WF_PUBLIC_EXPORT_INDEX, WF_PUBLIC_EXPORT_MANIFESTS
 from ..util import (
-    get_public_data_path,
-    download_file,
     decompress_lzma_auto,
+    download_file,
+    get_public_data_path,
 )
-
 
 ExportDir: str = get_public_data_path() + "/export"
 """导出数据目录"""

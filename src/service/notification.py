@@ -4,9 +4,6 @@
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Optional
-
 from ..model.notification import NotificationHistory
 
 
@@ -63,7 +60,7 @@ class NotificationService:
     @classmethod
     async def get_history(
         cls,
-        mission_type: Optional[str] = None,
+        mission_type: str | None = None,
         page: int = 1,
         page_size: int = 20,
     ):

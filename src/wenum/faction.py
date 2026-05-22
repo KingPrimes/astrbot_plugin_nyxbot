@@ -4,6 +4,7 @@ Faction Enum / 派系枚举
 """
 from enum import Enum
 
+
 class FactionEnum(Enum):
     """派系枚举"""
     FC_GRINEER = ("Grineer", "#870507", "\ue401")
@@ -21,22 +22,22 @@ class FactionEnum(Enum):
     FC_TENNO = ("TENNO", "#000000", "\ue400")
     FC_CROSSFIRE = ("多方交战", "#591A9C", "\ue413")
     FC_NONE = ("未知派系", "#000000", "")
-    
+
     def __init__(self, name: str, color: str, icon: str) -> None:
         self._display_name = name
         self._color = color
         self._icon = icon
-        
+
     @property
     def display_name(self) -> str:
         """派系显示名称"""
         return self._display_name
-    
+
     @property
     def color(self) -> str:
         """派系代表颜色（十六进制）"""
         return self._color
-    
+
     @property
     def icon(self) -> str:
         """派系图标（Unicode 字符）"""

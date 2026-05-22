@@ -6,6 +6,7 @@ Mission Type Enum / 任务类型枚举
 
 from enum import Enum
 
+
 class MissionTypeEnum(Enum):
     """任务类型枚举"""
     MT_ASSASSINATION = ("刺杀", 0, "#FF6B6B")
@@ -45,12 +46,12 @@ class MissionTypeEnum(Enum):
     MT_ORPHEUS = ("奧菲斯", 62, "#000000")
     MT_ASCENSION = ("扬升", 90, "#000000")
     MT_RELAY = ("中继站", 100, "#000000")
-    
+
     def __init__(self, name: str, order: int, color: str) -> None:
         self._display_name = name
         self._order = order
         self._color = color
-    
+
     @property
     def display_name(self) -> str:
         """任务类型显示名称"""
@@ -60,12 +61,12 @@ class MissionTypeEnum(Enum):
     def order(self) -> int:
         """排序权重"""
         return self._order
-    
+
     @property
     def color(self) -> str:
         """任务类型代表颜色（十六进制字符串）"""
         return self._color
-    
+
     @classmethod
     def ordered_values(cls) -> list["MissionTypeEnum"]:
         """按 order 排序返回所有枚举成员"""

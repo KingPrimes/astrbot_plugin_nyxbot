@@ -1,13 +1,11 @@
 """Market repository / 市场相关数据访问层"""
 from __future__ import annotations
 
-from typing import Optional
-
 from tortoise.exceptions import DoesNotExist
 
-from ..model.orders_items import OrdersItems
 from ..model.ephemeras import Ephemeras
 from ..model.lich_sister_weapons import LichSisterWeapons
+from ..model.orders_items import OrdersItems
 from .base import BaseRepository
 
 
@@ -17,7 +15,7 @@ class OrdersItemsRepository(BaseRepository[OrdersItems]):
     def __init__(self):
         super().__init__(OrdersItems)
 
-    async def find_by_slug(self, slug: str) -> Optional[OrdersItems]:
+    async def find_by_slug(self, slug: str) -> OrdersItems | None:
         """根据 URL slug 查找。"""
         try:
             return await OrdersItems.get(slug=slug)
@@ -40,7 +38,7 @@ class EphemerasRepository(BaseRepository[Ephemeras]):
     def __init__(self):
         super().__init__(Ephemeras)
 
-    async def find_by_name(self, name: str) -> Optional[Ephemeras]:
+    async def find_by_name(self, name: str) -> Ephemeras | None:
         """根据名称查找。"""
         try:
             return await Ephemeras.get(name=name)
@@ -54,7 +52,7 @@ class LichSisterWeaponsRepository(BaseRepository[LichSisterWeapons]):
     def __init__(self):
         super().__init__(LichSisterWeapons)
 
-    async def find_by_name(self, name: str) -> Optional[LichSisterWeapons]:
+    async def find_by_name(self, name: str) -> LichSisterWeapons | None:
         """根据名称查找。"""
         try:
             return await LichSisterWeapons.get(name=name)

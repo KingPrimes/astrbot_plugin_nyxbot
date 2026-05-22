@@ -4,7 +4,7 @@
 """
 from __future__ import annotations
 
-from typing import Any, Generic, Optional, TypeVar
+from typing import Any, Generic, TypeVar
 
 from tortoise.exceptions import DoesNotExist
 from tortoise.models import Model
@@ -18,7 +18,7 @@ class BaseRepository(Generic[T]):
     def __init__(self, model_cls: type[T]) -> None:
         self._model_cls = model_cls
 
-    async def get_by_id(self, id_val: Any) -> Optional[T]:
+    async def get_by_id(self, id_val: Any) -> T | None:
         """根据主键获取记录。"""
         try:
             return await self._model_cls.get(id=id_val)
@@ -29,7 +29,7 @@ class BaseRepository(Generic[T]):
         self,
         offset: int = 0,
         limit: int = 100,
-        order_field: Optional[str] = None,
+        order_field: str | None = None,
     ) -> tuple[list[T], int]:
         """分页查询所有记录。
 

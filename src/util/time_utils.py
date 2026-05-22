@@ -4,11 +4,10 @@
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
-from typing import Optional
+from datetime import datetime, timezone
 
 
-def parse_wf_timestamp(timestamp_str: str) -> Optional[datetime]:
+def parse_wf_timestamp(timestamp_str: str) -> datetime | None:
     """解析 Warframe API 返回的时间戳字符串。
 
     Warframe 世界状态使用 ISO 8601 格式的时间戳，例如：
@@ -29,7 +28,7 @@ def parse_wf_timestamp(timestamp_str: str) -> Optional[datetime]:
         return None
 
 
-def format_time_remaining(expiry: datetime, now: Optional[datetime] = None) -> str:
+def format_time_remaining(expiry: datetime, now: datetime | None = None) -> str:
     """计算并格式化剩余时间。
 
     Args:
@@ -57,7 +56,7 @@ def format_time_remaining(expiry: datetime, now: Optional[datetime] = None) -> s
         return f"{minutes}分钟"
 
 
-def format_time_remaining_short(expiry: datetime, now: Optional[datetime] = None) -> str:
+def format_time_remaining_short(expiry: datetime, now: datetime | None = None) -> str:
     """简短格式的剩余时间。
 
     Args:

@@ -5,7 +5,6 @@ StateTranslation Model / 状态翻译模型
 """
 from __future__ import annotations
 
-from typing import Optional
 from tortoise import fields
 from tortoise.models import Model
 
@@ -25,7 +24,7 @@ class StateTranslation(Model):
         table = "statetranslation"
 
     @property
-    def type_enum(self) -> Optional[StateTypeEnum]:
+    def type_enum(self) -> StateTypeEnum | None:
         """获取状态类型枚举"""
         if self.type:
             try:

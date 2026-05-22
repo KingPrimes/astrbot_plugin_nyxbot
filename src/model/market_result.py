@@ -5,7 +5,8 @@ MarketResult Model / 市场搜索结果模型
 """
 from __future__ import annotations
 
-from typing import Generic, TypeVar, List, Optional
+from typing import Generic, TypeVar
+
 from pydantic import BaseModel
 
 E = TypeVar("E")
@@ -15,6 +16,6 @@ R = TypeVar("R")
 class MarketResult(BaseModel, Generic[E, R]):
     """市场搜索结果容器"""
 
-    entity: Optional[E] = None
-    result: Optional[R] = None
-    possible_items: List[str] = []
+    entity: E | None = None
+    result: R | None = None
+    possible_items: list[str] = []

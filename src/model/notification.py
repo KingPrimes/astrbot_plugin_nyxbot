@@ -4,7 +4,6 @@
 """
 from __future__ import annotations
 
-from typing import Optional
 from tortoise import fields
 from tortoise.models import Model
 
@@ -31,7 +30,7 @@ class NotificationHistory(Model):
         table = "notificationhistory"
 
     @property
-    def subscribe_type_enum(self) -> Optional[SubscribeEnums]:
+    def subscribe_type_enum(self) -> SubscribeEnums | None:
         """获取订阅类型枚举"""
         if self.subscribe_type:
             try:

@@ -5,53 +5,52 @@
 """
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from astrbot.api import logger
 from astrbot.api.star import Context
 
-from ..init import get_engine
 from ..init import (
+    get_engine,
     init_alias_data,
-    init_nodes_data,
-    init_riven_tion_data,
-    init_riven_tion_alias_data,
-    init_riven_analyse_trend_data,
-    init_riven_items_data,
-    init_orders_items_data,
     init_ephemeras_data,
     init_lich_sister_weapons_data,
-    init_state_translation_data,
     init_night_wave_data,
+    init_nodes_data,
+    init_orders_items_data,
     init_relics_data,
+    init_reward_pool_data,
+    init_riven_analyse_trend_data,
+    init_riven_items_data,
+    init_riven_tion_alias_data,
+    init_riven_tion_data,
     init_sentinels_data,
+    init_state_translation_data,
     init_upgrades_data,
     init_warframes_data,
     init_weapons_data,
-    init_reward_pool_data,
 )
 from ..model.alias import Alias
-from ..model.notification import NotificationHistory
-from ..model.mission_subscription import MissionSubscribe, MissionSubscribeUser
-from ..model.mission_subscribe_user_check_type import MissionSubscribeUserCheckType
 from ..model.ephemeras import Ephemeras
+from ..model.export.night_wave import NightWave
+from ..model.export.nodes import Nodes
+from ..model.export.relic_rewards import RelicRewards
+from ..model.export.relics import Relics
+from ..model.export.reward.reward_pool import RewardPool
+from ..model.export.sentinels import Sentinels
+from ..model.export.upgrades import Upgrades
+from ..model.export.warframes import WarframeAbility, Warframes
+from ..model.export.weapons import Weapons
 from ..model.lich_sister_weapons import LichSisterWeapons
+from ..model.mission_subscribe_user_check_type import MissionSubscribeUserCheckType
+from ..model.mission_subscription import MissionSubscribe, MissionSubscribeUser
+from ..model.notification import NotificationHistory
 from ..model.orders_items import OrdersItems
 from ..model.riven_analyse_trend import RivenAnalyseTrend
 from ..model.riven_items import RivenItems
 from ..model.riven_tion import RivenTion
 from ..model.riven_tion_alias import RivenTionAlias
 from ..model.state_translation import StateTranslation
-from ..model.export.night_wave import NightWave
-from ..model.export.nodes import Nodes
-from ..model.export.relic_rewards import RelicRewards
-from ..model.export.relics import Relics
-from ..model.export.sentinels import Sentinels
-from ..model.export.upgrades import Upgrades
-from ..model.export.warframes import Warframes, WarframeAbility
-from ..model.export.weapons import Weapons
-from ..model.export.reward.reward import Reward
-from ..model.export.reward.reward_pool import RewardPool
 
 PLUGIN_NAME = "astrbot_plugin_nyxbot"
 
@@ -66,7 +65,7 @@ _MODEL_REGISTRY: dict[str, dict[str, Any]] = {}
 def _register_model(
     name: str,
     model_cls: type,
-    search_fields: Optional[list[str]] = None,
+    search_fields: list[str] | None = None,
     sync_func=None,
 ) -> None:
     """注册一个数据模型。

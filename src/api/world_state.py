@@ -4,7 +4,7 @@
 """
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from ..util import fetch_json
 
@@ -18,7 +18,7 @@ class WorldStateClient:
     BASE_URL = "https://api.warframe.com/cdn/worldState.php"
 
     @classmethod
-    async def fetch_raw(cls) -> Optional[dict[str, Any]]:
+    async def fetch_raw(cls) -> dict[str, Any] | None:
         """拉取原始 WorldState 数据。
 
         Returns:
@@ -27,7 +27,7 @@ class WorldStateClient:
         return await fetch_json(cls.BASE_URL)
 
     @classmethod
-    async def get_alerts(cls, raw_data: Optional[dict] = None) -> list[dict]:
+    async def get_alerts(cls, raw_data: dict | None = None) -> list[dict]:
         """获取警报数据。
 
         Args:
@@ -43,7 +43,7 @@ class WorldStateClient:
         return raw_data.get("Alerts", [])
 
     @classmethod
-    async def get_sorties(cls, raw_data: Optional[dict] = None) -> list[dict]:
+    async def get_sorties(cls, raw_data: dict | None = None) -> list[dict]:
         """获取突击数据。"""
         if raw_data is None:
             raw_data = await cls.fetch_raw()
@@ -52,7 +52,7 @@ class WorldStateClient:
         return raw_data.get("Sorties", [])
 
     @classmethod
-    async def get_fissures(cls, raw_data: Optional[dict] = None) -> list[dict]:
+    async def get_fissures(cls, raw_data: dict | None = None) -> list[dict]:
         """获取裂隙数据。"""
         if raw_data is None:
             raw_data = await cls.fetch_raw()
@@ -61,7 +61,7 @@ class WorldStateClient:
         return raw_data.get("Fissures", [])
 
     @classmethod
-    async def get_invasions(cls, raw_data: Optional[dict] = None) -> list[dict]:
+    async def get_invasions(cls, raw_data: dict | None = None) -> list[dict]:
         """获取入侵数据。"""
         if raw_data is None:
             raw_data = await cls.fetch_raw()
@@ -70,7 +70,7 @@ class WorldStateClient:
         return raw_data.get("Invasions", [])
 
     @classmethod
-    async def get_void_trader(cls, raw_data: Optional[dict] = None) -> Optional[dict]:
+    async def get_void_trader(cls, raw_data: dict | None = None) -> dict | None:
         """获取虚空商人数据。"""
         if raw_data is None:
             raw_data = await cls.fetch_raw()
@@ -80,7 +80,7 @@ class WorldStateClient:
         return traders[0] if traders else None
 
     @classmethod
-    async def get_cetus_cycle(cls, raw_data: Optional[dict] = None) -> Optional[dict]:
+    async def get_cetus_cycle(cls, raw_data: dict | None = None) -> dict | None:
         """获取希图斯周期。"""
         if raw_data is None:
             raw_data = await cls.fetch_raw()
@@ -89,7 +89,7 @@ class WorldStateClient:
         return raw_data.get("CetusCycle")
 
     @classmethod
-    async def get_duviri_cycle(cls, raw_data: Optional[dict] = None) -> Optional[dict]:
+    async def get_duviri_cycle(cls, raw_data: dict | None = None) -> dict | None:
         """获取双衍王境周期。"""
         if raw_data is None:
             raw_data = await cls.fetch_raw()
@@ -98,7 +98,7 @@ class WorldStateClient:
         return raw_data.get("DuviriCycle")
 
     @classmethod
-    async def get_nightwave(cls, raw_data: Optional[dict] = None) -> Optional[dict]:
+    async def get_nightwave(cls, raw_data: dict | None = None) -> dict | None:
         """获取午夜电波数据。"""
         if raw_data is None:
             raw_data = await cls.fetch_raw()
@@ -107,7 +107,7 @@ class WorldStateClient:
         return raw_data.get("Nightwave")
 
     @classmethod
-    async def get_daily_deals(cls, raw_data: Optional[dict] = None) -> list[dict]:
+    async def get_daily_deals(cls, raw_data: dict | None = None) -> list[dict]:
         """获取每日特惠数据。"""
         if raw_data is None:
             raw_data = await cls.fetch_raw()
@@ -116,7 +116,7 @@ class WorldStateClient:
         return raw_data.get("DailyDeals", [])
 
     @classmethod
-    async def get_steel_path(cls, raw_data: Optional[dict] = None) -> Optional[dict]:
+    async def get_steel_path(cls, raw_data: dict | None = None) -> dict | None:
         """获取钢铁之路数据。"""
         if raw_data is None:
             raw_data = await cls.fetch_raw()
@@ -125,7 +125,7 @@ class WorldStateClient:
         return raw_data.get("SteelPath")
 
     @classmethod
-    async def get_arbitration(cls, raw_data: Optional[dict] = None) -> Optional[dict]:
+    async def get_arbitration(cls, raw_data: dict | None = None) -> dict | None:
         """获取仲裁数据。"""
         if raw_data is None:
             raw_data = await cls.fetch_raw()

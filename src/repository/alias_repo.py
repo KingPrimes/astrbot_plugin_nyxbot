@@ -1,8 +1,6 @@
 """Alias repository / 别名数据访问层"""
 from __future__ import annotations
 
-from typing import Optional
-
 from tortoise.exceptions import DoesNotExist
 
 from ..model.alias import Alias
@@ -15,14 +13,14 @@ class AliasRepository(BaseRepository[Alias]):
     def __init__(self):
         super().__init__(Alias)
 
-    async def find_by_cn(self, cn: str) -> Optional[Alias]:
+    async def find_by_cn(self, cn: str) -> Alias | None:
         """根据中文名称查找。"""
         try:
             return await Alias.get(cn=cn)
         except DoesNotExist:
             return None
 
-    async def find_by_en(self, en: str) -> Optional[Alias]:
+    async def find_by_en(self, en: str) -> Alias | None:
         """根据英文名称查找。"""
         try:
             return await Alias.get(en=en)

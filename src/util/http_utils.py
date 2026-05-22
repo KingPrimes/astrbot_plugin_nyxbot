@@ -7,9 +7,10 @@ from __future__ import annotations
 import asyncio
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import aiohttp
+
 from astrbot.api import logger
 
 
@@ -39,7 +40,7 @@ class HttpMethod(str, Enum):
 DEFAULT_TIMEOUT = aiohttp.ClientTimeout(total=30)
 
 # 共享的 ClientSession 单例
-_session: Optional[aiohttp.ClientSession] = None
+_session: aiohttp.ClientSession | None = None
 
 
 async def get_session() -> aiohttp.ClientSession:
@@ -69,11 +70,11 @@ async def close_session() -> None:
 
 async def fetch_json(
     url: str,
-    params: Optional[dict[str, Any]] = None,
-    headers: Optional[dict[str, str]] = None,
+    params: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
     timeout: aiohttp.ClientTimeout = DEFAULT_TIMEOUT,
-    content_type: Optional[str] = None,
-) -> Optional[Any]:
+    content_type: str | None = None,
+) -> Any | None:
     """发送 GET 请求并返回 JSON 响应。
 
     Args:
@@ -111,10 +112,10 @@ async def fetch_json(
 
 async def fetch_text(
     url: str,
-    params: Optional[dict[str, Any]] = None,
-    headers: Optional[dict[str, str]] = None,
+    params: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
     timeout: aiohttp.ClientTimeout = DEFAULT_TIMEOUT,
-) -> Optional[str]:
+) -> str | None:
     """发送 GET 请求并返回文本响应。
 
     Args:
@@ -158,14 +159,14 @@ _DEFAULT_LOG_TEMPLATES: dict[RetryLogLevel, str] = {
 
 async def fetch_json_with_retry(
     url: str,
-    params: Optional[dict[str, Any]] = None,
-    headers: Optional[dict[str, str]] = None,
+    params: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
     timeout: aiohttp.ClientTimeout = DEFAULT_TIMEOUT,
-    content_type: Optional[str] = None,
+    content_type: str | None = None,
     max_retries: int = 3,
     retry_delay: float = 5.0,
-    log_templates: Optional[dict[RetryLogLevel, str]] = None,
-) -> Optional[Any]:
+    log_templates: dict[RetryLogLevel, str] | None = None,
+) -> Any | None:
     """带自动重试的 GET JSON 请求。
 
     Args:
@@ -221,8 +222,8 @@ async def fetch_json_with_retry(
 async def download_file(
     url: str,
     method: HttpMethod = HttpMethod.GET,
-    request_body: Optional[Any] = None,
-    extra_headers: Optional[dict[str, str]] = None,
+    request_body: Any | None = None,
+    extra_headers: dict[str, str] | None = None,
     output: str | Path = "download.tmp",
     timeout: aiohttp.ClientTimeout = DEFAULT_TIMEOUT,
     chunk_size: int = 8192,

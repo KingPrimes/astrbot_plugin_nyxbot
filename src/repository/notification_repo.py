@@ -1,8 +1,6 @@
 """Notification repository / 通知历史数据访问层"""
 from __future__ import annotations
 
-from typing import Optional
-
 from tortoise.exceptions import DoesNotExist
 
 from ..model.notification import NotificationHistory
@@ -17,7 +15,7 @@ class NotificationRepository(BaseRepository[NotificationHistory]):
 
     async def find_by_mission_id(
         self, mission_id: str
-    ) -> Optional[NotificationHistory]:
+    ) -> NotificationHistory | None:
         """根据任务 ID 查找通知记录。"""
         try:
             return await NotificationHistory.get(mission_id=mission_id)

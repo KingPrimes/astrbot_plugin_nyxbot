@@ -4,14 +4,10 @@
 """
 from __future__ import annotations
 
-from typing import Optional
-
-from astrbot.api import logger
-
 from ..config import get_wf_data_source_cdn
 from ..util import (
-    fetch_json_with_retry,
     RetryLogLevel,
+    fetch_json_with_retry,
 )
 
 
@@ -27,7 +23,7 @@ class CdnClient:
         return get_wf_data_source_cdn()
 
     @classmethod
-    async def fetch_alias(cls) -> Optional[list[dict]]:
+    async def fetch_alias(cls) -> list[dict] | None:
         """获取别名数据"""
         url = f"{cls._base_url()}/warframe/alias.json"
         return await fetch_json_with_retry(
@@ -39,7 +35,7 @@ class CdnClient:
         )
 
     @classmethod
-    async def fetch_nodes(cls) -> Optional[list[dict]]:
+    async def fetch_nodes(cls) -> list[dict] | None:
         """获取星图节点数据"""
         url = f"{cls._base_url()}/warframe/nodes.json"
         return await fetch_json_with_retry(
@@ -51,7 +47,7 @@ class CdnClient:
         )
 
     @classmethod
-    async def fetch_state_translations(cls) -> Optional[list[dict]]:
+    async def fetch_state_translations(cls) -> list[dict] | None:
         """获取翻译数据"""
         url = f"{cls._base_url()}/warframe/state_translation.json"
         return await fetch_json_with_retry(
@@ -63,7 +59,7 @@ class CdnClient:
         )
 
     @classmethod
-    async def fetch_rive_tion(cls) -> Optional[list[dict]]:
+    async def fetch_rive_tion(cls) -> list[dict] | None:
         """获取Riven Tion 紫卡属性查询参数"""
         url = f"{cls._base_url()}/warframe/market_riven_tion.json"
         return await fetch_json_with_retry(
@@ -75,7 +71,7 @@ class CdnClient:
         )
 
     @classmethod
-    async def fetch_riven_tion_alias(cls) -> Optional[list[dict]]:
+    async def fetch_riven_tion_alias(cls) -> list[dict] | None:
         """获取Riven Tion Alias 紫卡属性查询别名"""
         url = f"{cls._base_url()}/warframe/market_riven_tion_alias.json"
         return await fetch_json_with_retry(
@@ -87,7 +83,7 @@ class CdnClient:
         )
 
     @classmethod
-    async def fetch_reward_pool(cls) -> Optional[list[dict]]:
+    async def fetch_reward_pool(cls) -> list[dict] | None:
         """获取 奖励池 数据"""
         url = f"{cls._base_url()}/warframe/reward_pool.json"
         return await fetch_json_with_retry(
@@ -99,7 +95,7 @@ class CdnClient:
         )
 
     @classmethod
-    async def fetch_riven_analyse_trend(cls) -> Optional[list[dict]]:
+    async def fetch_riven_analyse_trend(cls) -> list[dict] | None:
         """获取 紫卡计算器 数据"""
         url = f"{cls._base_url()}/warframe/riven_analyse_trend.json"
         return await fetch_json_with_retry(

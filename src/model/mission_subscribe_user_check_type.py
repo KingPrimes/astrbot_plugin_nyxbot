@@ -5,12 +5,11 @@ MissionSubscribeUserCheckType Model / 用户订阅检查类型模型
 """
 from __future__ import annotations
 
-from typing import Optional
 from tortoise import fields
 from tortoise.models import Model
 
-from ..wenum.subscribe import SubscribeEnums
 from ..wenum.mission_type import MissionTypeEnum
+from ..wenum.subscribe import SubscribeEnums
 
 
 class MissionSubscribeUserCheckType(Model):
@@ -35,7 +34,7 @@ class MissionSubscribeUserCheckType(Model):
         return SubscribeEnums.from_en_name(self.subscribe)
 
     @property
-    def mission_type_enum_value(self) -> Optional[MissionTypeEnum]:
+    def mission_type_enum_value(self) -> MissionTypeEnum | None:
         """获取任务类型枚举"""
         if self.mission_type_enum:
             try:
@@ -50,8 +49,8 @@ class MissionSubscribeUserCheckType(Model):
     def matches(
         self,
         sub_type: SubscribeEnums,
-        mission_type: Optional[MissionTypeEnum] = None,
-        tier: Optional[int] = None,
+        mission_type: MissionTypeEnum | None = None,
+        tier: int | None = None,
     ) -> bool:
         """检查是否匹配给定的条件"""
         return (

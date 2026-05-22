@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import lzma
 from pathlib import Path
-from typing import Optional
 
 from astrbot.api import logger
 
@@ -87,7 +86,7 @@ def decompress_lzma(
 def decompress_lzma_auto(
     source: str | Path,
     output_dir: str | Path,
-) -> Optional[Path]:
+) -> Path | None:
     """自动去除压缩后缀，解压到指定目录。
 
     后缀处理规则:

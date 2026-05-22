@@ -1,15 +1,13 @@
 """Riven repository / 紫卡相关数据访问层"""
 from __future__ import annotations
 
-from typing import Optional
-
 from tortoise.exceptions import DoesNotExist
 from tortoise.expressions import Q
 
-from ..model.riven_tion import RivenTion
-from ..model.riven_tion_alias import RivenTionAlias
 from ..model.riven_analyse_trend import RivenAnalyseTrend
 from ..model.riven_items import RivenItems
+from ..model.riven_tion import RivenTion
+from ..model.riven_tion_alias import RivenTionAlias
 from .base import BaseRepository
 
 
@@ -19,7 +17,7 @@ class RivenTionRepository(BaseRepository[RivenTion]):
     def __init__(self):
         super().__init__(RivenTion)
 
-    async def find_by_effect(self, effect: str) -> Optional[RivenTion]:
+    async def find_by_effect(self, effect: str) -> RivenTion | None:
         """根据词条效果名称查找。"""
         try:
             return await RivenTion.get(effect=effect)
@@ -44,14 +42,14 @@ class RivenTionAliasRepository(BaseRepository[RivenTionAlias]):
     def __init__(self):
         super().__init__(RivenTionAlias)
 
-    async def find_by_en(self, en: str) -> Optional[RivenTionAlias]:
+    async def find_by_en(self, en: str) -> RivenTionAlias | None:
         """根据英文查找。"""
         try:
             return await RivenTionAlias.get(en=en)
         except DoesNotExist:
             return None
 
-    async def find_by_cn(self, cn: str) -> Optional[RivenTionAlias]:
+    async def find_by_cn(self, cn: str) -> RivenTionAlias | None:
         """根据中文查找。"""
         try:
             return await RivenTionAlias.get(cn=cn)
@@ -65,7 +63,7 @@ class RivenAnalyseTrendRepository(BaseRepository[RivenAnalyseTrend]):
     def __init__(self):
         super().__init__(RivenAnalyseTrend)
 
-    async def find_by_name(self, name: str) -> Optional[RivenAnalyseTrend]:
+    async def find_by_name(self, name: str) -> RivenAnalyseTrend | None:
         """根据效果名称查找。"""
         try:
             return await RivenAnalyseTrend.get(name=name)
@@ -79,7 +77,7 @@ class RivenItemsRepository(BaseRepository[RivenItems]):
     def __init__(self):
         super().__init__(RivenItems)
 
-    async def find_by_slug(self, slug: str) -> Optional[RivenItems]:
+    async def find_by_slug(self, slug: str) -> RivenItems | None:
         """根据 URL slug 查找。"""
         try:
             return await RivenItems.get(slug=slug)
