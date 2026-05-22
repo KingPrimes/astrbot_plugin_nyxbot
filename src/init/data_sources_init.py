@@ -117,12 +117,6 @@ async def get_engine():
     return Tortoise.get_connection("default")
 
 
-async def get_session():
-    """获取 Tortoise ORM 数据库事务上下文。"""
-    await get_engine()
-    return Tortoise
-
-
 async def close_engine() -> None:
     """关闭 TortoiseORM 连接。"""
     global _tortoise_initialized
@@ -133,37 +127,107 @@ async def close_engine() -> None:
 
 
 # ======================================================================
+# 简单去重插入（通用函数）
+# ======================================================================
+
+
+async def _simple_dedup_upsert(
+    model_cls: type[_T],
+    data: list[dict],
+    key_field: str,
+    build_instance: Callable[[dict], _T],
+    *,
+    update_fields: list[str] | None = None,
+    use_transaction: bool = True,
+) -> tuple[int, int]:
+    """通用去重插入/更新函数（带事务包裹，支持可选的 dirty-check 更新）。
+
+    Args:
+        model_cls: TortoiseORM 模型类。
+        data: 待插入的数据列表（dict 列表）。
+        key_field: 去重字段（如 "cn"、"url_name"、"name"）。
+        build_instance: 从 dict 构建模型实例的工厂函数。
+        update_fields: 如果提供，对已有记录做脏检测+更新；
+                       如果为 None，仅插入不更新（保持原有行为）。
+        use_transaction: 是否用显式事务包裹。默认 True。
+
+    Returns:
+        (new_count, updated_count) — 本次新增数量和更新数量。
+    """
+    from tortoise.transactions import in_transaction
+
+    async def _do_upsert() -> tuple[int, int]:
+        await get_engine()
+
+        # 查询已存在的 key 集合
+        keys = [item[key_field] for item in data if item.get(key_field)]
+        existing_map: dict[str, _T] = {
+            getattr(row, key_field): row
+            async for row in model_cls.filter(**{f"{key_field}__in": keys})
+        }
+
+        # Insert: 构建新实例并批量插入
+        new_instances = [
+            build_instance(item)
+            for item in data
+            if item.get(key_field) and item[key_field] not in existing_map
+        ]
+        new_count = 0
+        if new_instances:
+            created = await model_cls.bulk_create(new_instances)
+            new_count = len(created) if created else 0
+
+        # Update: 脏检测（仅当提供 update_fields 时）
+        updated_count = 0
+        if update_fields:
+            to_update: list[_T] = []
+            for item in data:
+                key = item.get(key_field)
+                if not key:
+                    continue
+                obj = existing_map.get(key)
+                if obj is None:
+                    continue
+                new_inst = build_instance(item)
+                changed = False
+                for field in update_fields:
+                    if getattr(obj, field) != getattr(new_inst, field):
+                        setattr(obj, field, getattr(new_inst, field))
+                        changed = True
+                if changed:
+                    to_update.append(obj)
+            if to_update:
+                await model_cls.bulk_update(to_update, fields=update_fields)
+                updated_count = len(to_update)
+
+        return new_count, updated_count
+
+    if use_transaction:
+        async with in_transaction():
+            return await _do_upsert()
+    else:
+        return await _do_upsert()
+
+
+# ======================================================================
 # 数据初始化函数（upsert 模式：对比插入，不删除已有数据）
 # ======================================================================
 
 
 async def init_alias_data() -> None:
-    """从 CDN 获取别名数据，对比插入新的记录（优化版：一次查询 + 批量插入）。"""
+    """从 CDN 获取别名数据，对比插入新的记录。"""
     logger.info("从 CdnClient 加载别名数据")
     data = await CdnClient.fetch_alias()
     if not data:
         logger.warning("别名数据为空，跳过初始化")
         return
-    await get_engine()
 
-    # 一次查询获取所有已存在的 cn
-    existing_cns: set[str] = {
-        row.cn async for row in Alias.filter(
-            cn__in=[item["cn"] for item in data]
-        ).only("cn")
-    }
-
-    # 过滤出新记录
-    new_items: list[Alias] = []
-    for item in data:
-        if item["cn"] not in existing_cns:
-            new_items.append(Alias(cn=item["cn"], en=item["en"]))
-
-    new_count = 0
-    if new_items:
-        created = await Alias.bulk_create(new_items)
-        new_count = len(created) if created else 0
-
+    new_count, _ = await _simple_dedup_upsert(
+        model_cls=Alias,
+        data=data,
+        key_field="cn",
+        build_instance=lambda item: Alias(cn=item["cn"], en=item["en"]),
+    )
     total = await Alias.all().count()
     logger.info(f"别名数据初始化完成，共 {total} 条记录（本次新增 {new_count} 条）")
 
@@ -175,38 +239,24 @@ async def init_riven_tion_data() -> None:
     if not data:
         logger.warning("紫卡词条参数数据为空，跳过初始化")
         return
-    await get_engine()
 
-    # 按 url_name 去重
-    url_names = [item.get("url_name", "") for item in data if item.get("url_name")]
-    existing_url_names: set[str] = {
-        row.url_name async for row in RivenTion.filter(
-            url_name__in=url_names
-        ).only("url_name")
-    }
-
-    new_items: list[RivenTion] = []
-    for item in data:
-        url_name = item.get("url_name", "")
-        if url_name and url_name not in existing_url_names:
-            new_items.append(RivenTion(
-                effect=item.get("effect"),
-                group=item.get("group"),
-                negative_only=item.get("negative_only"),
-                positive_is_negative=item.get("positive_is_negative"),
-                prefix=item.get("prefix"),
-                search_only=item.get("search_only"),
-                suffix=item.get("suffix"),
-                units=item.get("units"),
-                url_name=url_name,
-                exclusive_to=item.get("exclusive_to"),
-            ))
-
-    new_count = 0
-    if new_items:
-        created = await RivenTion.bulk_create(new_items)
-        new_count = len(created) if created else 0
-
+    new_count, _ = await _simple_dedup_upsert(
+        model_cls=RivenTion,
+        data=data,
+        key_field="url_name",
+        build_instance=lambda item: RivenTion(
+            effect=item.get("effect"),
+            group=item.get("group"),
+            negative_only=item.get("negative_only"),
+            positive_is_negative=item.get("positive_is_negative"),
+            prefix=item.get("prefix"),
+            search_only=item.get("search_only"),
+            suffix=item.get("suffix"),
+            units=item.get("units"),
+            url_name=item.get("url_name", ""),
+            exclusive_to=item.get("exclusive_to"),
+        ),
+    )
     total = await RivenTion.all().count()
     logger.info(f"紫卡词条参数数据初始化完成，共 {total} 条记录（本次新增 {new_count} 条）")
 
@@ -218,25 +268,13 @@ async def init_riven_tion_alias_data() -> None:
     if not data:
         logger.warning("紫卡词条别名数据为空，跳过初始化")
         return
-    await get_engine()
 
-    # 按 cn 去重（与 alias 初始化逻辑一致）
-    existing_cns: set[str] = {
-        row.cn async for row in RivenTionAlias.filter(
-            cn__in=[item["cn"] for item in data]
-        ).only("cn")
-    }
-
-    new_items: list[RivenTionAlias] = []
-    for item in data:
-        if item["cn"] not in existing_cns:
-            new_items.append(RivenTionAlias(cn=item["cn"], en=item.get("en")))
-
-    new_count = 0
-    if new_items:
-        created = await RivenTionAlias.bulk_create(new_items)
-        new_count = len(created) if created else 0
-
+    new_count, _ = await _simple_dedup_upsert(
+        model_cls=RivenTionAlias,
+        data=data,
+        key_field="cn",
+        build_instance=lambda item: RivenTionAlias(cn=item["cn"], en=item.get("en")),
+    )
     total = await RivenTionAlias.all().count()
     logger.info(f"紫卡词条别名数据初始化完成，共 {total} 条记录（本次新增 {new_count} 条）")
 
@@ -248,34 +286,22 @@ async def init_riven_analyse_trend_data() -> None:
     if not data:
         logger.warning("紫卡分析参数数据为空，跳过初始化")
         return
-    await get_engine()
 
-    # 按 name 去重
-    existing_names: set[str] = {
-        row.name async for row in RivenAnalyseTrend.filter(
-            name__in=[item["name"] for item in data]
-        ).only("name")
-    }
-
-    new_items: list[RivenAnalyseTrend] = []
-    for item in data:
-        if item["name"] not in existing_names:
-            new_items.append(RivenAnalyseTrend(
-                archwing=item.get("archwing"),
-                melle=item.get("melle"),
-                name=item["name"],
-                pistol=item.get("pistol"),
-                prefix=item.get("prefix"),
-                rifle=item.get("rifle"),
-                shotgun=item.get("shotgun"),
-                suffix=item.get("suffix"),
-            ))
-
-    new_count = 0
-    if new_items:
-        created = await RivenAnalyseTrend.bulk_create(new_items)
-        new_count = len(created) if created else 0
-
+    new_count, _ = await _simple_dedup_upsert(
+        model_cls=RivenAnalyseTrend,
+        data=data,
+        key_field="name",
+        build_instance=lambda item: RivenAnalyseTrend(
+            archwing=item.get("archwing"),
+            melle=item.get("melle"),
+            name=item["name"],
+            pistol=item.get("pistol"),
+            prefix=item.get("prefix"),
+            rifle=item.get("rifle"),
+            shotgun=item.get("shotgun"),
+            suffix=item.get("suffix"),
+        ),
+    )
     total = await RivenAnalyseTrend.all().count()
     logger.info(f"紫卡分析参数数据初始化完成，共 {total} 条记录（本次新增 {new_count} 条）")
 
@@ -336,16 +362,20 @@ async def init_orders_items_data() -> None:
 async def init_ephemeras_data() -> None:
     """初始化 Ephemeras（幻纹）表数据 — 从 Market API。
 
-    从 /lich/ephemeras 和 /sister/ephemeras 两个端点获取数据，
+    从 /lich/ephemeras 和 /sister/ephemeras 两个端点并发获取数据，
     合并后通过 _batch_upsert_ephemeras() 统一 upsert。
     """
     logger.info("从 Market API 加载幻纹数据...")
     await get_engine()
 
+    # 并发获取赤毒幻纹 + 信条幻纹（互不依赖）
+    lich_resp, sister_resp = await asyncio.gather(
+        MarketClient.fetch_lich_ephemeras(),
+        MarketClient.fetch_sister_ephemeras(),
+    )
+
     all_data: list[dict] = []
 
-    # 赤毒幻纹
-    lich_resp = await MarketClient.fetch_lich_ephemeras()
     if lich_resp:
         lich_data = lich_resp.get("data", [])
         for item in lich_data:
@@ -354,8 +384,6 @@ async def init_ephemeras_data() -> None:
     else:
         logger.warning("赤毒幻纹数据为空")
 
-    # 信条幻纹
-    sister_resp = await MarketClient.fetch_sister_ephemeras()
     if sister_resp:
         sister_data = sister_resp.get("data", [])
         for item in sister_data:
@@ -376,16 +404,20 @@ async def init_ephemeras_data() -> None:
 async def init_lich_sister_weapons_data() -> None:
     """初始化 LichSisterWeapons（信条/赤毒武器）表数据 — 从 Market API。
 
-    从 /lich/weapons 和 /sister/weapons 两个端点获取数据，
+    从 /lich/weapons 和 /sister/weapons 两个端点并发获取数据，
     合并后通过 _batch_upsert_lich_sister_weapons() 统一 upsert。
     """
     logger.info("从 Market API 加载信条/赤毒武器数据...")
     await get_engine()
 
+    # 并发获取赤毒武器 + 信条武器（互不依赖）
+    lich_resp, sister_resp = await asyncio.gather(
+        MarketClient.fetch_lich_weapons(),
+        MarketClient.fetch_sister_weapons(),
+    )
+
     all_data: list[dict] = []
 
-    # 赤毒武器
-    lich_resp = await MarketClient.fetch_lich_weapons()
     if lich_resp:
         lich_data = lich_resp.get("data", [])
         for item in lich_data:
@@ -394,8 +426,6 @@ async def init_lich_sister_weapons_data() -> None:
     else:
         logger.warning("赤毒武器数据为空")
 
-    # 信条武器
-    sister_resp = await MarketClient.fetch_sister_weapons()
     if sister_resp:
         sister_data = sister_resp.get("data", [])
         for item in sister_data:
@@ -601,6 +631,8 @@ async def _generic_batch_upsert(
     build_instance: Callable[[dict], _T],
     update_fields: list[str],
     batch_size: int = _BATCH_SIZE,
+    *,
+    use_transaction: bool = True,
 ) -> int:
     """通用分批 Upsert（Phase A + Phase B 脏检测）。
 
@@ -611,57 +643,69 @@ async def _generic_batch_upsert(
         build_instance: 从 dict 构建模型实例的工厂函数。
         update_fields: Phase B 需要比较并更新的字段列表。
         batch_size: 批处理大小，默认 _BATCH_SIZE。
+        use_transaction: 是否用显式事务包裹整个 upsert。默认 True
+                         以保证原子性；如果外部已有事务可设为 False。
 
     Returns:
         本次处理的记录总数（Phase A 新增 + Phase B 实际变更数）。
     """
-    total_upserted = 0
+    from tortoise.transactions import in_transaction
 
-    # --- Phase A: bulk_create(ignore_conflicts=True) 批量插入新记录 ---
-    batch: list[_T] = []
-    for item in items:
-        batch.append(build_instance(item))
-        if len(batch) >= batch_size:
-            created = await model_cls.bulk_create(batch, ignore_conflicts=True)
-            if created:
-                total_upserted += len(created)
-            batch.clear()
-    if batch:
-        created = await model_cls.bulk_create(batch, ignore_conflicts=True)
-        if created:
-            total_upserted += len(created)
+    async def _do_upsert() -> int:
+        # --- 先查询已存在的 keys（用于可靠计数 + Phase B 脏检测）---
+        keys = [item[key_field] for item in items]
+        existing_map = {
+            getattr(obj, key_field): obj
+            async for obj in model_cls.filter(**{f"{key_field}__in": keys})
+        }
 
-    # --- Phase B: 脏检测 + 分批 bulk_update ---
-    keys = [item[key_field] for item in items]
-    existing_map = {
-        getattr(obj, key_field): obj
-        async for obj in model_cls.filter(**{f"{key_field}__in": keys})
-    }
+        # Phase A 前的新增数 = 不在 existing_map 中的 key 数
+        total_new = sum(
+            1 for item in items if item[key_field] not in existing_map
+        )
 
-    to_update: list[_T] = []
-    for item in items:
-        obj = existing_map.get(item[key_field])
-        if obj is not None:
-            # 构建新实例用于值比较
-            new_instance = build_instance(item)
-            changed = False
-            for field in update_fields:
-                old_val = getattr(obj, field)
-                new_val = getattr(new_instance, field)
-                if old_val != new_val:
-                    setattr(obj, field, new_val)
-                    changed = True
-            if changed:
-                to_update.append(obj)
-                if len(to_update) >= batch_size:
-                    await model_cls.bulk_update(to_update, fields=update_fields)
-                    total_upserted += len(to_update)
-                    to_update.clear()
-    if to_update:
-        await model_cls.bulk_update(to_update, fields=update_fields)
-        total_upserted += len(to_update)
+        # --- Phase A: bulk_create(ignore_conflicts=True) 批量插入新记录 ---
+        batch: list[_T] = []
+        for item in items:
+            if item[key_field] not in existing_map:
+                batch.append(build_instance(item))
+                if len(batch) >= batch_size:
+                    await model_cls.bulk_create(batch, ignore_conflicts=True)
+                    batch.clear()
+        if batch:
+            await model_cls.bulk_create(batch, ignore_conflicts=True)
 
-    return total_upserted
+        # --- Phase B: 脏检测 + 分批 bulk_update ---
+        to_update: list[_T] = []
+        for item in items:
+            obj = existing_map.get(item[key_field])
+            if obj is not None:
+                # 构建新实例用于值比较
+                new_instance = build_instance(item)
+                changed = False
+                for field in update_fields:
+                    old_val = getattr(obj, field)
+                    new_val = getattr(new_instance, field)
+                    if old_val != new_val:
+                        setattr(obj, field, new_val)
+                        changed = True
+                if changed:
+                    to_update.append(obj)
+                    if len(to_update) >= batch_size:
+                        await model_cls.bulk_update(to_update, fields=update_fields)
+                        total_new += len(to_update)
+                        to_update.clear()
+        if to_update:
+            await model_cls.bulk_update(to_update, fields=update_fields)
+            total_new += len(to_update)
+
+        return total_new
+
+    if use_transaction:
+        async with in_transaction():
+            return await _do_upsert()
+    else:
+        return await _do_upsert()
 
 
 # ======================================================================
@@ -688,37 +732,45 @@ async def _batch_upsert_translations(items: list[dict]) -> int:
 
 async def _batch_upsert_nodes(items: list[dict]) -> int:
     """分批 upsert Nodes（含脏检测）。"""
-    node_fields = [f for f in items[0].keys() if f != "uniqueName"] if items else []
     return await _generic_batch_upsert(
         model_cls=Nodes,
         items=items,
         key_field="uniqueName",
         build_instance=lambda item: Nodes(**item),
-        update_fields=node_fields,
+        update_fields=[
+            "name", "systemName", "systemIndex", "nodeType",
+            "masteryReq", "missionIndex", "factionIndex",
+            "minEnemyLevel", "maxEnemyLevel",
+        ],
     )
 
 
 async def _batch_upsert_weapons(items: list[dict]) -> int:
     """分批 upsert Weapons（含脏检测）。"""
-    weapon_fields = [f for f in items[0].keys() if f != "uniqueName"] if items else []
     return await _generic_batch_upsert(
         model_cls=Weapons,
         items=items,
         key_field="uniqueName",
         build_instance=lambda item: Weapons(**item),
-        update_fields=weapon_fields,
+        update_fields=[
+            "name", "codexSecret", "damagePerShot", "totalDamage",
+            "description", "englishName", "criticalChance",
+            "criticalMultiplier", "procChance", "fireRate",
+            "masteryReq", "productCategory", "slot", "accuracy",
+            "omegaAttenuation", "maxLevelCap", "noise", "trigger",
+            "magazineSize", "reloadTime", "sentinel", "multishot",
+        ],
     )
 
 
 async def _batch_upsert_night_wave(items: list[dict]) -> int:
     """分批 upsert NightWave（含脏检测）。"""
-    nw_fields = [f for f in items[0].keys() if f != "uniqueName"] if items else []
     return await _generic_batch_upsert(
         model_cls=NightWave,
         items=items,
         key_field="uniqueName",
         build_instance=lambda item: NightWave(**item),
-        update_fields=nw_fields,
+        update_fields=["name", "description", "standing", "required"],
     )
 
 

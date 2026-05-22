@@ -178,6 +178,33 @@ async def sever_export_files() -> bool:
     return success
 
 
+# ══════════════════════════════════════════════════════════════════════
+# Hash.json 内存缓存（避免重复 IO：从 ~15 次降为 1 次）
+# ══════════════════════════════════════════════════════════════════════
+_hash_cache: dict[str, str] = {}
+_hash_cache_mtime: float = 0.0
+
+
+async def _load_hash_data() -> dict[str, str]:
+    """加载 Hash.json 到内存缓存（基于文件 mtime 的惰性失效）。
+
+    Returns:
+        Hash.json 解析后的 dict，文件不存在或解析失败时返回 {}。
+    """
+    global _hash_cache, _hash_cache_mtime
+    hash_path = Path(ExportHash)
+    mtime = hash_path.stat().st_mtime if hash_path.exists() else 0.0
+    if mtime == _hash_cache_mtime:
+        return _hash_cache
+    try:
+        _hash_cache = json.loads(hash_path.read_text(encoding="utf-8"))
+        _hash_cache_mtime = mtime
+    except (json.JSONDecodeError, OSError):
+        _hash_cache = {}
+        _hash_cache_mtime = 0.0
+    return _hash_cache
+
+
 async def resolve_export_filename(prefix: str) -> str | None:
     """从 Hash.json 中查找匹配指定前缀的导出文件名，避免硬编码语言后缀。
 
@@ -188,21 +215,17 @@ async def resolve_export_filename(prefix: str) -> str | None:
     Hash.json 的 key 是完整的导出文件名（含语言后缀），
     因此只需遍历 key 并匹配前缀即可支持任意语言。
 
+    通过 _load_hash_data() 使用内存缓存，避免每次调用都重新读取文件。
+
     Args:
         prefix: 文件前缀，如 "ExportRegions", "ExportWeapons", "ExportSortieRewards"
 
     Returns:
         str | None: 实际文件名（含扩展名），未找到时返回 None
     """
-    hash_path = Path(ExportHash)
-    if not hash_path.exists():
-        logger.warning(f"Hash.json 不存在，无法解析导出文件名: {prefix}")
-        return None
-
-    try:
-        hash_data = json.loads(hash_path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError) as e:
-        logger.warning(f"Hash.json 解析失败: {e}")
+    hash_data = await _load_hash_data()
+    if not hash_data:
+        logger.warning(f"Hash.json 为空或不存在，无法解析导出文件名: {prefix}")
         return None
 
     for filename in hash_data:

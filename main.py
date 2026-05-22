@@ -35,10 +35,10 @@ class NyxBotPlugin(Star):
     async def _do_initialize(self):
         """后台执行的完整初始化逻辑。
 
-        优化策略：将独立数据源的网络拉取并发化，减少启动延迟：
-        - Group 1: CDN 数据（互不依赖，访问不同表）
-        - Group 2: Market API 数据（互不依赖，访问不同表）
-        - Group 3: 导出文件数据（互不依赖，访问不同表）
+        优化策略：所有独立数据源（CDN + Market API + 导出文件）一次性并发拉取，
+        最大化并发度。各 init_* 函数访问不同数据库表，无跨组依赖。
+        get_engine() 内部有单例保护，并发调用安全。
+        return_exceptions=True 确保一个数据源失败不阻塞其他数据源。
         - Stub 函数串行执行（无实际开销）
         """
         try:
@@ -48,27 +48,20 @@ class NyxBotPlugin(Star):
                 set_init_complete()
                 return
 
-            # Group 1: CDN 数据源并发拉取
+            # 所有独立数据源一次性并发拉取（无跨组依赖，最大化并发）
             await asyncio.gather(
+                # CDN 数据源
                 init_alias_data(),
                 init_riven_tion_data(),
                 init_riven_tion_alias_data(),
                 init_riven_analyse_trend_data(),
                 init_reward_pool_data(),
-                return_exceptions=True,
-            )
-
-            # Group 2: Market API 数据源并发拉取
-            await asyncio.gather(
+                # Market API 数据源
                 init_riven_items_data(),
                 init_orders_items_data(),
                 init_ephemeras_data(),
                 init_lich_sister_weapons_data(),
-                return_exceptions=True,
-            )
-
-            # Group 3: 导出文件数据源并发拉取
-            await asyncio.gather(
+                # 导出文件数据源
                 init_night_wave_data(),
                 init_nodes_data(),
                 init_weapons_data(),

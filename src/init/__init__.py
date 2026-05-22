@@ -3,7 +3,6 @@ from .data_sources_init import (
     close_engine,
     # 引擎
     get_engine,
-    get_session,
     # Alias / Nodes
     init_alias_data,
     init_ephemeras_data,
@@ -47,7 +46,6 @@ from .export_parsers import (
 
 __all__ = [
     "get_engine",
-    "get_session",
     "close_engine",
     # 初始化状态
     "set_init_complete",
