@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from tortoise.exceptions import DoesNotExist
+
 from ..model.mission_subscribe_user_check_type import MissionSubscribeUserCheckType
 from ..model.mission_subscription import MissionSubscribe, MissionSubscribeUser
 
@@ -38,7 +40,13 @@ class SubscriptionService:
         Returns:
             创建的订阅记录。
         """
-        ...
+        sub = MissionSubscribe(
+            sub_bot_uid=sub_bot_uid,
+            sub_group=sub_group,
+            group_name=group_name or "",
+        )
+        await sub.save()
+        return sub
 
     @classmethod
     async def remove_subscription(cls, sub_group: int) -> bool:
@@ -50,7 +58,8 @@ class SubscriptionService:
         Returns:
             是否成功删除。
         """
-        ...
+        deleted = await MissionSubscribe.filter(sub_group=sub_group).delete()
+        return deleted > 0
 
     # ── MissionSubscribeUser ──────────────────────────────────────────
 
@@ -71,7 +80,13 @@ class SubscriptionService:
         Returns:
             创建的用户订阅配置。
         """
-        ...
+        user = MissionSubscribeUser(
+            mission_subscribe_id=sub_id,
+            user_id=user_id,
+            user_name=user_name or "",
+        )
+        await user.save()
+        return user
 
     @classmethod
     async def remove_user_from_subscription(
@@ -86,7 +101,10 @@ class SubscriptionService:
         Returns:
             是否成功移除。
         """
-        ...
+        deleted = await MissionSubscribeUser.filter(
+            mission_subscribe_id=sub_id, user_id=user_id,
+        ).delete()
+        return deleted > 0
 
     @classmethod
     async def list_users_by_subscription(
@@ -100,7 +118,9 @@ class SubscriptionService:
         Returns:
             用户订阅配置列表。
         """
-        ...
+        return await MissionSubscribeUser.filter(
+            mission_subscribe_id=sub_id
+        ).prefetch_related("check_types")
 
     # ── MissionSubscribeUserCheckType ─────────────────────────────────
 
@@ -123,7 +143,14 @@ class SubscriptionService:
         Returns:
             创建的检查类型记录。
         """
-        ...
+        ct = MissionSubscribeUserCheckType(
+            mission_subscribe_user_id=subscribe_user_id,
+            subscribe_type=subscribe_type,
+            mission_type=mission_type or "",
+            tier_num=tier_num,
+        )
+        await ct.save()
+        return ct
 
     @classmethod
     async def remove_check_type(cls, check_type_id: int) -> bool:
@@ -135,7 +162,8 @@ class SubscriptionService:
         Returns:
             是否成功删除。
         """
-        ...
+        deleted = await MissionSubscribeUserCheckType.filter(id=check_type_id).delete()
+        return deleted > 0
 
     @classmethod
     async def list_check_types(
@@ -149,7 +177,9 @@ class SubscriptionService:
         Returns:
             检查类型列表。
         """
-        ...
+        return await MissionSubscribeUserCheckType.filter(
+            mission_subscribe_user_id=subscribe_user_id
+        )
 
     # ── 查询 ──────────────────────────────────────────────────────────
 
@@ -165,7 +195,10 @@ class SubscriptionService:
         Returns:
             订阅记录，不存在返回 None。
         """
-        ...
+        try:
+            return await MissionSubscribe.get(sub_group=sub_group)
+        except DoesNotExist:
+            return None
 
     @classmethod
     async def list_all_subscriptions(cls) -> Sequence[MissionSubscribe]:
@@ -174,7 +207,7 @@ class SubscriptionService:
         Returns:
             所有订阅记录。
         """
-        ...
+        return await MissionSubscribe.all().prefetch_related("users__check_types")
 
     @classmethod
     async def list_subscriptions_by_bot(
@@ -188,4 +221,6 @@ class SubscriptionService:
         Returns:
             订阅列表。
         """
-        ...
+        return await MissionSubscribe.filter(
+            sub_bot_uid=sub_bot_uid
+        ).prefetch_related("users__check_types")

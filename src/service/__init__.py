@@ -1,5 +1,7 @@
 """Service layer package / 业务逻辑层包"""
 from .alias import AliasService
+from .data_admin import DataAdminService
+from .data_sync import DataSyncService
 from .detector import (
     AlertsChangeDetector,
     BaseChangeDetector,
@@ -7,16 +9,26 @@ from .detector import (
     InvasionsChangeDetector,
 )
 from .market import MarketService
+from .nightwave import NightWaveService
+from .nodes import NodesService
 from .notification import NotificationService
+from .relics import RelicsService
+from .reward import RewardService
 from .riven import RivenAttributeCalculator, RivenService
+from .sentinels import SentinelsService
+from .state_translation import StateTranslationService
 from .subscription import SubscriptionService
-from .translation import TranslationService
+from .upgrades import UpgradesService
+from .warframes import WarframesService
+from .weapons import WeaponsService
 from .world_state import WorldStateService
 
 __all__ = [
+    "DataAdminService",
+    "DataSyncService",
     "WorldStateService",
     "AliasService",
-    "TranslationService",
+    "StateTranslationService",
     "MarketService",
     "RivenService",
     "RivenAttributeCalculator",
@@ -26,4 +38,14 @@ __all__ = [
     "AlertsChangeDetector",
     "FissuresChangeDetector",
     "InvasionsChangeDetector",
+    # 新 Service
+    "NodesService",
+    "WeaponsService",
+    "NightWaveService",
+    "RewardService",
+    # Stub Service
+    "RelicsService",
+    "SentinelsService",
+    "UpgradesService",
+    "WarframesService",
 ]

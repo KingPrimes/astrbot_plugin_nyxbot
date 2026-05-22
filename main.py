@@ -8,7 +8,21 @@ from typing import cast
 from astrbot.api import AstrBotConfig, logger
 from astrbot.api.star import Context, Star
 
-from .src.init import *
+from .src.init.engine import close_engine, get_engine, set_init_complete
+from .src.service import (
+    AliasService,
+    MarketService,
+    NightWaveService,
+    NodesService,
+    RelicsService,
+    RewardService,
+    RivenService,
+    SentinelsService,
+    StateTranslationService,
+    UpgradesService,
+    WarframesService,
+    WeaponsService,
+)
 from .src.web_api.registry import register_web_apis
 
 #from .src.task.warframe_status import WarframeStatusTask
@@ -35,44 +49,45 @@ class NyxBotPlugin(Star):
     async def _do_initialize(self):
         """后台执行的完整初始化逻辑。
 
-        优化策略：所有独立数据源（CDN + Market API + 导出文件）一次性并发拉取，
-        最大化并发度。各 init_* 函数访问不同数据库表，无跨组依赖。
+        各 Service.sync_*() 方法独立访问各自数据库表，无跨组依赖。
         get_engine() 内部有单例保护，并发调用安全。
         return_exceptions=True 确保一个数据源失败不阻塞其他数据源。
-        - Stub 函数串行执行（无实际开销）
+        - Stub Service 串行执行（无实际开销）
         """
         try:
             # 初始化数据库（TortoiseORM 连接 + 建表）
             await get_engine()
-            if not await init_state_translation_data():
+
+            # StateTranslation 必须最先执行（导出文件下载依赖）
+            if not await StateTranslationService.sync_data():
                 set_init_complete()
                 return
 
             # 所有独立数据源一次性并发拉取（无跨组依赖，最大化并发）
             await asyncio.gather(
                 # CDN 数据源
-                init_alias_data(),
-                init_riven_tion_data(),
-                init_riven_tion_alias_data(),
-                init_riven_analyse_trend_data(),
-                init_reward_pool_data(),
+                AliasService.sync_data(),
+                RivenService.sync_tion_data(),
+                RivenService.sync_tion_alias_data(),
+                RivenService.sync_analyse_trend_data(),
+                RewardService.sync_data(),
                 # Market API 数据源
-                init_riven_items_data(),
-                init_orders_items_data(),
-                init_ephemeras_data(),
-                init_lich_sister_weapons_data(),
+                RivenService.sync_items_data(),
+                MarketService.sync_orders_items(),
+                MarketService.sync_ephemeras(),
+                MarketService.sync_lich_sister_weapons(),
                 # 导出文件数据源
-                init_night_wave_data(),
-                init_nodes_data(),
-                init_weapons_data(),
+                NightWaveService.sync_data(),
+                NodesService.sync_data(),
+                WeaponsService.sync_data(),
                 return_exceptions=True,
             )
 
-            # Stub 函数（无网络开销，串行即可）
-            await init_relics_data()
-            await init_sentinels_data()
-            await init_upgrades_data()
-            await init_warframes_data()
+            # Stub Service（无网络开销，串行即可）
+            await RelicsService.sync_data()
+            await SentinelsService.sync_data()
+            await UpgradesService.sync_data()
+            await WarframesService.sync_data()
 
             # 注册数据管理 API（Plugin Pages 后端）
             register_web_apis(cast(Context, self.context))

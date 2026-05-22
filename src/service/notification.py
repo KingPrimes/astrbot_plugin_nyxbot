@@ -4,6 +4,8 @@
 """
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 from ..model.notification import NotificationHistory
 
 
@@ -31,7 +33,15 @@ class NotificationService:
         Returns:
             创建的通知历史记录。
         """
-        ...
+        instance = NotificationHistory(
+            mission_type=mission_type,
+            mission_id=mission_id,
+            title=title,
+            content=content,
+            notified_users=notified_users,
+        )
+        await instance.save()
+        return instance
 
     @classmethod
     async def has_notified(cls, mission_id: str) -> bool:
@@ -43,7 +53,12 @@ class NotificationService:
         Returns:
             是否已通知。
         """
-        ...
+        from tortoise.exceptions import DoesNotExist
+        try:
+            await NotificationHistory.get(mission_id=mission_id)
+            return True
+        except DoesNotExist:
+            return False
 
     @classmethod
     async def clean_old_records(cls, retention_hours: int = 12) -> int:
@@ -55,7 +70,9 @@ class NotificationService:
         Returns:
             清理的记录数。
         """
-        ...
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=retention_hours)).isoformat()
+        deleted = await NotificationHistory.filter(notified_at__lt=cutoff).delete()
+        return deleted
 
     @classmethod
     async def get_history(
@@ -74,4 +91,10 @@ class NotificationService:
         Returns:
             (记录列表, 总记录数) 的元组。
         """
-        ...
+        offset = (page - 1) * page_size
+        qs = NotificationHistory.all()
+        if mission_type:
+            qs = qs.filter(mission_type=mission_type)
+        total = await qs.count()
+        items = await qs.order_by("-notified_at").offset(offset).limit(page_size)
+        return list(items), total

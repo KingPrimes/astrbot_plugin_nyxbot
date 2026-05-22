@@ -10,26 +10,6 @@ from typing import Any
 from astrbot.api import logger
 from astrbot.api.star import Context
 
-from ..init import (
-    get_engine,
-    init_alias_data,
-    init_ephemeras_data,
-    init_lich_sister_weapons_data,
-    init_night_wave_data,
-    init_nodes_data,
-    init_orders_items_data,
-    init_relics_data,
-    init_reward_pool_data,
-    init_riven_analyse_trend_data,
-    init_riven_items_data,
-    init_riven_tion_alias_data,
-    init_riven_tion_data,
-    init_sentinels_data,
-    init_state_translation_data,
-    init_upgrades_data,
-    init_warframes_data,
-    init_weapons_data,
-)
 from ..model.alias import Alias
 from ..model.ephemeras import Ephemeras
 from ..model.export.night_wave import NightWave
@@ -51,6 +31,21 @@ from ..model.riven_items import RivenItems
 from ..model.riven_tion import RivenTion
 from ..model.riven_tion_alias import RivenTionAlias
 from ..model.state_translation import StateTranslation
+from ..service import (
+    AliasService,
+    MarketService,
+    NightWaveService,
+    NodesService,
+    RelicsService,
+    RewardService,
+    RivenService,
+    SentinelsService,
+    StateTranslationService,
+    UpgradesService,
+    WarframesService,
+    WeaponsService,
+)
+from ..service.data_admin import DataAdminService
 
 PLUGIN_NAME = "astrbot_plugin_nyxbot"
 
@@ -120,8 +115,8 @@ def register_data_apis(context: Context) -> None:
     # ========================================================================
 
     # ── 原有模型 ──
-    _register_model("alias", Alias, search_fields=["cn", "en"], sync_func=init_alias_data)
-    _register_model("nodes", Nodes, search_fields=["name", "uniqueName"], sync_func=init_nodes_data)
+    _register_model("alias", Alias, search_fields=["cn", "en"], sync_func=AliasService.sync_data)
+    _register_model("nodes", Nodes, search_fields=["name", "uniqueName"], sync_func=NodesService.sync_data)
 
     # ── Notification ──
     _register_model(
@@ -140,34 +135,34 @@ def register_data_apis(context: Context) -> None:
     )
 
     # ── Riven ──
-    _register_model("riven_tion", RivenTion, search_fields=["effect", "url_name"], sync_func=init_riven_tion_data)
-    _register_model("riven_tion_alias", RivenTionAlias, search_fields=["en", "cn"], sync_func=init_riven_tion_alias_data)
-    _register_model("riven_analyse_trend", RivenAnalyseTrend, search_fields=["name"], sync_func=init_riven_analyse_trend_data)
-    _register_model("riven_items", RivenItems, search_fields=["name", "slug"], sync_func=init_riven_items_data)
+    _register_model("riven_tion", RivenTion, search_fields=["effect", "url_name"], sync_func=RivenService.sync_tion_data)
+    _register_model("riven_tion_alias", RivenTionAlias, search_fields=["en", "cn"], sync_func=RivenService.sync_tion_alias_data)
+    _register_model("riven_analyse_trend", RivenAnalyseTrend, search_fields=["name"], sync_func=RivenService.sync_analyse_trend_data)
+    _register_model("riven_items", RivenItems, search_fields=["name", "slug"], sync_func=RivenService.sync_items_data)
 
     # ── Market ──
-    _register_model("orders_items", OrdersItems, search_fields=["name", "slug"], sync_func=init_orders_items_data)
-    _register_model("ephemeras", Ephemeras, search_fields=["name", "slug"], sync_func=init_ephemeras_data)
-    _register_model("lich_sister_weapons", LichSisterWeapons, search_fields=["name", "slug"], sync_func=init_lich_sister_weapons_data)
+    _register_model("orders_items", OrdersItems, search_fields=["name", "slug"], sync_func=MarketService.sync_orders_items)
+    _register_model("ephemeras", Ephemeras, search_fields=["name", "slug"], sync_func=MarketService.sync_ephemeras)
+    _register_model("lich_sister_weapons", LichSisterWeapons, search_fields=["name", "slug"], sync_func=MarketService.sync_lich_sister_weapons)
 
     # ── Translation ──
     _register_model(
         "state_translation",
         StateTranslation,
         search_fields=["name", "unique_name"],
-        sync_func=init_state_translation_data,
+        sync_func=StateTranslationService.sync_data,
     )
 
     # ── Exprot ──
-    _register_model("night_wave", NightWave, search_fields=["name", "unique_name"], sync_func=init_night_wave_data)
-    _register_model("relics", Relics, search_fields=["name", "unique_name"], sync_func=init_relics_data)
+    _register_model("night_wave", NightWave, search_fields=["name", "unique_name"], sync_func=NightWaveService.sync_data)
+    _register_model("relics", Relics, search_fields=["name", "unique_name"], sync_func=RelicsService.sync_data)
     _register_model("relic_rewards", RelicRewards, search_fields=["reward_name"], sync_func=None)
-    _register_model("sentinels", Sentinels, search_fields=["name", "unique_name"], sync_func=init_sentinels_data)
-    _register_model("upgrades", Upgrades, search_fields=["name", "unique_name"], sync_func=init_upgrades_data)
-    _register_model("warframes", Warframes, search_fields=["name", "unique_name"], sync_func=init_warframes_data)
+    _register_model("sentinels", Sentinels, search_fields=["name", "unique_name"], sync_func=SentinelsService.sync_data)
+    _register_model("upgrades", Upgrades, search_fields=["name", "unique_name"], sync_func=UpgradesService.sync_data)
+    _register_model("warframes", Warframes, search_fields=["name", "unique_name"], sync_func=WarframesService.sync_data)
     _register_model("warframe_ability", WarframeAbility, search_fields=["ability_name"], sync_func=None)
-    _register_model("weapons", Weapons, search_fields=["name", "unique_name"], sync_func=init_weapons_data)
-    _register_model("reward_pool", RewardPool, search_fields=["unique_name"], sync_func=init_reward_pool_data)
+    _register_model("weapons", Weapons, search_fields=["name", "unique_name"], sync_func=WeaponsService.sync_data)
+    _register_model("reward_pool", RewardPool, search_fields=["unique_name"], sync_func=RewardService.sync_data)
 
     # ========================================================================
     # 查询（分页）
@@ -187,34 +182,11 @@ def register_data_apis(context: Context) -> None:
         size = int(request.args.get("size", 20))
         q = request.args.get("q", "").strip()
 
-        offset = (page - 1) * size
+        items, total = await DataAdminService.query(
+            model_cls, search_fields, page, size, q,
+        )
 
-        await get_engine()
-
-        # 构建查询
-        qs = model_cls.all()
-        if q and search_fields:
-            from tortoise.expressions import Q
-            field_conditions = []
-            for field_name in search_fields:
-                field_conditions.append(Q(**{f"{field_name}__contains": q}))
-            if field_conditions:
-                q_or = field_conditions[0]
-                for fc in field_conditions[1:]:
-                    q_or |= fc
-                qs = qs.filter(q_or)
-
-        # 总数
-        total = await qs.count()
-
-        # 分页查询
-        items = await qs.offset(offset).limit(size)
-
-        # 序列化
-        serialized = []
-        for item in items:
-            serialized.append(_serialize_instance(item))
-
+        serialized = [_serialize_instance(item) for item in items]
         return jsonify({"items": serialized, "total": total})
 
     context.register_web_api(
@@ -240,11 +212,8 @@ def register_data_apis(context: Context) -> None:
         if not data:
             return jsonify({"error": "No data provided"}), 400
 
-        await get_engine()
-
         try:
-            instance = model_cls(**data)
-            await instance.save()
+            instance = await DataAdminService.create(model_cls, data)
             return jsonify({"success": True, "data": _serialize_instance(instance)})
         except Exception as e:
             logger.error(f"创建 {model} 记录失败: {e}")
@@ -277,19 +246,11 @@ def register_data_apis(context: Context) -> None:
         if record_id is None:
             return jsonify({"error": "Missing 'id' field"}), 400
 
-        await get_engine()
-
         try:
-            instance = await model_cls.get(id=record_id)
-            if not instance:
-                return jsonify({"error": f"Record {record_id} not found"}), 404
-
-            for key, value in data.items():
-                if hasattr(instance, key):
-                    setattr(instance, key, value)
-
-            await instance.save()
+            instance = await DataAdminService.update(model_cls, record_id, data)
             return jsonify({"success": True, "data": _serialize_instance(instance)})
+        except ValueError:
+            return jsonify({"error": f"Record {record_id} not found"}), 404
         except Exception as e:
             logger.error(f"更新 {model} 记录失败: {e}")
             return jsonify({"error": str(e)}), 500
@@ -318,11 +279,9 @@ def register_data_apis(context: Context) -> None:
         if record_id is None:
             return jsonify({"error": "Missing 'id' field"}), 400
 
-        await get_engine()
-
         try:
-            deleted = await model_cls.filter(id=record_id).delete()
-            if deleted == 0:
+            deleted = await DataAdminService.delete(model_cls, record_id)
+            if not deleted:
                 return jsonify({"error": f"Record {record_id} not found"}), 404
             return jsonify({"success": True})
         except Exception as e:
