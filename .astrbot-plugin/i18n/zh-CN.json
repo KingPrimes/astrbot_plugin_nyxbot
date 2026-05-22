@@ -1,0 +1,227 @@
+{
+  "pages": {
+    "nyxbot-admin": {
+      "title": "NyxBot 数据管理中心",
+      "description": "管理 Warframe 助手插件的数据，支持 CRUD 操作与数据同步",
+
+      "sidebar": {
+        "subtitle": "数据管理中心",
+        "filter_placeholder": "过滤模型...",
+        "loading": "加载模型列表中...",
+        "no_match": "没有匹配的模型"
+      },
+
+      "categories": {
+        "basic": "基础数据",
+        "translation": "翻译数据",
+        "game_content": "游戏内容",
+        "riven": "Riven 数据",
+        "market": "Market 数据",
+        "notification": "通知与订阅",
+        "other": "其他"
+      },
+
+      "models": {
+        "alias": "别名",
+        "nodes": "节点",
+        "state_translation": "状态翻译",
+        "night_wave": "午夜电波",
+        "relics": "遗物",
+        "relic_rewards": "遗物奖励",
+        "sentinels": "守护",
+        "upgrades": "振幅晶体",
+        "warframes": "战甲",
+        "warframe_ability": "战甲技能",
+        "weapons": "武器",
+        "reward_pool": "奖励池",
+        "reward": "具体奖励",
+        "riven_tion": "紫卡词条",
+        "riven_tion_alias": "紫卡词条别名",
+        "riven_analyse_trend": "紫卡分析趋势",
+        "riven_items": "紫卡物品",
+        "orders_items": "市场物品",
+        "ephemeras": "幻纹",
+        "lich_sister_weapons": "玄骸/姐妹武器",
+        "notification_history": "通知历史",
+        "mission_subscribe": "任务订阅",
+        "mission_subscribe_user": "订阅用户",
+        "mission_subscribe_user_check_type": "订阅检查类型"
+      },
+
+      "toolbar": {
+        "select_model": "选择一个模型",
+        "records_count": "共 {n} 条记录",
+        "sync": "🔄 同步",
+        "sync_title": "从数据源同步",
+        "syncing": "正在同步 {model} 数据...",
+        "sync_success": "{model} 数据同步完成",
+        "sync_failed": "同步失败",
+        "create": "➕ 新增记录"
+      },
+
+      "table": {
+        "actions": "操作",
+        "no_data": "暂无数据",
+        "loading": "加载中...",
+        "load_failed": "加载失败"
+      },
+
+      "pagination": {
+        "prev": "上一页",
+        "next": "下一页"
+      },
+
+      "modal": {
+        "edit_record": "编辑记录",
+        "new_record": "新增记录",
+        "cancel": "取消",
+        "save": "保存",
+        "close": "✕",
+        "edit_btn": "编辑",
+        "delete_btn": "删除",
+        "load_form": "加载表单...",
+        "cannot_determine_fields": "请先加载数据以确定模型字段",
+        "record_not_in_cache": "缓存中未找到该记录，请刷新页面后重试",
+        "id_readonly": "id"
+      },
+
+      "confirm": {
+        "title": "确认删除",
+        "message": "确定要删除这条记录吗？此操作不可撤销。",
+        "delete_btn": "删除"
+      },
+
+      "toast": {
+        "create_success": "记录创建成功",
+        "create_failed": "创建失败",
+        "update_success": "记录更新成功",
+        "update_failed": "更新失败",
+        "delete_success": "记录已删除",
+        "delete_failed": "删除失败",
+        "theme": {
+          "switch_light": "切换亮色主题",
+          "switch_dark": "切换暗色主题"
+        },
+
+        "lang": {
+          "switch_en": "切换到英文",
+          "switch_zh": "切换到中文"
+        },
+
+        "operation_failed": "操作失败",
+        "init_failed": "初始化失败",
+        "unknown_error": "未知错误"
+      },
+
+      "fields": {
+        "id": "ID",
+        "ids": "ID",
+        "cn": "中文名",
+        "en": "英文名",
+        "name": "名称",
+        "uniqueName": "唯一名称",
+        "unique_name": "唯一名称",
+        "description": "描述",
+        "type": "类型",
+        "parentName": "上级名称",
+        "codexSecret": "资料库隐藏",
+        "productCategory": "类别",
+        "masteryReq": "段位需求",
+        "reqMasteryRank": "段位需求",
+        "health": "生命值",
+        "shield": "护盾",
+        "armor": "护甲",
+        "stamina": "耐力",
+        "power": "能量",
+        "sprintSpeed": "冲刺速度",
+        "damagePerShot": "伤害阵列",
+        "totalDamage": "总伤害",
+        "englishName": "英文名称",
+        "criticalChance": "暴击率",
+        "criticalMultiplier": "暴击倍率",
+        "procChance": "触发概率",
+        "fireRate": "射速",
+        "accuracy": "精准度",
+        "omegaAttenuation": "裂罅倾向",
+        "maxLevelCap": "最大等级",
+        "noise": "噪音等级",
+        "trigger": "射击类型",
+        "magazineSize": "弹匣容量",
+        "reloadTime": "装填时间",
+        "sentinel": "守护武器",
+        "multishot": "多重射击",
+        "slot": "槽位",
+        "systemName": "星系名称",
+        "systemIndex": "星系索引",
+        "nodeType": "节点类型",
+        "missionIndex": "任务类型索引",
+        "factionIndex": "派系索引",
+        "minEnemyLevel": "最低敌人等级",
+        "maxEnemyLevel": "最高敌人等级",
+        "polarity": "极性",
+        "rarity": "稀有度",
+        "baseDrain": "基础消耗",
+        "fusionLimit": "融合上限",
+        "compatName": "兼容名称",
+        "tag": "标签",
+        "stats": "属性",
+        "modSet": "MOD套装",
+        "rewardName": "奖励名称",
+        "tier": "等级",
+        "itemCount": "物品数量",
+        "standing": "声望数值",
+        "required": "任务数量",
+        "effect": "词条名称",
+        "group": "分组",
+        "negative_only": "仅负属性",
+        "positive_is_negative": "正负反转",
+        "prefix": "前缀",
+        "search_only": "仅搜索",
+        "suffix": "后缀",
+        "units": "单位",
+        "url_name": "URL名称",
+        "exclusive_to": "可用武器类型",
+        "slug": "标识符",
+        "gameRef": "Lotus引用",
+        "rivenType": "紫卡类型",
+        "disposition": "倾向数值",
+        "icon": "图标",
+        "thumb": "缩略图",
+        "mission_type": "任务类型",
+        "mission_id": "任务ID",
+        "title": "标题",
+        "group_name": "群组名",
+        "sub_group": "子群组",
+        "user_id": "用户ID",
+        "user_name": "用户名",
+        "subscribe_type": "订阅类型",
+        "abilityUniqueName": "技能唯一名",
+        "abilityName": "技能名称",
+        "excludeFromCodex": "资料库排除",
+        "image_name": "图片名",
+        "urlName": "URL名称"
+      },
+
+      "placeholders": {
+        "id": "自动生成，新建时请留空",
+        "cn": "请输入中文名称",
+        "en": "请输入英文名称",
+        "name": "请输入名称",
+        "uniqueName": "请输入唯一标识",
+        "description": "请输入描述",
+        "type": "请输入类型",
+        "rarity": "Common / Uncommon / Rare / Legendary",
+        "slug": "请输入URL标识符",
+        "url_name": "请输入URL名称",
+        "effect": "请输入词条效果",
+        "group": "请输入分组名",
+        "title": "请输入标题",
+        "user_id": "请输入用户ID",
+        "user_name": "请输入用户名",
+        "mission_type": "请输入任务类型",
+        "mission_id": "请输入任务ID",
+        "default": "请输入内容"
+      }
+    }
+  }
+}

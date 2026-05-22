@@ -121,14 +121,10 @@ class WeaponsService:
         from ..init.export_downloader import (
             ExportDir,
             resolve_export_filename,
-            sever_export_files,
         )
         from .data_sync import DataSyncService
 
         await get_engine()
-
-        if not await sever_export_files():
-            return
 
         filename = await resolve_export_filename("ExportWeapons")
         if not filename:

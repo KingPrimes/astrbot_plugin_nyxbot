@@ -11,6 +11,7 @@ import logging
 import os
 
 from tortoise import Tortoise
+from tortoise.context import get_current_context, set_global_context
 
 from astrbot.api import logger
 
@@ -55,10 +56,20 @@ _tortoise_initialized: bool = False
 
 
 async def get_engine():
-    """初始化 Tortoise ORM 并建表（单例）。"""
+    """初始化 Tortoise ORM 并建表（单例）。
+
+    Tortoise ORM 使用 contextvars.ContextVar 存储连接上下文，
+    仅 Tortoise.init() 所在的 asyncio task 中可用。
+    Quart web API handler 运行在不同 task 中，context 不可用。
+
+    通过 set_global_context() 将连接上下文设为全局回退，
+    确保所有 asyncio task 都能通过 require_context() 获取连接。
+    这是 Tortoise 官方为 FastAPI lifespan 跨 task 场景设计的 API。
+    """
+    global _tortoise_initialized
+
     _db_path: str = os.path.join(get_public_data_path(), "nyxbot.db")
     logger.debug(f"数据库路径: {_db_path}")
-    global _tortoise_initialized
     if not _tortoise_initialized:
         # 根据配置开关控制 Tortoise ORM 的 SQL 日志输出
         if get_db_debug():
@@ -75,7 +86,15 @@ async def get_engine():
             modules={"models": _MODELS_MODULES},
         )
         await Tortoise.generate_schemas()
+
+        # 将 TortoiseContext 设为全局回退，使跨 asyncio task 均可访问
+        ctx = get_current_context()
+        if ctx is not None:
+            set_global_context(ctx)
+            logger.debug("TortoiseContext 已设为全局回退（跨 task 可用）")
+
         _tortoise_initialized = True
+
     return Tortoise.get_connection("default")
 
 

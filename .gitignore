@@ -211,3 +211,4 @@ plans/
 tests/
 .roo
 AGENTS.md
+.playwright

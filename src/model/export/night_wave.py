@@ -12,7 +12,7 @@ from tortoise.models import Model
 class NightWave(Model):
     """电波任务"""
 
-    uniqueName = fields.CharField(max_length=255, pk=True, source_field="unique_name", description="唯一名称")
+    uniqueName = fields.CharField(max_length=255, pk=True, description="唯一名称")
     name = fields.CharField(max_length=255, null=True, description="任务名称")
     description = fields.TextField(null=True, description="任务描述")
     standing = fields.IntField(null=True, description="声望数值")

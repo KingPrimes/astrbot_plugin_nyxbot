@@ -1,0 +1,129 @@
+{
+  "pages": {
+    "nyxbot-admin": {
+      "title": "NyxBot Менеджер Данных",
+      "description": "Управление данными плагина Warframe с CRUD и синхронизацией",
+
+      "sidebar": {
+        "subtitle": "Менеджер Данных",
+        "filter_placeholder": "Фильтр моделей...",
+        "loading": "Загрузка моделей...",
+        "no_match": "Нет совпадений"
+      },
+
+      "categories": {
+        "basic": "Основные данные",
+        "translation": "Переводы",
+        "game_content": "Игровой контент",
+        "riven": "Данные Riven",
+        "market": "Данные Market",
+        "notification": "Уведомления",
+        "other": "Прочее"
+      },
+
+      "models": {
+        "alias": "Псевдонимы",
+        "nodes": "Узлы",
+        "state_translation": "Переводы состояний",
+        "night_wave": "Ночная Волна",
+        "relics": "Реликвии",
+        "relic_rewards": "Награды Реликвий",
+        "sentinels": "Стражи",
+        "upgrades": "Моды",
+        "warframes": "Варфреймы",
+        "warframe_ability": "Способности Варфреймов",
+        "weapons": "Оружие",
+        "reward_pool": "Пул Наград",
+        "reward": "Награда",
+        "riven_tion": "Атрибуты Riven",
+        "riven_tion_alias": "Псевдонимы Атрибутов",
+        "riven_analyse_trend": "Анализ Трендов Riven",
+        "riven_items": "Предметы Riven",
+        "orders_items": "Предметы Market",
+        "ephemeras": "Эфемеры",
+        "lich_sister_weapons": "Оружие Лича/Сестры",
+        "notification_history": "История Уведомлений",
+        "mission_subscribe": "Подписки на Миссии",
+        "mission_subscribe_user": "Пользователи Подписки",
+        "mission_subscribe_user_check_type": "Типы Проверки Подписки"
+      },
+
+      "toolbar": {
+        "select_model": "Выберите модель",
+        "records_count": "Записей: {n}",
+        "sync": "🔄 Синхр.",
+        "sync_title": "Синхронизировать из источника",
+        "syncing": "Синхронизация {model}...",
+        "sync_success": "Синхронизация {model} завершена",
+        "sync_failed": "Ошибка синхронизации",
+        "create": "➕ Новая Запись"
+      },
+
+      "table": {
+        "actions": "Действия",
+        "no_data": "Нет данных",
+        "loading": "Загрузка...",
+        "load_failed": "Ошибка загрузки",
+        "select_hint": "Выберите модель слева для начала управления данными"
+      },
+
+      "pagination": {
+        "prev": "Назад",
+        "next": "Вперёд"
+      },
+
+      "modal": {
+        "edit_record": "Редактировать",
+        "new_record": "Новая Запись",
+        "cancel": "Отмена",
+        "save": "Сохранить",
+        "close": "✕",
+        "edit_btn": "Ред.",
+        "delete_btn": "Удалить",
+        "load_form": "Загрузка формы...",
+        "cannot_determine_fields": "Сначала загрузите данные для определения полей модели",
+        "record_not_in_cache": "Запись не найдена в кэше, обновите страницу",
+        "id_readonly": "id"
+      },
+
+      "confirm": {
+        "title": "Подтверждение Удаления",
+        "message": "Вы уверены? Это действие нельзя отменить.",
+        "delete_btn": "Удалить"
+      },
+
+      "toast": {
+        "create_success": "Запись создана",
+        "create_failed": "Ошибка создания",
+        "update_success": "Запись обновлена",
+        "update_failed": "Ошибка обновления",
+        "delete_success": "Запись удалена",
+        "delete_failed": "Ошибка удаления",
+        "operation_failed": "Операция не выполнена",
+        "init_failed": "Ошибка инициализации",
+        "unknown_error": "Неизвестная ошибка"
+      },
+
+      "placeholders": {
+        "id": "Автогенерация, оставьте пустым",
+        "cn": "Введите китайское название",
+        "en": "Введите английское название",
+        "name": "Введите название",
+        "uniqueName": "Введите уникальный идентификатор",
+        "description": "Введите описание",
+        "type": "Введите тип",
+        "rarity": "Common / Uncommon / Rare / Legendary",
+        "slug": "Введите URL-идентификатор",
+        "url_name": "Введите URL-имя",
+        "effect": "Введите название эффекта",
+        "group": "Введите название группы",
+        "title": "Введите заголовок",
+        "user_id": "Введите ID пользователя",
+        "user_name": "Введите имя пользователя",
+        "mission_type": "Введите тип миссии",
+        "mission_id": "Введите ID миссии",
+        "default": "Введите содержимое"
+      }
+    }
+  }
+}

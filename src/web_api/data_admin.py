@@ -17,6 +17,7 @@ from ..model.export.nodes import Nodes
 from ..model.export.relic_rewards import RelicRewards
 from ..model.export.relics import Relics
 from ..model.export.reward.reward_pool import RewardPool
+from ..model.export.reward.reward import Reward
 from ..model.export.sentinels import Sentinels
 from ..model.export.upgrades import Upgrades
 from ..model.export.warframes import WarframeAbility, Warframes
@@ -163,6 +164,31 @@ def register_data_apis(context: Context) -> None:
     _register_model("warframe_ability", WarframeAbility, search_fields=["ability_name"], sync_func=None)
     _register_model("weapons", Weapons, search_fields=["name", "unique_name"], sync_func=WeaponsService.sync_data)
     _register_model("reward_pool", RewardPool, search_fields=["unique_name"], sync_func=RewardService.sync_data)
+    _register_model("reward", Reward, search_fields=["id"])
+
+    # ========================================================================
+    # 列出所有模型（供前端动态发现）
+    # 注意：不要放在 /data/ 下，避免与 /data/<model> 动态路由冲突
+    # ========================================================================
+    async def list_models():
+        """列出所有可用模型及其元数据。"""
+        from quart import jsonify
+
+        models = []
+        for name, meta in _MODEL_REGISTRY.items():
+            models.append({
+                "name": name,
+                "search_fields": meta["search_fields"],
+                "has_sync": meta["sync_func"] is not None,
+            })
+        return jsonify({"models": models})
+
+    context.register_web_api(
+        f"/{PLUGIN_NAME}/models",
+        list_models,
+        ["GET"],
+        "列出所有可用数据模型",
+    )
 
     # ========================================================================
     # 查询（分页）

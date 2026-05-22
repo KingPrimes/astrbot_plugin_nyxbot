@@ -1,0 +1,227 @@
+{
+  "pages": {
+    "nyxbot-admin": {
+      "title": "NyxBot Data Manager",
+      "description": "Manage Warframe assistant plugin data with CRUD operations and data sync",
+
+      "sidebar": {
+        "subtitle": "Data Manager",
+        "filter_placeholder": "Filter models...",
+        "loading": "Loading models...",
+        "no_match": "No matching models"
+      },
+
+      "categories": {
+        "basic": "Basic Data",
+        "translation": "Translations",
+        "game_content": "Game Content",
+        "riven": "Riven Data",
+        "market": "Market Data",
+        "notification": "Notifications",
+        "other": "Other"
+      },
+
+      "models": {
+        "alias": "Aliases",
+        "nodes": "Nodes",
+        "state_translation": "State Translations",
+        "night_wave": "Nightwave",
+        "relics": "Relics",
+        "relic_rewards": "Relic Rewards",
+        "sentinels": "Sentinels",
+        "upgrades": "Mods",
+        "warframes": "Warframes",
+        "warframe_ability": "Warframe Abilities",
+        "weapons": "Weapons",
+        "reward_pool": "Reward Pool",
+        "reward": "Reward",
+        "riven_tion": "Riven Attributes",
+        "riven_tion_alias": "Riven Attribute Aliases",
+        "riven_analyse_trend": "Riven Trend Analysis",
+        "riven_items": "Riven Items",
+        "orders_items": "Market Items",
+        "ephemeras": "Ephemeras",
+        "lich_sister_weapons": "Lich/Sister Weapons",
+        "notification_history": "Notification History",
+        "mission_subscribe": "Mission Subscriptions",
+        "mission_subscribe_user": "Subscription Users",
+        "mission_subscribe_user_check_type": "Subscription Check Types"
+      },
+
+      "toolbar": {
+        "select_model": "Select a model",
+        "records_count": "{n} records",
+        "sync": "🔄 Sync",
+        "sync_title": "Sync from data source",
+        "syncing": "Syncing {model} data...",
+        "sync_success": "{model} data sync completed",
+        "sync_failed": "Sync failed",
+        "create": "➕ New Record"
+      },
+
+      "table": {
+        "actions": "Actions",
+        "no_data": "No data",
+        "loading": "Loading...",
+        "load_failed": "Failed to load"
+      },
+
+      "pagination": {
+        "prev": "Previous",
+        "next": "Next"
+      },
+
+      "modal": {
+        "edit_record": "Edit Record",
+        "new_record": "New Record",
+        "cancel": "Cancel",
+        "save": "Save",
+        "close": "✕",
+        "edit_btn": "Edit",
+        "delete_btn": "Delete",
+        "load_form": "Loading form...",
+        "cannot_determine_fields": "Please load data first to determine model fields",
+        "record_not_in_cache": "Record not found in cache, please refresh the page",
+        "id_readonly": "id"
+      },
+
+      "confirm": {
+        "title": "Confirm Delete",
+        "message": "Are you sure you want to delete this record? This action cannot be undone.",
+        "delete_btn": "Delete"
+      },
+
+      "toast": {
+        "create_success": "Record created successfully",
+        "create_failed": "Failed to create",
+        "update_success": "Record updated successfully",
+        "update_failed": "Failed to update",
+        "delete_success": "Record deleted",
+        "delete_failed": "Failed to delete",
+        "theme": {
+          "switch_light": "Switch to Light",
+          "switch_dark": "Switch to Dark"
+        },
+
+        "lang": {
+          "switch_en": "Switch to English",
+          "switch_zh": "Switch to Chinese"
+        },
+
+        "operation_failed": "Operation failed",
+        "init_failed": "Initialization failed",
+        "unknown_error": "Unknown error"
+      },
+
+      "fields": {
+        "id": "ID",
+        "ids": "ID",
+        "cn": "Chinese Name",
+        "en": "English Name",
+        "name": "Name",
+        "uniqueName": "Unique Name",
+        "unique_name": "Unique Name",
+        "description": "Description",
+        "type": "Type",
+        "parentName": "Parent Name",
+        "codexSecret": "Codex Secret",
+        "productCategory": "Category",
+        "masteryReq": "Mastery Req.",
+        "reqMasteryRank": "Mastery Rank",
+        "health": "Health",
+        "shield": "Shield",
+        "armor": "Armor",
+        "stamina": "Stamina",
+        "power": "Energy",
+        "sprintSpeed": "Sprint Speed",
+        "damagePerShot": "Damage Array",
+        "totalDamage": "Total Damage",
+        "englishName": "English Name",
+        "criticalChance": "Crit Chance",
+        "criticalMultiplier": "Crit Multiplier",
+        "procChance": "Status Chance",
+        "fireRate": "Fire Rate",
+        "accuracy": "Accuracy",
+        "omegaAttenuation": "Riven Disposition",
+        "maxLevelCap": "Max Level",
+        "noise": "Noise Level",
+        "trigger": "Trigger Type",
+        "magazineSize": "Magazine Size",
+        "reloadTime": "Reload Time",
+        "sentinel": "Sentinel Weapon",
+        "multishot": "Multishot",
+        "slot": "Slot",
+        "systemName": "System Name",
+        "systemIndex": "System Index",
+        "nodeType": "Node Type",
+        "missionIndex": "Mission Index",
+        "factionIndex": "Faction Index",
+        "minEnemyLevel": "Min Enemy Level",
+        "maxEnemyLevel": "Max Enemy Level",
+        "polarity": "Polarity",
+        "rarity": "Rarity",
+        "baseDrain": "Base Drain",
+        "fusionLimit": "Fusion Limit",
+        "compatName": "Compat Name",
+        "tag": "Tag",
+        "stats": "Stats",
+        "modSet": "Mod Set",
+        "rewardName": "Reward Name",
+        "tier": "Tier",
+        "itemCount": "Item Count",
+        "standing": "Standing",
+        "required": "Required",
+        "effect": "Effect",
+        "group": "Group",
+        "negative_only": "Negative Only",
+        "positive_is_negative": "Pos. is Neg.",
+        "prefix": "Prefix",
+        "search_only": "Search Only",
+        "suffix": "Suffix",
+        "units": "Units",
+        "url_name": "URL Name",
+        "exclusive_to": "Exclusive To",
+        "slug": "Slug",
+        "gameRef": "Lotus Ref",
+        "rivenType": "Riven Type",
+        "disposition": "Disposition",
+        "icon": "Icon",
+        "thumb": "Thumbnail",
+        "mission_type": "Mission Type",
+        "mission_id": "Mission ID",
+        "title": "Title",
+        "group_name": "Group Name",
+        "sub_group": "Sub Group",
+        "user_id": "User ID",
+        "user_name": "User Name",
+        "subscribe_type": "Subscribe Type",
+        "abilityUniqueName": "Ability Unique",
+        "abilityName": "Ability Name",
+        "excludeFromCodex": "Exclude Codex",
+        "image_name": "Image Name",
+        "urlName": "URL Name"
+      },
+
+      "placeholders": {
+        "id": "Auto-generated, leave empty for new",
+        "cn": "Enter Chinese name",
+        "en": "Enter English name",
+        "name": "Enter name",
+        "uniqueName": "Enter unique identifier",
+        "description": "Enter description",
+        "type": "Enter type",
+        "rarity": "Common / Uncommon / Rare / Legendary",
+        "slug": "Enter URL slug",
+        "url_name": "Enter URL name",
+        "effect": "Enter effect name",
+        "group": "Enter group name",
+        "title": "Enter title",
+        "user_id": "Enter user ID",
+        "user_name": "Enter user name",
+        "mission_type": "Enter mission type",
+        "mission_id": "Enter mission ID",
+        "default": "Enter content"
+      }
+    }
+  }
+}

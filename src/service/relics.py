@@ -202,7 +202,6 @@ class RelicsService:
         from ..init.export_downloader import (
             ExportDir,
             resolve_export_filename,
-            sever_export_files,
         )
         from ..model.export.relic_rewards import RelicRewards
         from ..model.export.relics import Relics
@@ -210,9 +209,6 @@ class RelicsService:
 
         logger.info("从导出文件初始化遗物数据...")
         await get_engine()
-
-        if not await sever_export_files():
-            return
 
         # 1. 解析导出文件
         filename = await resolve_export_filename("ExportRelicArcane")
