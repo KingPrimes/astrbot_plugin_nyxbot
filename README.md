@@ -70,14 +70,13 @@ graph TB
         WS["WorldStateService"]
         MARKET["MarketService"]
         RIVEN["RivenService"]
-        TRANS["TranslationService"]
+        TRANS["StateTranslationService"]
         ALIAS["AliasService"]
         SUB["SubscriptionService"]
         NOTIF["NotificationService"]
     end
 
     subgraph 数据层
-        REPO["repository/ - 数据仓库"]
         MODEL["model/ - TortoiseORM 模型"]
         DB[("SQLite")]
     end
@@ -92,9 +91,11 @@ graph TB
         TASK["task/ - 定时任务"]
         WEB["web_api/ - 管理后台"]
         PAGES["pages/ - Plugin Pages"]
+        INIT["init/ - 初始化引擎"]
     end
 
     MAIN --> REGISTRY
+    MAIN --> INIT
     REGISTRY --> CMDS
     CMDS --> WS
     CMDS --> MARKET
@@ -104,13 +105,12 @@ graph TB
     WS --> API
     MARKET --> API
     RIVEN --> API
-    WS --> REPO
-    MARKET --> REPO
-    TRANS --> REPO
-    ALIAS --> REPO
-    SUB --> REPO
-    NOTIF --> REPO
-    REPO --> MODEL
+    WS --> MODEL
+    MARKET --> MODEL
+    TRANS --> MODEL
+    ALIAS --> MODEL
+    SUB --> MODEL
+    NOTIF --> MODEL
     MODEL --> DB
     TASK --> WS
     TASK --> NOTIF
@@ -145,7 +145,7 @@ git clone https://github.com/KingPrimes/astrbot_plugin_nyxbot.git
 | `wf_update_interval` | 世界状态更新间隔（秒），建议不低于 60 | `int` | `600` |
 | `wf_notification_retention_hours` | 通知历史保留时长（小时），超时自动清理 | `int` | `12` |
 | `wf_data_source_cdn` | 数据源 CDN 地址（翻译/别名等静态数据） | `string` | `https://testingcf.jsdelivr.net/gh/KingPrimes/DataSource` |
-| `wf_arbitration_data` | 仲裁数据源 URL，需返回 JSON 格式 | `string` | `` |
+| `wf_arbitration_data` | 仲裁数据源 URL，需返回 JSON 格式 | `string` |  |
 | `wf_command_prefix` | 指令前缀，为空则无需前缀 | `string` | `""`（空） |
 | `db_debug` | 数据库调试日志，开启后输出 SQL 查询日志 | `bool` | `false` |
 
@@ -177,7 +177,7 @@ astrbot_plugin_nyxbot/
 │   ├── api/                   # 外部 API 封装（Warframe.Market、世界状态）
 │   ├── commands/              # 指令模块（13 个指令文件）
 │   ├── config/                # 配置管理
-│   ├── init/                  # 数据初始化（别名、节点、紫卡等）
+│   ├── init/                  # 初始化引擎（TortoiseORM、导出文件下载）
 │   ├── model/                 # 数据模型（TortoiseORM，20+ 模型）
 │   │   └── export/            # 导出数据模型（战甲、武器、遗物等）
 │   ├── ocr/                   # PaddleOCR 文字识别服务
@@ -185,13 +185,11 @@ astrbot_plugin_nyxbot/
 │   │   ├── fonts/             # 字体文件
 │   │   ├── styles/            # 样式定义
 │   │   └── templates/         # 卡片模板
-│   ├── repository/            # 数据仓库层（CRUD 封装）
-│   ├── service/               # 业务服务层
+│   ├── service/               # 业务服务层（数据同步 + 查询 + 业务逻辑）
 │   ├── task/                  # 定时任务（WorldState 拉取与通知）
 │   ├── util/                  # 工具函数（缓存、HTTP、时间、字符串）
 │   ├── web_api/               # 数据管理后台 API（Plugin Pages 后端）
 │   └── wenum/                 # 枚举定义（派系、裂隙类型、任务类型等）
-└── tests/                     # 单元测试
 ```
 
 ---

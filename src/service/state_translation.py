@@ -10,6 +10,7 @@ import re
 from pathlib import Path
 
 from tortoise.exceptions import DoesNotExist
+from tortoise.expressions import Q
 
 from astrbot.api import logger
 
@@ -270,3 +271,69 @@ class StateTranslationService:
         total = await qs.count()
         items = await qs.offset(offset).limit(page_size)
         return list(items), total
+
+    @classmethod
+    async def batch_translate_by_suffix(
+        cls, keywords: set[str]
+    ) -> dict[str, str]:
+        """批量后缀匹配翻译（供 Relics 初始化使用）。
+
+        镜像 Java RelicsImportUtil.loadTranslationMap():
+        1. 通过 endswith OR 查询从 DB 过滤候选行
+        2. 预建后缀索引（最后 1~3 段路径 → name）
+        3. O(1) 查找每个 keyword，返回 {keyword: name} 映射
+
+        复杂度：O(N + M)，N=匹配行数，M=关键词数。
+        后缀索引假设 keyword 是路径段拼接而成（如 "Seg1/Seg2/Seg3"）；
+        非路径段 keyword 可能不在索引中（但调用方始终使用路径段）。
+
+        Args:
+            keywords: 关键词集合
+
+        Returns:
+            {keyword: translated_name} 映射，
+            未找到翻译的 keyword 不出现在结果中。
+        """
+        if not keywords:
+            return {}
+
+        # 分批构建 OR 查询，避免单个 Q 树层级过深导致 TortoiseORM 递归溢出
+        # 每批最多 80 个 ENDSWITH 条件，合并各批结果
+        _Q_BATCH_SIZE = 80
+        kw_list = list(keywords)
+        all_rows: list[tuple[str, str]] = []
+
+        for i in range(0, len(kw_list), _Q_BATCH_SIZE):
+            batch = kw_list[i:i + _Q_BATCH_SIZE]
+            q = Q()
+            for kw in batch:
+                q |= Q(uniqueName__endswith=kw)
+            rows = await (
+                StateTranslation.filter(q)
+                .values_list("uniqueName", "name")
+            )
+            all_rows.extend(rows)
+
+        # 预建后缀索引: {suffix_path_segment: translated_name}
+        # 对每条 uniqueName，注册最后 1~min(3, len(parts)) 段路径为 key
+        suffix_index: dict[str, str] = {}
+        for unique_name, name in all_rows:
+            if not unique_name or not name:
+                continue
+            # 按 / 拆分路径，过滤空段
+            parts = [p for p in unique_name.split("/") if p]
+            max_len = min(3, len(parts))
+            # 从短到长注册后缀：短后缀优先保留，符合"首个匹配"语义
+            for length in range(1, max_len + 1):
+                suffix = "/".join(parts[-length:])
+                if suffix not in suffix_index:
+                    suffix_index[suffix] = name
+
+        # O(1) 查找每个关键词
+        result: dict[str, str] = {}
+        for kw in keywords:
+            name = suffix_index.get(kw)
+            if name:
+                result[kw] = name
+
+        return result
