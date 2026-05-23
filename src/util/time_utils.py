@@ -100,3 +100,34 @@ def is_expired(timestamp_str: str) -> bool:
     if expiry is None:
         return True
     return expiry < datetime.now(timezone.utc)
+
+
+def time_delta_to_string(delta_ms: int) -> str:
+    """将毫秒差值转换为可读字符串 / Convert millisecond delta to readable string
+
+    对应 Java: TimeUtils.timeDeltaToString(long)
+
+    Args:
+        delta_ms: 毫秒差值（可为负数） / Millisecond delta (can be negative)
+
+    Returns:
+        格式如 "1d 2h 30m 0s" 或 "已过期"
+        Formatted string like "1d 2h 30m 0s" or "已过期" (expired)
+    """
+    if delta_ms <= 0:
+        return "已过期"
+
+    total_seconds = delta_ms // 1000
+    days = total_seconds // 86400
+    hours = (total_seconds % 86400) // 3600
+    minutes = (total_seconds % 3600) // 60
+    seconds = total_seconds % 60
+
+    parts: list[str] = []
+    if days > 0:
+        parts.append(f"{days}d")
+    parts.append(f"{hours}h")
+    parts.append(f"{minutes}m")
+    parts.append(f"{seconds}s")
+
+    return " ".join(parts)

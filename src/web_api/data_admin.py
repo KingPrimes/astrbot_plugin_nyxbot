@@ -16,8 +16,8 @@ from ..model.export.night_wave import NightWave
 from ..model.export.nodes import Nodes
 from ..model.export.relic_rewards import RelicRewards
 from ..model.export.relics import Relics
-from ..model.export.reward.reward_pool import RewardPool
 from ..model.export.reward.reward import Reward
+from ..model.export.reward.reward_pool import RewardPool
 from ..model.export.sentinels import Sentinels
 from ..model.export.upgrades import Upgrades
 from ..model.export.warframes import WarframeAbility, Warframes

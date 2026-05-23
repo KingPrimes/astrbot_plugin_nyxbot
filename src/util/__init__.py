@@ -57,4 +57,6 @@ __all__ = [
     # Compress
     "decompress_lzma",
     "decompress_lzma_auto",
+    # String
+    "to_title_case",
 ]
