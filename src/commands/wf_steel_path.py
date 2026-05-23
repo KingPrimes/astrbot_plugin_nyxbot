@@ -12,32 +12,13 @@ from ..service.world_state import WorldStateService
 @wf.command("钢铁")
 async def wf_steel_path(self, event: AstrMessageEvent):
     """查看钢铁之路"""
-    sp_raw = await WorldStateService.get_steel_path()
+    sp = await WorldStateService.get_steel_path()
 
-    if not sp_raw:
+    if not sp:
         yield event.plain_result("无法获取钢铁之路数据")
         return
 
-    rotation = sp_raw.get("Rotation", sp_raw.get("rotation", ""))
-    essences_raw = sp_raw.get("SteelEssence", sp_raw.get("essences", []))
-
-    essences = []
-    for e in essences_raw:
-        name = e.get("ItemType", e.get("name", ""))
-        if "/" in str(name):
-            name = str(name).split("/")[-1].replace("_", " ")
-        cost = e.get("RegularPrice", e.get("cost", 0))
-        essences.append({
-            "name": name,
-            "cost": cost,
-        })
-
-    steel_path = {
-        "rotation": rotation,
-        "essences": essences,
-    }
-
     renderer = CardRenderer()
-    img = renderer.create_steel_path_card(steel_path)
+    img = renderer.create_steel_path_card(sp)
     img_bytes = CardRenderer.render_to_bytes(img)
     yield event.chain_result([Comp.Image.fromBytes(img_bytes)])
