@@ -29,6 +29,7 @@ from ..model.world_state import (
     CetusCycle,
     DailyDeals,
     DuvalierCycle,
+    EarthCycle,
     EndlessXpCategory,
     Invasion,
     LiteSorite,
@@ -43,7 +44,7 @@ from ..model.world_state import (
 )
 from ..service.state_translation import StateTranslationService
 from ..util.data_path import get_public_data_path
-from ..util.string_utils import get_last_three_segments
+from ..util.string_utils import get_last_three_segments, split_camel_case
 from ..wenum.fissure_type import FissureTypeEnum
 
 
@@ -674,11 +675,11 @@ class WorldStateService:
                     # 通过 englishName 查找武器中文名
                     translated: list[str] = []
                     for s in c.choices:
-                        weapon = await Weapons.filter(englishName=s).first()
+                        weapon = await Weapons.filter(englishName=split_camel_case(s)).first()
                         if weapon:
-                            translated.append(weapon.name or s)
+                            translated.append(weapon.name or split_camel_case(s))
                         else:
-                            translated.append(s)
+                            translated.append(split_camel_case(s))
                     c.choices = translated
 
         return cycle
@@ -695,6 +696,25 @@ class WorldStateService:
         """
         await init_ready()
         return cls._cache.get("raw")
+
+    # ══════════════════════════════════════════════════════════════════
+    # get_earth_cycle() — 地球昼夜循环 → EarthCycle | None
+    # ══════════════════════════════════════════════════════════════════
+
+    @classmethod
+    async def get_earth_cycle(cls) -> EarthCycle | None:
+        """获取地球昼夜循环。
+
+        镜像 Java: getAllCycle() → EarthCycle
+
+        Returns:
+            EarthCycle 模型（纯计算，无需翻译）。
+        """
+        ws = await cls._get_cached()
+        if ws is None:
+            return None
+
+        return ws.earth_cycle
 
     # ══════════════════════════════════════════════════════════════════
     # get_cetus_cycle() — 希图斯周期 → CetusCycle | None

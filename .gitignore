@@ -211,4 +211,5 @@ plans/
 tests/
 .roo
 AGENTS.md
+CLAUDE.md
 .playwright

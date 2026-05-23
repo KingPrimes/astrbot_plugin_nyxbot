@@ -679,7 +679,7 @@ class ImageCombiner:
         inner_height = self._height - border_padding * 2
         offset = 8
 
-        # 外层
+        # 外层 — 向外扩展 offset，形成外圈边框
         self._draw.rounded_rectangle(
             [
                 (border_padding - offset, border_padding - offset),
@@ -690,10 +690,11 @@ class ImageCombiner:
             width=stroke,
         )
 
-        # 内层
+        # 内层 — 从 border_padding 开始（不是 -offset），
+        # 确保左侧和上侧也可见双层效果（内外层不再共享同一左/上边缘）
         self._draw.rounded_rectangle(
             [
-                (border_padding - offset, border_padding - offset),
+                (border_padding, border_padding),
                 (border_padding + inner_width, border_padding + inner_height),
             ],
             radius=20,

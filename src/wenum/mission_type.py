@@ -46,6 +46,7 @@ class MissionTypeEnum(StrEnum):
     MT_LEGACYTE_HARVEST = ("MT_LEGACYTE_HARVEST", "传承种收割", 40, "#E67EE2")
     MT_SHRINE_DEFENSE = ("MT_SHRINE_DEFENSE", "祈运坛防御", 41, "#E74C3C")
     MT_FACEOFF = ("MT_FACEOFF", "对战", 42, "#F39C12")
+    MT_CORRUPTION = ("MT_CORRUPTION", "腐化", 43, "#E17055")
     MT_SKIRMISH = ("MT_SKIRMISH", "前哨战", 60, "#9B59B6")
     MT_VOLATILE = ("MT_VOLATILE", "爆发", 61, "#3498DB")
     MT_ORPHEUS = ("MT_ORPHEUS", "奧菲斯", 62, "#000000")

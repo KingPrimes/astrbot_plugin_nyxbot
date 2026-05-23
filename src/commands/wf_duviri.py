@@ -18,15 +18,7 @@ async def wf_duviri(self, event: AstrMessageEvent):
         yield event.plain_result("无法获取双衍王境数据")
         return
 
-    duviri_data = {
-        "state": duviri.state,
-        "is_day": None,  # 双衍王境不是日夜循环
-        "time_left": duviri.time_left,
-        "spiral": duviri.state,
-        "commander": "",
-    }
-
     renderer = CardRenderer()
-    img = renderer.create_duviri_card(duviri_data)
+    img = renderer.create_duviri_card(duviri)
     img_bytes = CardRenderer.render_to_bytes(img)
     yield event.chain_result([Comp.Image.fromBytes(img_bytes)])

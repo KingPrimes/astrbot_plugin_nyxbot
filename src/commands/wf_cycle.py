@@ -5,61 +5,35 @@ import astrbot.api.message_components as Comp
 from astrbot.api.event import AstrMessageEvent
 
 from ...registry import wf
+from ..model.world_state.all_cycles import AllCycles
 from ..render.card_renderer import CardRenderer
 from ..service.world_state import WorldStateService
 
 
 @wf.command("平原")
 async def wf_cycle(self, event: AstrMessageEvent):
-    """查看所有平原周期（希图斯、金星、扎里曼、魔胎之境）"""
-    cycles: list[dict] = []
+    """查看所有平原周期（地球、希图斯、金星、扎里曼、魔胎之境）"""
 
-    # 希图斯（地球）周期
+    # 并发获取所有周期数据 / Fetch all cycle data concurrently
+    earth = await WorldStateService.get_earth_cycle()
     cetus = await WorldStateService.get_cetus_cycle()
-    if cetus:
-        cycles.append({
-            "name": "🌍 希图斯（地球）",
-            "state": "白天" if cetus.is_day else "夜晚",
-            "is_day": cetus.is_day,
-            "time_left": cetus.time_left,
-        })
-
-    # 奥布山谷（金星）周期
     vallis = await WorldStateService.get_vallis_cycle()
-    if vallis:
-        cycles.append({
-            "name": "❄ 金星（奥布山谷）",
-            "state": "温暖" if vallis.is_warm else "寒冷",
-            "is_day": vallis.is_warm,
-            "time_left": vallis.time_left,
-        })
-
-    # 扎里曼周期
     zariman = await WorldStateService.get_zariman_cycle()
-    if zariman:
-        cycles.append({
-            "name": "🚀 扎里曼号",
-            "state": "Grineer" if zariman.is_corpus else "Corpus",
-            "is_day": zariman.is_corpus,
-            "time_left": zariman.time_left,
-        })
-
-    # 魔胎之境（火卫二）周期
     cambion = await WorldStateService.get_cambion_cycle()
-    if cambion:
-        is_vome = cambion.active == "VOME"
-        cycles.append({
-            "name": "🦴 魔胎之境（火卫二）",
-            "state": "Vome" if is_vome else "Fass",
-            "is_day": is_vome,
-            "time_left": cambion.time_left,
-        })
 
-    if not cycles:
+    if not any([earth, cetus, vallis, zariman, cambion]):
         yield event.plain_result("无法获取周期数据")
         return
 
+    # 构建 AllCycles 对象 / Build AllCycles instance
+    all_cycles = AllCycles()
+    all_cycles.earth = earth
+    all_cycles.cetus = cetus
+    all_cycles.callis = vallis
+    all_cycles.zariman = zariman
+    all_cycles.cambion = cambion
+
     renderer = CardRenderer()
-    img = renderer.create_cycle_card(cycles, "全周期状态")
+    img = renderer.create_cycle_card(all_cycles, "全周期状态")
     img_bytes = CardRenderer.render_to_bytes(img)
     yield event.chain_result([Comp.Image.fromBytes(img_bytes)])

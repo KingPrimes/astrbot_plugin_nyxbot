@@ -22,6 +22,7 @@ from .src.service import (
     UpgradesService,
     WarframesService,
     WeaponsService,
+    WorldStateService,
 )
 from .src.web_api.registry import register_web_apis
 
@@ -93,9 +94,8 @@ class NyxBotPlugin(Star):
             register_web_apis(cast(Context, self.context))
             logger.info("数据管理 API 已注册")
 
-            # 启动定时拉取 WorldState 任务
-            #self._ws_task = WarframeStatusTask()
-            #await self._ws_task.start()
+            # 启动 WorldState 缓存（JSON 文件持久化 + 后台自动刷新）
+            await WorldStateService.start_cache()
 
             # 标记初始化完成
             set_init_complete()
@@ -140,9 +140,8 @@ class NyxBotPlugin(Star):
             except asyncio.CancelledError:
                 pass
 
-        # 停止定时任务
-        #if self._ws_task:
-        #    await self._ws_task.stop()
+        # 停止 WorldState 后台刷新
+        await WorldStateService.stop_cache()
 
         # 关闭 TortoiseORM 数据库连接
         await close_engine()
