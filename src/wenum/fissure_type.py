@@ -1,10 +1,24 @@
 """Fissure Type Enum / 裂隙类型枚举
 
-包含裂隙任务的等级分类和相关属性。
+包含裂隙任务的等级分类（FissureTier）和裂隙查询类型（FissureTypeEnum）。
 """
 from __future__ import annotations
 
 from enum import Enum
+
+
+class FissureTypeEnum(Enum):
+    """裂隙查询类型枚举 / Fissure Query Type Enum
+
+    镜像 Java FissureTypeEnum:
+    - ACTIVE_MISSION: 普通裂隙任务（非钢铁之路）
+    - STEEL_PATH: 钢铁之路裂隙任务
+    - VOID_STORMS: 虚空风暴（Railjack 裂隙）
+    """
+
+    ACTIVE_MISSION = "active_mission"
+    STEEL_PATH = "steel_path"
+    VOID_STORMS = "void_storms"
 
 
 class FissureTier(Enum):
