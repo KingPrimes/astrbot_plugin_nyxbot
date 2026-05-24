@@ -23,15 +23,21 @@ from .draw_constant import ThemeColor, hex_to_rgb
 from .font_manager import FontManager
 
 if TYPE_CHECKING:
+    from ..model.arbitration import Arbitration
+    from ..model.export.relics import Relics
     from ..model.world_state import (
+        ActiveMission,
         Alert,
         AllCycles,
         DailyDeals,
         DuvalierCycle,
         Invasion,
+        KnownCalendarSeasons,
+        LiteSorite,
         SeasonInfo,
         Sortie,
         SteelPathOffering,
+        SyndicateMission,
         VoidTrader,
     )
 
@@ -191,22 +197,22 @@ class CardRenderer:
         from .card_sortie import render_sortie_card
         return render_sortie_card(self, sortie)
 
-    def create_fissure_card(self, fissures: list[dict]) -> Image.Image:
+    def create_fissure_card(self, fissures: list[ActiveMission]) -> Image.Image:
         """绘制裂隙信息卡片。"""
-        from .card_fissures import render_fissure_card
-        return render_fissure_card(self, fissures)
+        from .card_fissures import draw_fissure_card
+        return draw_fissure_card(self, fissures)
 
     def create_invasion_card(self, invasions: list[Invasion]) -> Image.Image:
         """绘制入侵信息卡片。"""
-        from .card_invasions import render_invasion_card
-        return render_invasion_card(self, invasions)
+        from .card_invasions import draw_invasion_card
+        return draw_invasion_card(self, invasions)
 
     def create_void_trader_card(self, trader: VoidTrader) -> Image.Image:
         """绘制虚空商人信息卡片。"""
         from .card_void_trader import render_void_trader_card
         return render_void_trader_card(self, trader)
 
-    def create_arbitration_card(self, arbitration: dict) -> Image.Image:
+    def create_arbitration_card(self, arbitration: Arbitration) -> Image.Image:
         """绘制仲裁信息卡片。"""
         from .card_arbitration import render_arbitration_card
         return render_arbitration_card(self, arbitration)
@@ -226,12 +232,27 @@ class CardRenderer:
         from .card_steel_path import render_steel_path_card
         return render_steel_path_card(self, steel_path)
 
-    def create_nightwave_card(self, nightwave: SeasonInfo) -> Image.Image:
-        """绘制午夜电波卡片。"""
-        from .card_nightwave import render_nightwave_card
-        return render_nightwave_card(self, nightwave)
+    def create_lite_sortie_card(self, lite_sortie: LiteSorite) -> Image.Image:
+        """绘制执刑官猎杀信息卡片。"""
+        from .card_lite_sortie import render_lite_sortie_card
+        return render_lite_sortie_card(self, lite_sortie)
 
-    def create_relic_card(self, relics: list[dict]) -> Image.Image:
+    def create_syndicate_card(self, syndicate_mission: SyndicateMission) -> Image.Image:
+        """绘制集团任务信息卡片。"""
+        from .card_syndicate import render_syndicate_card
+        return render_syndicate_card(self, syndicate_mission)
+
+    def create_calendar_seasons_card(self, calendars: list[KnownCalendarSeasons]) -> Image.Image:
+        """绘制1999日历季节信息卡片。"""
+        from .card_calendar_seasons import render_calendar_seasons_card
+        return render_calendar_seasons_card(self, calendars)
+
+    def create_season_info_card(self, season_info: SeasonInfo) -> Image.Image:
+        """绘制午夜电波赛季信息卡片。"""
+        from .card_season_info import render_season_info_card
+        return render_season_info_card(self, season_info)
+
+    def create_relic_card(self, relics: list[Relics]) -> Image.Image:
         """绘制遗物信息卡片。"""
         from .card_relics import render_relic_card
         return render_relic_card(self, relics)
@@ -240,6 +261,35 @@ class CardRenderer:
         """绘制双衍王境信息卡片。"""
         from .card_duviri import render_duviri_card
         return render_duviri_card(self, duviri)
+
+    def create_market_ducats_card(
+        self, day_items: list, hour_items: list, title: str
+    ) -> Image.Image:
+        """绘制 Market 杜卡币卡片。"""
+        from .card_market_ducats import render_market_ducats_card
+        return render_market_ducats_card(self, day_items, hour_items, title)
+
+    def create_market_orders_card(self, orders) -> Image.Image:
+        """绘制 Market 订单卡片。"""
+        from .card_market_orders import render_market_orders_card
+        return render_market_orders_card(self, orders)
+
+    def create_market_orders_possible_items_card(
+        self, possible_items: list[str]
+    ) -> Image.Image:
+        """绘制"可能要查询的物品列表"卡片。"""
+        from .card_market_orders import render_market_orders_possible_items_card
+        return render_market_orders_possible_items_card(self, possible_items)
+
+    def create_market_riven_card(self, market_riven) -> Image.Image:
+        """绘制 Market 紫卡市场卡片。"""
+        from .card_market_riven import render_market_riven_card
+        return render_market_riven_card(self, market_riven)
+
+    def create_market_lich_sister_card(self, data, title_suffix: str) -> Image.Image:
+        """绘制 Market 赤毒/信条拍卖卡片。"""
+        from .card_market_lich_sister import render_market_lich_sister_card
+        return render_market_lich_sister_card(self, data, title_suffix)
 
     # ========================================================================
     # 通用工具

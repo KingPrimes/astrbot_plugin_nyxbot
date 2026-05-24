@@ -1,80 +1,289 @@
 """入侵卡片渲染器
 
-从 CardRenderer 拆分出的 create_invasion_card 独立实现。
+采用单列宽卡片布局，镜像 Java DefaultDrawInvasionImage.java：
+  - 居中标题 + 双色顶部分割条（进攻/防守按进度比例）
+  - 圆角进度条 + 双方阵营对抗展示 + 奖励信息
+  - 双层边框 + 看板娘立绘 + 底部署名
 """
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PIL import Image
+from PIL import ImageFont
 
-from .draw_constant import ThemeColor
+from .draw_constant import DrawConstant, ThemeColor
+from .font_manager import FontManager
 from .image_combiner import ImageCombiner
+from .standing import draw_standing_at
 
 if TYPE_CHECKING:
+    from PIL import Image
+
     from ..model.world_state import Invasion
     from .card_renderer import CardRenderer
 
 
-def render_invasion_card(renderer: CardRenderer, invasions: list[Invasion]) -> Image.Image:
-    """绘制入侵信息卡片。
+# ---------------------------------------------------------------------------
+# 颜色常量
+# ---------------------------------------------------------------------------
+
+_ATTACKER_COLOR: tuple[int, int, int] = (255, 107, 107)   # 进攻方 红色
+_DEFENDER_COLOR: tuple[int, int, int] = (76, 175, 80)     # 防守方 绿色
+
+# ---------------------------------------------------------------------------
+# 布局常量
+# ---------------------------------------------------------------------------
+
+_CANVAS_W = 1300
+_MARGIN = 40
+_CONTENT_PAD = 20
+_CONTENT_X = _MARGIN + _CONTENT_PAD               # 60
+_CONTENT_W = _CANVAS_W - 2 * _CONTENT_X           # 1180
+
+_CARD_W = _CONTENT_W                               # 单列全宽 1180
+_CARD_H = 180
+_CARD_RADIUS = 14
+_CARD_PAD = 24                                     # 卡片内边距
+_ROW_GAP = 16
+
+_ACCENT_STRIP_H = 6                                # 顶部分割色条高度
+
+_TITLE_Y = 60
+_CONTENT_START_Y = 175
+_FOOTER_OFFSET = 50
+
+# 看板娘尺寸
+_STANDING_W = 260
+_STANDING_H = 390
+
+
+# ---------------------------------------------------------------------------
+# 辅助函数
+# ---------------------------------------------------------------------------
+
+def _build_progress(count: float | None, goal: float | None) -> float:
+    """计算进度百分比 (0.0 ~ 1.0)，镜像 Java Math.abs(count)/goal。"""
+    if goal is None or goal == 0 or count is None:
+        return 0.0
+    return min(abs(count) / goal, 1.0)
+
+
+def _get_first_reward_text(rewards: list, default: str = "") -> str:
+    """从 Reward 列表中提取第一个 counted_item 的显示文本。"""
+    for rw in rewards:
+        if rw.counted_items:
+            item = rw.counted_items[0]
+            return f"{item.count}x {item.name}" if item.count and item.name else default
+    return default
+
+
+def _draw_one_invasion_card(
+    cb: ImageCombiner,
+    invasion: Invasion,
+    card_x: int,
+    card_y: int,
+    renderer: CardRenderer,
+    node_font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
+    faction_font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
+    reward_font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
+    progress_font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
+) -> None:
+    """绘制单张入侵卡片。"""
+    inner_x = card_x + _CARD_PAD
+    inner_w = _CARD_W - _CARD_PAD * 2
+
+    progress = _build_progress(invasion.count, invasion.goal)
+
+    # 卡片背景
+    cb.set_color(ThemeColor.BG_CARD)
+    cb.draw_rounded_rect(card_x, card_y, _CARD_W, _CARD_H, radius=_CARD_RADIUS)
+
+    # ---- 顶部分割色条：进攻侧(红) + 防守侧(绿)，按进度比例 ----
+    split_x = card_x + int(_CARD_W * progress)
+    # 进攻侧（左，红色）
+    attacker_strip_w = split_x - card_x
+    if attacker_strip_w > 0:
+        cb.set_color(_ATTACKER_COLOR)
+        cb.fill_rect(card_x + _CARD_RADIUS, card_y + 2, attacker_strip_w - _CARD_RADIUS, _ACCENT_STRIP_H)
+    # 防守侧（右，绿色）
+    defender_strip_w = card_x + _CARD_W - split_x
+    if defender_strip_w > 0:
+        cb.set_color(_DEFENDER_COLOR)
+        cb.fill_rect(split_x, card_y + 2, defender_strip_w - _CARD_RADIUS, _ACCENT_STRIP_H)
+
+    # ---- 行 1: 节点名称（左） + 进度百分比（右） ----
+    node = invasion.node or "未知节点"
+    cb.set_color(ThemeColor.TEXT_PRIMARY).set_font(node_font)
+    cb.add_text(node, inner_x, card_y + 34)
+
+    pct_text = f"进度: {progress * 100:.1f}%"
+    cb.set_color(ThemeColor.ACCENT_BLUE).set_font(progress_font)
+    pct_w = cb.get_string_width(pct_text)
+    cb.add_text(pct_text, inner_x + inner_w - pct_w, card_y + 36)
+
+    # ---- 行 2: 双方阵营对抗（居中） ----
+    row2_y = card_y + 82
+
+    # 进攻方
+    attacker = invasion.faction
+    atk_icon = ""
+    atk_name = "未知"
+    if attacker is not None:
+        atk_icon, atk_color = renderer.resolve_faction_icon_and_color(attacker)
+        atk_name = attacker.display_name
+    else:
+        atk_color = ThemeColor.TEXT_MUTED
+
+    # 防守方
+    defender = invasion.defender_faction
+    def_icon = ""
+    def_name = "未知"
+    if defender is not None:
+        def_icon, def_color = renderer.resolve_faction_icon_and_color(defender)
+        def_name = defender.display_name
+    else:
+        def_color = ThemeColor.TEXT_MUTED
+
+    # 分隔符
+    separator = "  VS  "
+    cb.set_font(faction_font)
+    sep_w = cb.get_string_width(separator)
+
+    # 计算进攻侧宽度
+    atk_w = 0
+    if atk_icon and renderer.font_wf_icon:
+        cb.set_font(renderer.font_wf_icon)
+        atk_w += cb.get_string_width(atk_icon) + 4
+    cb.set_font(faction_font)
+    atk_w += cb.get_string_width(atk_name)
+
+    # 计算防守侧宽度
+    def_w = 0
+    if def_icon and renderer.font_wf_icon:
+        cb.set_font(renderer.font_wf_icon)
+        def_w += cb.get_string_width(def_icon) + 4
+    cb.set_font(faction_font)
+    def_w += cb.get_string_width(def_name)
+
+    total_w = atk_w + sep_w + def_w
+    cursor_x = inner_x + (inner_w - total_w) // 2
+
+    # 进攻方图标 + 名称
+    if atk_icon and renderer.font_wf_icon:
+        cb.set_color(atk_color).set_font(renderer.font_wf_icon)
+        cb.add_text(atk_icon, cursor_x, row2_y - 2)
+        cursor_x += cb.get_string_width(atk_icon) + 4
+    cb.set_color(atk_color).set_font(faction_font)
+    cb.add_text(atk_name, cursor_x, row2_y + 3)
+    cursor_x += cb.get_string_width(atk_name)
+
+    # 分隔符
+    cb.set_color(ThemeColor.TEXT_MUTED).set_font(faction_font)
+    cb.add_text(separator, cursor_x, row2_y + 3)
+    cursor_x += sep_w
+
+    # 防守方图标 + 名称
+    if def_icon and renderer.font_wf_icon:
+        cb.set_color(def_color).set_font(renderer.font_wf_icon)
+        cb.add_text(def_icon, cursor_x, row2_y - 2)
+        cursor_x += cb.get_string_width(def_icon) + 4
+    cb.set_color(def_color).set_font(faction_font)
+    cb.add_text(def_name, cursor_x, row2_y + 3)
+
+    # ---- 行 3: 双方奖励 ----
+    reward_y = card_y + 134
+
+    # 进攻方奖励
+    atk_reward = _get_first_reward_text(invasion.attacker_reward)
+    if atk_reward:
+        atk_label = f"进攻: {atk_reward}"
+        cb.set_color(_ATTACKER_COLOR).set_font(reward_font)
+        cb.add_text(atk_label, inner_x, reward_y + 3)
+
+    # 防守方奖励
+    def_reward_text = ""
+    if invasion.defender_reward and invasion.defender_reward.counted_items:
+        item = invasion.defender_reward.counted_items[0]
+        def_reward_text = f"{item.count}x {item.name}" if item.count and item.name else ""
+
+    if def_reward_text:
+        def_label = f"防守: {def_reward_text}"
+        cb.set_color(_DEFENDER_COLOR).set_font(reward_font)
+        label_w = cb.get_string_width(def_label)
+        cb.add_text(def_label, inner_x + inner_w - label_w, reward_y + 3)
+
+
+# ---------------------------------------------------------------------------
+# 主渲染函数
+# ---------------------------------------------------------------------------
+
+def draw_invasion_card(
+    renderer: CardRenderer,
+    invasions: list[Invasion],
+) -> Image.Image:
+    """绘制入侵信息卡片 — 单列宽卡片 + 双层边框 + 看板娘 + 底部署名。
 
     Args:
-        renderer: CardRenderer 实例（提供字体等资源）。
-        invasions: Invasion 模型列表。
+        renderer: CardRenderer 实例。
+        invasions: Invasion 模型列表（已由 Service 翻译并过滤）。
+
+    Returns:
+        PIL Image 对象。
     """
-    card_width = 800
-    item_height = 100
-    card_height = 60 + len(invasions) * item_height + 20
+    if not invasions:
+        return renderer.create_text_image("当前没有活跃的入侵", 800, 120)
 
-    cb = ImageCombiner(card_width, max(card_height, 200), ThemeColor.BG_DARK)
+    # ---- 排序：按 goal 降序 ----
+    sorted_invasions = sorted(invasions, key=lambda inv: inv.goal or 0, reverse=True)
 
-    cb.set_color(ThemeColor.WARNING).set_font(renderer.font_title)
-    cb.add_text("⚔ 当前入侵", 25, 15)
-    cb.draw_line(25, 48, 775, 48, width=2)
+    # ---- 字体 ----
+    title_font = FontManager.get_text_font(60)
+    node_font = FontManager.get_text_font(36)
+    faction_font = FontManager.get_text_font(30)
+    reward_font = FontManager.get_text_font(26)
+    progress_font = FontManager.get_text_font(28)
+    footer_font = FontManager.get_text_font(22)
 
-    y_offset = 65
-    for i, inv in enumerate(invasions):
-        bg_color = ThemeColor.BG_CARD if i % 2 == 0 else ThemeColor.BG_CARD_ALT
-        cb.draw_rounded_rect(20, y_offset, 760, 88, radius=8, fill=bg_color)
+    # ---- 布局计算 ----
+    n = len(sorted_invasions)
+    cards_h = n * _CARD_H + (n - 1) * _ROW_GAP
+    content_end = _CONTENT_START_Y + cards_h
+    canvas_h = content_end + _STANDING_H + _FOOTER_OFFSET + 20
 
-        node = inv.node or "未知节点"
-        cb.set_color(ThemeColor.TEXT_PRIMARY).set_font(renderer.font_body)
-        cb.add_text(node, 35, y_offset + 10)
+    # ---- 画布 ----
+    cb = ImageCombiner(_CANVAS_W, canvas_h, ThemeColor.BG_DARK)
 
-        attacker = inv.faction.name if inv.faction else "未知"
-        defender = inv.defender_faction.name if inv.defender_faction else "未知"
+    # ---- 双层边框 ----
+    cb.draw_double_border(
+        border_padding=16,
+        border_color_outer=ThemeColor.TABLE_BORDER,
+        border_color_inner=ThemeColor.DIVIDER,
+        stroke=3,
+    )
 
-        # 攻击方图标
-        x_atk = 35
-        if inv.faction and renderer.font_wf_icon:
-            icon, atk_color = CardRenderer.resolve_faction_icon_and_color(inv.faction)
-            if icon:
-                cb.set_color(atk_color).set_font(renderer.font_wf_icon)
-                cb.add_text(icon, x_atk, y_offset + 30)
-                x_atk += 45
+    # ---- 标题 ----
+    cb.set_color(ThemeColor.DANGER).set_font(title_font)
+    cb.add_centered_text("入侵任务", _TITLE_Y)
 
-        cb.set_color(ThemeColor.TEXT_SECONDARY).set_font(renderer.font_small)
-        cb.add_text(f"{attacker}  ⚔  {defender}", x_atk, y_offset + 38)
+    # ---- 分割线 ----
+    cb.set_color(ThemeColor.DIVIDER)
+    cb.draw_line(_CONTENT_X, _TITLE_Y + 68, _CONTENT_X + _CONTENT_W, _TITLE_Y + 68, width=1)
 
-        # 进度
-        completion = int(inv.count or 0)
-        progress_color = ThemeColor.SUCCESS if completion > 50 else ThemeColor.WARNING
-        cb.set_color(progress_color).set_font(renderer.font_small)
-        cb.add_text(f"进度: {completion}", 640, y_offset + 10)
+    # ---- 入侵卡片（单列） ----
+    for i, invasion in enumerate(sorted_invasions):
+        card_y = _CONTENT_START_Y + i * (_CARD_H + _ROW_GAP)
+        _draw_one_invasion_card(
+            cb, invasion, _CONTENT_X, card_y, renderer,
+            node_font, faction_font, reward_font, progress_font,
+        )
 
-        # 收集奖励物品名（已由 Service 翻译）
-        reward_items: list[str] = []
-        for rw in inv.attacker_reward:
-            if rw.counted_items:
-                for ci in rw.counted_items:
-                    reward_items.append(ci.name)
-        if inv.defender_reward and inv.defender_reward.counted_items:
-            for ci in inv.defender_reward.counted_items:
-                reward_items.append(ci.name)
-        reward_str = ", ".join(reward_items[:4]) if reward_items else ""
-        if reward_str:
-            cb.set_color(ThemeColor.ACCENT_GOLD).set_font(renderer.font_tiny)
-            cb.add_text(f"奖励: {reward_str}", 640, y_offset + 38)
+    # ---- 看板娘（右下角，贴底对齐） ----
+    standing_x = _CONTENT_X + _CONTENT_W - _STANDING_W - 20
+    standing_y = canvas_h - _STANDING_H - 10
+    draw_standing_at(cb, standing_x, standing_y, _STANDING_W, _STANDING_H)
+
+    # ---- 底部署名 ----
+    cb.set_color(ThemeColor.TEXT_MUTED).set_font(footer_font)
+    cb.add_centered_text(DrawConstant.FOOTER_TEXT, canvas_h - _FOOTER_OFFSET)
 
     return cb.to_image()

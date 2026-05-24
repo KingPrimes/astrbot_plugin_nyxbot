@@ -83,3 +83,26 @@ def draw_standing(
     if img_resized.mode != "RGBA":
         img_resized = img_resized.convert("RGBA")
     cb.draw_image(img_resized, x, y)
+
+
+def draw_standing_at(
+    cb: ImageCombiner,
+    x: int,
+    y: int,
+    max_w: int,
+    max_h: int,
+) -> None:
+    """在指定位置绘制缩放的看板娘立绘。
+
+    不同于 draw_standing 的右下角自动定位，
+    本函数支持指定绝对坐标和最大尺寸。
+    """
+    img = pick_standing_image()
+    if img is None:
+        return
+
+    target_w, target_h = resize_fit(img, max_w, max_h)
+    img_resized = img.resize((target_w, target_h), Image.Resampling.LANCZOS)
+    if img_resized.mode != "RGBA":
+        img_resized = img_resized.convert("RGBA")
+    cb.draw_image(img_resized, x, y)

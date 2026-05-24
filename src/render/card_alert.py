@@ -17,6 +17,7 @@ from PIL import Image, ImageFont
 from .draw_constant import DrawConstant, ThemeColor
 from .font_manager import FontManager
 from .image_combiner import ImageCombiner
+from .standing import draw_standing_at
 
 if TYPE_CHECKING:
     from ..model.world_state import Alert
@@ -254,29 +255,3 @@ def render_alert_card(renderer: CardRenderer, alerts: list[Alert]) -> Image.Imag
 
 
 # ---------------------------------------------------------------------------
-# 看板娘自定义位置绘制
-# ---------------------------------------------------------------------------
-
-def draw_standing_at(
-    cb: ImageCombiner,
-    x: int,
-    y: int,
-    max_w: int,
-    max_h: int,
-) -> None:
-    """在指定位置绘制缩放的看板娘立绘。
-
-    不同于 standing.draw_standing 的右下角自动定位，
-    本函数支持指定绝对坐标和最大尺寸。
-    """
-    from .standing import pick_standing_image, resize_fit
-
-    img = pick_standing_image()
-    if img is None:
-        return
-
-    target_w, target_h = resize_fit(img, max_w, max_h)
-    img_resized = img.resize((target_w, target_h), Image.Resampling.LANCZOS)
-    if img_resized.mode != "RGBA":
-        img_resized = img_resized.convert("RGBA")
-    cb.draw_image(img_resized, x, y)
