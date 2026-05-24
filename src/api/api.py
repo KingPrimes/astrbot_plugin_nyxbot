@@ -47,3 +47,12 @@ WF_MARKET_SISTER_WEAPONS = f"{WF_MARKET_BASE_URL}/sister/weapons"
 # Market 拍卖
 WF_MARKET_SEARCH = "https://api.warframe.market/v1/auctions/search"
 """Market 拍卖"""
+# 仲裁预测 API
+WF_ARBITRATION = "https://wf.555590.xyz/api/arbys?days=30"
+"""仲裁预测 API"""
+# Market 杜卡币 API
+WF_MARKET_DUCATS = "https://api.warframe.market/v1/tools/ducats"
+"""Market 杜卡币 API"""
+# Market 赤毒/信条 拍卖 API
+WF_MARKET_AUCTIONS = "https://api.warframe.market/v1/auctions/search"
+"""Market 赤毒/信条 拍卖 API"""

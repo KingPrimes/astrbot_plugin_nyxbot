@@ -15,7 +15,6 @@ from .api import (
 )
 from .cdn_client import CdnClient
 from .market import MarketClient, Platform
-from .world_state import WorldStateClient
 
 __all__ = [
     "WF_WORLD_STATE",
@@ -30,7 +29,6 @@ __all__ = [
     "WF_MARKET_LICH_WEAPONS",
     "WF_MARKET_SISTER_WEAPONS",
     "WF_MARKET_SEARCH",
-    "WorldStateClient",
     "MarketClient",
     "Platform",
     "CdnClient",
