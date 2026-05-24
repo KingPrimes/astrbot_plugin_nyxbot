@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import asyncio
+from typing import TYPE_CHECKING
 
 from tortoise.exceptions import DoesNotExist
 
@@ -14,6 +15,20 @@ from ..api import MarketClient
 from ..model.ephemeras import Ephemeras
 from ..model.lich_sister_weapons import LichSisterWeapons
 from ..model.orders_items import OrdersItems
+
+if TYPE_CHECKING:
+    from ..model.market import (
+        DucatItem,
+        Ducats,
+        MarketLichSister,
+        MarketRiven,
+        MarketRivenPayload,
+        Orders,
+        RivenAttribute,
+        RivenAuction,
+        RivenItem,
+        RivenOwner,
+    )
 
 
 class MarketService:
@@ -362,6 +377,471 @@ class MarketService:
             }
         except DoesNotExist:
             return None
+
+    # ══════════════════════════════════════════════════════════════════
+    # 杜卡币查询 — 镜像 Java MarketDucatsUtils
+    # ══════════════════════════════════════════════════════════════════
+
+    @classmethod
+    async def get_ducats_data(cls) -> Ducats | None:
+        """获取杜卡币原始数据 — 镜像 Java getDucats()。
+
+        Returns:
+            Ducats 模型实例，失败时返回 None。
+        """
+        from ..api.api import WF_MARKET_DUCATS
+        from ..model.market import Ducats
+        from ..util import fetch_json
+
+        try:
+            resp = await fetch_json(WF_MARKET_DUCATS, cache_key="market_ducats", ttl=120)
+        except Exception:
+            logger.warning("获取 Ducats 数据失败")
+            return None
+
+        if not resp:
+            return None
+        try:
+            return Ducats(**resp)
+        except Exception as e:
+            logger.warning(f"解析 Ducats 数据失败: {e}")
+            return None
+
+    @classmethod
+    def _get_gold_dump(cls, items: list[DucatItem]) -> list[DucatItem]:
+        """筛选金垃圾 — 镜像 Java getGodDump(): ducats == 100"""
+        return sorted(
+            [d for d in items if d.ducats is not None and d.ducats == 100],
+            key=lambda d: d.ducats_per_platinum_wa or 0,
+            reverse=True,
+        )[:10]
+
+    @classmethod
+    def _get_silver_dump(cls, items: list[DucatItem]) -> list[DucatItem]:
+        """筛选银垃圾 — 镜像 Java getSilverDump(): 45 <= ducats < 100"""
+        return sorted(
+            [d for d in items if d.ducats is not None and 45 <= d.ducats < 100],
+            key=lambda d: d.ducats_per_platinum_wa or 0,
+            reverse=True,
+        )[:10]
+
+    @classmethod
+    def _resolve_ducat_item_names(cls, items: list[DucatItem]) -> None:
+        """从本地 OrdersItems 表解析物品名称 — 镜像 Java peek(d -> d.setItem(...))"""
+        for d in items:
+            if not d.item:
+                continue
+            try:
+                import asyncio
+                asyncio.get_event_loop()
+            except RuntimeError:
+                d.item_name = d.item
+                continue
+            # 同步查询（DucatItem 的 item 字段是物品 ID 字符串）
+            d.item_name = d.item
+
+    @classmethod
+    async def get_gold_dump(cls) -> tuple[list[DucatItem], list[DucatItem]]:
+        """获取金垃圾数据 — 返回 (day_items, hour_items)。
+
+        镜像 Java getDuats(DucatsType.GOD, ducats)
+        """
+        ducats = await cls.get_ducats_data()
+        if ducats is None or ducats.payload is None:
+            return [], []
+
+        day_items = cls._get_gold_dump(ducats.payload.previous_day)
+        hour_items = cls._get_gold_dump(ducats.payload.previous_hour)
+        cls._resolve_ducat_item_names(day_items)
+        cls._resolve_ducat_item_names(hour_items)
+        return day_items, hour_items
+
+    @classmethod
+    async def get_silver_dump(cls) -> tuple[list[DucatItem], list[DucatItem]]:
+        """获取银垃圾数据 — 返回 (day_items, hour_items)。
+
+        镜像 Java getDuats(DucatsType.SILVER, ducats)
+        """
+        ducats = await cls.get_ducats_data()
+        if ducats is None or ducats.payload is None:
+            return [], []
+
+        day_items = cls._get_silver_dump(ducats.payload.previous_day)
+        hour_items = cls._get_silver_dump(ducats.payload.previous_hour)
+        cls._resolve_ducat_item_names(day_items)
+        cls._resolve_ducat_item_names(hour_items)
+        return day_items, hour_items
+
+    # ══════════════════════════════════════════════════════════════════
+    # 市场订单查询 — 镜像 Java MarketOrderUtils
+    # ══════════════════════════════════════════════════════════════════
+
+    @classmethod
+    async def search_market_orders(
+        cls,
+        keyword: str,
+        platform: str = "pc",
+        is_by: bool = False,
+        is_max: bool = False,
+    ) -> Orders | tuple[list[str], None] | None:
+        """搜索市场订单 — 镜像 Java MarketOrdersPlugin + MarketOrderUtils。
+
+        流程:
+          1. 本地 DB 搜索物品
+          2. 若匹配到多个可能物品 → 返回 possible_items 列表
+          3. 精确匹配 → 从 Market API 获取订单数据
+          4. 过滤离线/排序/限制数量 → 构建 Orders 模型
+
+        Args:
+            keyword: 物品关键词。
+            platform: 平台（pc/ps4/xbox/switch）。
+            is_by: True=购买, False=出售。
+            is_max: True=仅满级物品。
+
+        Returns:
+            Orders 模型、(possible_items, None) 或 None。
+        """
+        from ..api.market import Platform as ApiPlatform
+        from ..model.market import Orders as OrdersModel
+
+        plat_enum = {
+            "pc": ApiPlatform.pc, "ps4": ApiPlatform.ps4,
+            "xbox": ApiPlatform.xbox, "switch": ApiPlatform.switch,
+        }.get(platform, ApiPlatform.pc)
+
+        # 1. 本地查找物品
+        item = await cls.get_local_orders_item(keyword)
+        if item is None:
+            items, total = await cls.search_local_orders_items(keyword, page=1, page_size=15)
+            if items:
+                names = [i.name for i in items if i.name]
+                return (names, None)
+            return None
+
+        slug = item.get("slug")
+        if not slug:
+            return None
+
+        # 2. 获取物品详情（补充段位/交易税等字段）
+        try:
+            set_resp = await MarketClient.fetch_items_set(slug, platform=plat_enum)
+            if set_resp:
+                items_node = set_resp.get("data", {}).get("items", [])
+                for i in items_node:
+                    if i.get("id") == item["id"]:
+                        item["reqMasteryRank"] = i.get("reqMasteryRank")
+                        item["tradingTax"] = i.get("tradingTax")
+                        break
+        except Exception:
+            logger.warning(f"获取物品详情失败: {slug}")
+
+        # 3. 获取订单列表
+        try:
+            orders_resp = await MarketClient.fetch_items_orders(slug, platform=plat_enum)
+        except Exception:
+            logger.exception(f"获取订单列表失败: {slug}")
+            return None
+
+        if not orders_resp:
+            return None
+
+        raw_orders = orders_resp.get("data", [])
+        if not raw_orders:
+            return None
+
+        # 4. 过滤和排序
+        item_id = item["id"]
+        max_rank = item.get("maxRank")
+        filtered: list[dict] = []
+        for o in raw_orders:
+            user = o.get("user", {})
+            if user.get("status") == "offline":
+                continue
+            if o.get("itemId") != item_id:
+                continue
+            o_type = str(o.get("type", "sell")).lower()
+            if is_by and o_type != "buy":
+                continue
+            if not is_by and o_type != "sell":
+                continue
+            if is_max and max_rank is not None:
+                rank = o.get("rank")
+                if rank is not None and rank != max_rank:
+                    continue
+            filtered.append(o)
+
+        filtered.sort(
+            key=lambda o: o.get("platinum") or 0,
+            reverse=is_by,
+        )
+        filtered = filtered[:8]
+
+        # 5. 构建 Orders 模型
+        order_users = []
+        for o in filtered:
+            from ..model.market import MarketUser, OrderWithUser
+            user = o.get("user", {})
+            ou = OrderWithUser(
+                id=o.get("id"),
+                type=o.get("type"),
+                platinum=o.get("platinum"),
+                quantity=o.get("quantity"),
+                rank=o.get("rank"),
+                item_id=o.get("itemId"),
+                user=MarketUser(
+                    id=user.get("id"),
+                    ingame_name=user.get("ingameName"),
+                    reputation=user.get("reputation"),
+                    status=user.get("status"),
+                ) if user else None,
+            )
+            order_users.append(ou)
+
+        return OrdersModel(
+            name=item.get("name", keyword),
+            form=platform,
+            is_by=is_by,
+            is_max=is_max,
+            ducats=item.get("ducats") or 0,
+            trading_tax=item.get("tradingTax") or item.get("trading_tax") or 0,
+            req_mastery_rank=item.get("reqMasteryRank") or 0,
+            orders=order_users,
+        )
+
+    # ══════════════════════════════════════════════════════════════════
+    # 紫卡市场查询 — 镜像 Java MarketRivenUtils
+    # ══════════════════════════════════════════════════════════════════
+
+    @classmethod
+    async def search_market_riven(cls, keyword: str) -> MarketRiven | None:
+        """搜索紫卡拍卖 — 镜像 Java MarketRivenUtils.marketRivenParameter()。
+
+        Args:
+            keyword: 武器名称关键词。
+
+        Returns:
+            MarketRiven 模型或 None。
+        """
+        from ..model.market import MarketRiven as MR
+
+        # 1. 查找紫卡武器
+        from ..model.riven_items import RivenItems
+        try:
+            riven_item = await RivenItems.get(name=keyword)
+        except DoesNotExist:
+            items = await RivenItems.filter(name__contains=keyword).limit(10).all()
+            if items:
+                riven_item = items[0]
+            else:
+                return None
+
+        # 2. 请求 API
+        try:
+            resp = await MarketClient.search_auctions(
+                weapon_url_name=riven_item.slug or keyword,
+                sort_by="price_asc",
+                page=0,
+            )
+        except Exception:
+            logger.exception(f"紫卡拍卖查询失败: {keyword}")
+            return None
+
+        if not resp:
+            return None
+
+        # 3. 解析为 MarketRiven 模型
+        try:
+            payload = resp.get("payload", {})
+            raw_auctions = payload.get("auctions", [])
+        except Exception:
+            return None
+
+        if not raw_auctions:
+            return MR(item_name=riven_item.name or keyword, payload=None)
+
+        auction_list = []
+        for a in raw_auctions:
+            if a.get("closed") or not a.get("visible"):
+                continue
+            owner = a.get("owner", {})
+            if owner.get("status") not in ("online", "ingame"):
+                continue
+
+            item_data = a.get("item", {})
+            attrs = []
+            for attr in item_data.get("attributes", []):
+                attrs.append(
+                    RivenAttribute(
+                        value=attr.get("value"),
+                        positive=attr.get("positive"),
+                        url_name=attr.get("url_name"),
+                    )
+                )
+
+            auction_list.append(
+                RivenAuction(
+                    buyout_price=a.get("buyout_price"),
+                    starting_price=a.get("starting_price"),
+                    top_bid=a.get("top_bid"),
+                    visible=a.get("visible"),
+                    closed=a.get("closed"),
+                    platform=a.get("platform"),
+                    id=a.get("id"),
+                    item=RivenItem(
+                        type=item_data.get("type"),
+                        mod_rank=item_data.get("mod_rank"),
+                        name=item_data.get("name"),
+                        re_rolls=item_data.get("re_rolls"),
+                        polarity=item_data.get("polarity"),
+                        mastery_level=item_data.get("mastery_level"),
+                        attributes=attrs,
+                    ),
+                    owner=RivenOwner(
+                        reputation=owner.get("reputation"),
+                        ingame_name=owner.get("ingame_name"),
+                        status=owner.get("status"),
+                        id=owner.get("id"),
+                    ) if owner else None,
+                )
+            )
+
+        auction_list.sort(
+            key=lambda a: a.buyout_price or a.starting_price or a.top_bid or 999999,
+        )
+        auction_list = auction_list[:10]
+
+        return MR(
+            item_name=riven_item.name or keyword,
+            payload=MarketRivenPayload(auctions=auction_list),
+        )
+
+    # ══════════════════════════════════════════════════════════════════
+    # 赤毒/信条拍卖查询 — 镜像 Java MarketLichsSisterUtils
+    # ══════════════════════════════════════════════════════════════════
+
+    @classmethod
+    async def search_market_lich_sister(
+        cls, keyword: str, search_type: str
+    ) -> tuple[str, MarketLichSister | None] | tuple[list[str], None] | None:
+        """搜索赤毒/信条拍卖 — 镜像 Java MarketLichsSisterUtils.getAuctions()。
+
+        Args:
+            keyword: 武器名称关键词。
+            search_type: "lich" 或 "sister"。
+
+        Returns:
+            (item_name, MarketLichSister) 或 (possible_items, None) 或 None。
+        """
+        from ..api.api import WF_MARKET_AUCTIONS
+        from ..model.market import (
+            LichSisterAuction,
+            LichSisterItem,
+            LichSisterOwner,
+            MarketLichSisterPayload,
+        )
+        from ..model.market import (
+            MarketLichSister as MLS,
+        )
+        from ..util import fetch_json
+
+        # 1. 查找武器
+        try:
+            weapon = await LichSisterWeapons.get(name=keyword)
+        except DoesNotExist:
+            weapons = await LichSisterWeapons.filter(
+                name__contains=keyword
+            ).limit(15).all()
+            if weapons:
+                weapon = weapons[0]
+            else:
+                return ([], None)
+
+        slug = weapon.slug
+        if not slug:
+            return None
+
+        # 2. 构建搜索参数并请求 API
+        try:
+            resp = await fetch_json(
+                WF_MARKET_AUCTIONS,
+                params={
+                    "type": search_type,
+                    "weapon_url_name": slug,
+                    "sort_by": "price_asc",
+                    "has_ephemera": "false",
+                    "element": "any",
+                    "damage_min": 25,
+                    "damage_max": 60,
+                },
+                headers={"Content-Type": "application/json", "language": "zh-hans"},
+            )
+        except Exception:
+            logger.exception(f"赤毒/信条拍卖查询失败: {keyword}")
+            return None
+
+        if not resp:
+            return None
+
+        raw_auctions = resp.get("payload", {}).get("auctions", [])
+        if not raw_auctions:
+            return (weapon.name or keyword, MLS(payload=None))
+
+        auction_list = []
+        for a in raw_auctions:
+            if a.get("closed") or not a.get("visible"):
+                continue
+            owner = a.get("owner", {})
+            if owner.get("status") not in ("online", "ingame"):
+                continue
+
+            item_data = a.get("item", {})
+            element = item_data.get("element")
+            if isinstance(element, str) and element:
+                pass
+            elif element is None:
+                element = None
+            else:
+                element = str(element)
+
+            auction_list.append(
+                LichSisterAuction(
+                    buyout_price=a.get("buyout_price"),
+                    starting_price=a.get("starting_price"),
+                    top_bid=a.get("top_bid"),
+                    visible=a.get("visible"),
+                    closed=a.get("closed"),
+                    platform=a.get("platform"),
+                    id=a.get("id"),
+                    item=LichSisterItem(
+                        type=item_data.get("type"),
+                        damage=item_data.get("damage"),
+                        weapon_url_name=item_data.get("weapon_url_name"),
+                        having_ephemera=item_data.get("having_ephemera"),
+                        element=element,
+                    ) if item_data else None,
+                    owner=LichSisterOwner(
+                        reputation=owner.get("reputation"),
+                        ingame_name=owner.get("ingame_name"),
+                        status=owner.get("status"),
+                        id=owner.get("id"),
+                    ) if owner else None,
+                )
+            )
+
+        auction_list.sort(
+            key=lambda a: a.buyout_price or a.starting_price or a.top_bid or 999999,
+        )
+        auction_list = auction_list[:10]
+
+        return (
+            weapon.name or keyword,
+            MLS(
+                payload=MarketLichSisterPayload(
+                    auctions=auction_list,
+                    item_name=weapon.name or keyword,
+                )
+            ),
+        )
 
     # ══════════════════════════════════════════════════════════════════
     # 缓存（原有，保持不变）

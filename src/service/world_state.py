@@ -17,8 +17,9 @@ from tortoise.exceptions import DoesNotExist
 
 from astrbot.api import logger
 
-from ..api.world_state import WorldStateClient
+from ..api.api import WF_WORLD_STATE
 from ..init import init_ready
+from ..model.arbitration import Arbitration
 from ..model.export.night_wave import NightWave
 from ..model.export.nodes import Nodes
 from ..model.export.weapons import Weapons
@@ -32,10 +33,12 @@ from ..model.world_state import (
     EarthCycle,
     EndlessXpCategory,
     Invasion,
+    KnownCalendarSeasons,
     LiteSorite,
     SeasonInfo,
     Sortie,
     SteelPathOffering,
+    SyndicateMission,
     VallisCycle,
     VoidStorms,
     VoidTrader,
@@ -43,6 +46,7 @@ from ..model.world_state import (
     ZarimanCycle,
 )
 from ..service.state_translation import StateTranslationService
+from ..util import fetch_json
 from ..util.data_path import get_public_data_path
 from ..util.string_utils import get_last_three_segments, split_camel_case
 from ..wenum.fissure_type import FissureTypeEnum
@@ -58,6 +62,15 @@ class WorldStateService:
     - 后台自动刷新循环
     - 翻译管道（节点名 + 物品路径 → 人类可读名称）
     """
+
+    @classmethod
+    async def _fetch_raw(cls) -> dict[str, Any] | None:
+        """拉取原始 WorldState 数据。
+
+        Returns:
+            原始 JSON 字典，失败返回 None。
+        """
+        return await fetch_json(WF_WORLD_STATE)
 
     # ── 类变量 ──────────────────────────────────────────────────────────
     _cache: dict[str, Any] = {"ws": None, "raw": None}
@@ -166,7 +179,7 @@ class WorldStateService:
         Returns:
             (解析后的 WorldState 对象, 原始 JSON dict)，失败返回 (None, None)。
         """
-        raw = await WorldStateClient.fetch_raw()
+        raw = await cls._fetch_raw()
         if raw is None:
             return None, None
         return WorldState.model_validate(raw), raw
@@ -391,7 +404,7 @@ class WorldStateService:
     @classmethod
     async def get_fissures(
         cls, fissure_type: FissureTypeEnum = FissureTypeEnum.ACTIVE_MISSION,
-    ) -> list[ActiveMission] | list[VoidStorms]:
+    ) -> list[ActiveMission]:
         """获取裂隙任务列表（翻译节点 + faction，按 modifier 排序）。
 
         镜像 Java: getFissure(FissureTypeEnum)
@@ -403,10 +416,8 @@ class WorldStateService:
                 - VOID_STORMS: 虚空风暴（Railjack 裂隙）
 
         Returns:
-            - ACTIVE_MISSION / STEEL_PATH: list[ActiveMission]
-            - VOID_STORMS: list[VoidStorms]
-            各模型的 node 字段已翻译为节点名，
-            ActiveMission 的 faction/mission_type 已从 Nodes 表覆盖。
+            list[ActiveMission]
+            所有类型统一返回 ActiveMission，node/faction/mission_type 已从 Nodes 表覆盖。
         """
         ws = await cls._get_cached()
         if ws is None:
@@ -446,17 +457,29 @@ class WorldStateService:
     @classmethod
     async def _translate_void_storms(
         cls, void_storms: list[VoidStorms],
-    ) -> list[VoidStorms]:
-        """翻译 VoidStorms（节点名翻译）。"""
+    ) -> list[ActiveMission]:
+        """转换 VoidStorms → ActiveMission（节点 + faction + mission_type 从 Nodes 表补全）。
+
+        镜像 Java: getFissure(VOID_STORMS) 分支。
+        """
+        result: list[ActiveMission] = []
         for vs in void_storms:
+            am = ActiveMission()
+            am.activation = vs.activation
+            am.expiry = vs.expiry
+            am.modifier = vs.tier  # tier → modifier
+            am.void_storms = True
+
             node = await cls.get_node(vs.node) if vs.node else None
             if node:
-                if node.systemName:
-                    vs.node = f"{node.name}({node.systemName})"
-                else:
-                    vs.node = node.name
+                am.node = f"{node.name}({node.systemName})" if node.systemName else node.name
+                am.faction = node.faction  # 从 Nodes 表补全
+                am.mission_type = node.mission_type  # 从 Nodes 表补全
+            else:
+                am.node = vs.node
 
-        return sorted(void_storms, key=lambda vs: vs.tier.name if vs.tier else "")
+            result.append(am)
+        return sorted(result, key=lambda m: m.modifier.name if m.modifier else "")
 
     # ══════════════════════════════════════════════════════════════════
     # get_invasions() — 入侵 → list[Invasion]
@@ -612,12 +635,12 @@ class WorldStateService:
         return ws.lite_sorties
 
     # ══════════════════════════════════════════════════════════════════
-    # get_nightwave() — 午夜电波 → SeasonInfo | None
+    # get_season_info() — 赛季信息 → SeasonInfo | None
     # ══════════════════════════════════════════════════════════════════
 
     @classmethod
-    async def get_nightwave(cls) -> SeasonInfo | None:
-        """获取午夜电波数据（挑战信息从 NightWave 表查询，修改模型字段就地）。
+    async def get_season_info(cls) -> SeasonInfo | None:
+        """获取午夜电波赛季信息（挑战信息从 NightWave 表查询，修改模型字段就地）。
 
         镜像 Java: getSeasonInfo()
 
@@ -646,7 +669,6 @@ class WorldStateService:
                 ac.elite = nw.is_elite_missions
             except DoesNotExist:
                 pass
-
         return si
 
     # ══════════════════════════════════════════════════════════════════
@@ -812,13 +834,122 @@ class WorldStateService:
         return ws.steel_path
 
     # ══════════════════════════════════════════════════════════════════
-    # get_arbitration() — 仲裁（暂不实现）
+    # get_syndicate_mission() — 集团赏金任务
     # ══════════════════════════════════════════════════════════════════
 
     @classmethod
-    async def get_arbitration(cls) -> None:
-        """获取仲裁数据（暂不实现）。"""
+    async def get_syndicate_mission(
+        cls, syndicate_tag,
+    ) -> SyndicateMission | None:
+        """获取指定集团的赏金任务（筛选 jobs 非空的条目，翻译 job 类型）。
+
+        镜像 Java: SyndicateMissionsUtils.getSyndicateMissions()
+
+        Args:
+            syndicate_tag: SyndicateEnum 成员（如 SyndicateEnum.CetusSyndicate）。
+
+        Returns:
+            SyndicateMission 模型（jobs 非空且已翻译），无匹配返回 None。
+        """
+        ws = await cls._get_cached()
+        if ws is None:
+            return None
+
+        for sm in ws.syndicate_missions:
+            if sm.tag is syndicate_tag and sm.jobs:
+                # 翻译 job 类型
+                for job in sm.jobs:
+                    if job.type:
+                        translated = await cls._translate_job_type(job.type)
+                        if translated:
+                            job.type = translated
+                    elif job.location_tag:
+                        translated = await cls._translate_job_type(job.location_tag)
+                        if translated:
+                            job.type = translated
+                return sm
+
         return None
+
+    @classmethod
+    async def _translate_job_type(cls, type_key: str) -> str | None:
+        """翻译赏金任务类型（从 StateTranslation 表查询，回退到 Nodes 表）。"""
+        if not type_key:
+            return None
+        try:
+            from ..util.string_utils import get_last_three_segments
+            key = get_last_three_segments(type_key)
+            trans = await StateTranslationService.get_state_translation(key)
+            if trans:
+                return trans
+        except Exception:
+            pass
+        return None
+
+    # ══════════════════════════════════════════════════════════════════
+    # get_known_calendar_seasons() — 1999日历
+    # ══════════════════════════════════════════════════════════════════
+
+    @classmethod
+    async def get_known_calendar_seasons(cls) -> list[KnownCalendarSeasons]:
+        """获取1999日历季节数据。
+
+        镜像 Java: getKnownCalendarSeasons()
+
+        Returns:
+            KnownCalendarSeasons 模型列表。
+        """
+        ws = await cls._get_cached()
+        if ws is None:
+            return []
+        return ws.known_calendar_seasons
+
+    # ══════════════════════════════════════════════════════════════════
+    # get_arbitration() — 仲裁
+    # ══════════════════════════════════════════════════════════════════
+
+    @classmethod
+    async def get_arbitration(cls) -> Arbitration | None:
+        """获取当前仲裁数据 — 镜像 Java ArbitrationCache.getArbitration()。
+
+        从仲裁预测 API 获取数据，筛选当前活跃的仲裁任务（expiry > now），
+        取剩余时间最小的一个返回。
+
+        Returns:
+            Arbitration 模型实例，无活跃数据时返回 None。
+        """
+        from ..api.api import WF_ARBITRATION
+        from ..util import fetch_json
+
+        try:
+            resp = await fetch_json(WF_ARBITRATION, cache_key="arbitration", ttl=300)
+        except Exception:
+            logger.warning("获取仲裁数据失败")
+            return None
+
+        if not resp or not isinstance(resp, list):
+            return None
+
+        # 解析为模型列表，筛选 expiry > now 的活跃项，取剩余时间最小的
+        now_ts = __import__("time").time()
+        active: Arbitration | None = None
+        min_delta: float = float("inf")
+
+        for item in resp:
+            if not isinstance(item, dict):
+                continue
+            try:
+                arb = Arbitration(**item)
+            except Exception:
+                continue
+            if arb.expiry is None:
+                continue
+            delta = arb.expiry - now_ts
+            if delta > 0 and delta < min_delta:
+                min_delta = delta
+                active = arb
+
+        return active
 
     # ══════════════════════════════════════════════════════════════════
     # 星图节点查询（保留原有方法）

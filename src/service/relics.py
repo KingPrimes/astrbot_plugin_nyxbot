@@ -7,8 +7,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from astrbot.api import logger
+
+if TYPE_CHECKING:
+    from ..model.export.relics import Relics
 
 # Warframe 部件术语中文翻译（镜像 Java translateReward 中的 replace 链）
 _WARFRAME_PART_TRANSLATIONS: dict[str, str] = {
@@ -350,3 +354,102 @@ class RelicsService:
             f"共 {total_rewards} 条奖励记录"
             f"（新增 {added_count} 条 M2M 关联，移除 {removed_count} 条）"
         )
+
+    # ══════════════════════════════════════════════════════════════════
+    # 查询（镜像 Java RelicsService.findAllByRelicNameOrRewardsItemName）
+    # ══════════════════════════════════════════════════════════════════
+
+    @classmethod
+    async def find_by_name_or_reward(cls, name: str) -> list[Relics]:
+        """多级回退查询遗物 — 按遗物名称或奖励物品名称搜索。
+
+        镜像 Java RelicsService.findAllByRelicNameOrRewardsItemName()：
+        1. 精确匹配遗物名称
+        2. 模糊匹配遗物名称
+        3. 模糊匹配奖励物品名称（通过 M2M 中间表反向查询）
+        4. 别名替换（中文→英文）后再次模糊匹配奖励
+        5. 全部失败返回空列表
+
+        Args:
+            name: 搜索关键词（遗物名称或奖励物品名称）。
+
+        Returns:
+            list[Relics]: 匹配的遗物模型列表（已 prefetch 关联奖励），按名称排序。
+        """
+        from tortoise.expressions import Q
+
+        from ..model.alias import Alias
+        from ..model.export.relic_rewards import RelicRewards
+        from ..model.export.relics import Relics
+
+        # 空查询 → 返回所有遗物
+        if not name or not name.strip():
+            return await (
+                Relics.all()
+                .prefetch_related("relic_rewards")
+                .order_by("name")
+            )
+
+        name = name.strip()
+
+        # 1. 精确匹配遗物名称
+        rs = await (
+            Relics.filter(name=name)
+            .prefetch_related("relic_rewards")
+            .order_by("name")
+        )
+        if rs:
+            return list(rs)
+
+        logger.debug(f"未查询到遗物名称为 '{name}' 的遗物，进行模糊查询")
+
+        # 2. 模糊匹配遗物名称
+        rs = await (
+            Relics.filter(name__contains=name)
+            .prefetch_related("relic_rewards")
+            .order_by("name")
+        )
+        if rs:
+            return list(rs)
+
+        logger.debug(f"未查询到包含 '{name}' 的遗物，进行奖励物品的模糊查询")
+
+        # 3. 模糊匹配奖励物品名称（排除 Forma，避免因每个遗物都含 Forma 导致结果膨胀）
+        reward_ids = await RelicRewards.filter(
+            Q(rewardName__contains=name) & ~Q(rewardName__contains="Forma"),
+        ).values_list("id", flat=True)
+        if reward_ids:
+            rs = await (
+                Relics.filter(relic_rewards__id__in=list(reward_ids))
+                .distinct()
+                .prefetch_related("relic_rewards")
+                .order_by("name")
+            )
+            if rs:
+                return list(rs)
+
+        logger.debug(f"未查询到包含 '{name}' 的遗物，使用别名模糊查询奖励列表")
+
+        # 4. 别名替换后再次模糊匹配
+        aliases = await Alias.all()
+        key = name
+        for a in aliases:
+            if a.cn and a.cn in key:
+                key = key.replace(a.cn, a.en or "")
+
+        if key != name:
+            reward_ids = await RelicRewards.filter(
+                Q(rewardName__contains=key) & ~Q(rewardName__contains="Forma"),
+            ).values_list("id", flat=True)
+            if reward_ids:
+                rs = await (
+                    Relics.filter(relic_rewards__id__in=list(reward_ids))
+                    .distinct()
+                    .prefetch_related("relic_rewards")
+                    .order_by("name")
+                )
+                if rs:
+                    return list(rs)
+
+        logger.debug(f"未找到物品: {name}")
+        return []
