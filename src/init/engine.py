@@ -12,6 +12,7 @@ import os
 
 from tortoise import Tortoise
 from tortoise.context import get_current_context, set_global_context
+from tortoise.exceptions import ConfigurationError
 
 from astrbot.api import logger
 
@@ -88,10 +89,17 @@ async def get_engine():
         await Tortoise.generate_schemas()
 
         # 将 TortoiseContext 设为全局回退，使跨 asyncio task 均可访问
+        # 若其他插件已设置全局回退，则跳过（NyxBot 的 contextvars 仍会在子 task 中传播）
         ctx = get_current_context()
         if ctx is not None:
-            set_global_context(ctx)
-            logger.debug("TortoiseContext 已设为全局回退（跨 task 可用）")
+            try:
+                set_global_context(ctx)
+                logger.debug("TortoiseContext 已设为全局回退（跨 task 可用）")
+            except ConfigurationError:
+                logger.warning(
+                    "无法设置全局 TortoiseContext 回退（已被其他插件占用），"
+                    "NyxBot 数据库操作仅在当前 asyncio task 树中可用"
+                )
 
         _tortoise_initialized = True
 
