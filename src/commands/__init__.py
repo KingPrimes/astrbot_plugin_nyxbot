@@ -7,6 +7,7 @@ registers their handlers via the patched decorators in registry.py.
 修补过的装饰器注册各自的 Handler。
 """
 
+
 def register_all() -> None:
     """Import all command modules to trigger handler registration.
 
@@ -16,16 +17,30 @@ def register_all() -> None:
     from . import (
         wf_alerts,  # noqa: F401
         wf_arbitration,  # noqa: F401
+        wf_calendar_seasons,  # noqa: F401
         wf_cycle,  # noqa: F401
         wf_daily_deals,  # noqa: F401
         wf_duviri,  # noqa: F401
         wf_fissures,  # noqa: F401
         wf_help,  # noqa: F401
         wf_invasions,  # noqa: F401
-        wf_nightwave,  # noqa: F401
+        wf_lite_sortie,  # noqa: F401
+        wf_market_god_dump,  # noqa: F401
+        wf_market_liches,  # noqa: F401
+        wf_market_orders,  # noqa: F401
+        wf_market_riven,  # noqa: F401
+        wf_market_silver_dump,  # noqa: F401
+        wf_market_sisters,  # noqa: F401
+        wf_perlin_sequence,  # noqa: F401
         wf_relics,  # noqa: F401
+        wf_riven_analyse,  # noqa: F401
+        wf_riven_dis_update,  # noqa: F401
+        wf_riven_market,  # noqa: F401
+        wf_season_info,  # noqa: F401
         wf_sorties,  # noqa: F401
         wf_steel_path,  # noqa: F401
+        wf_syndicate,  # noqa: F401
+        wf_translation,  # noqa: F401
         wf_void_trader,  # noqa: F401
     )
 
