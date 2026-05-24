@@ -1,4 +1,4 @@
-"""wf_relics - /relics or /遗物 - 查看当前遗物掉落"""
+"""wf_relics - /遗物 - 查询遗物数据（按名称或奖励物品搜索）"""
 from __future__ import annotations
 
 import astrbot.api.message_components as Comp
@@ -6,42 +6,28 @@ from astrbot.api.event import AstrMessageEvent
 
 from ...registry import wf
 from ..render.card_renderer import CardRenderer
-from ..service.world_state import WorldStateService
+from ..service.relics import RelicsService
 
 
-@wf.command("遗物")
-async def wf_relics(self, event: AstrMessageEvent):
-    """查看当前遗物掉落"""
-    # 直接从 raw 数据获取遗物信息
-    raw = await WorldStateService.get_raw()
+@wf.command(name="遗物", alias=["核桃"])
+async def wf_relics(self, event: AstrMessageEvent, name: str = ""):
+    """查询遗物数据 — 支持按遗物名称或奖励物品搜索。
 
-    if not raw:
-        yield event.plain_result("无法获取遗物数据")
+    用法: /遗物 <搜索词>  或  /核桃 <搜索词>
+    示例:
+      /遗物              → 显示所有遗物
+      /遗物 丽斯         → 搜索名称含"丽斯"的遗物
+      /遗物 Frost Prime  → 搜索奖励含"Frost Prime"的遗物
+    """
+
+    relics = await RelicsService.find_by_name_or_reward(name)
+
+    if not relics:
+        yield event.plain_result(
+            f"未找到与 '{name}' 相关的遗物" if name
+            else "遗物数据为空，请先执行数据同步"
+        )
         return
-
-    relics_raw = raw.get("Relics", raw.get("relics", []))
-    if not relics_raw:
-        yield event.plain_result("当前没有遗物掉落数据")
-        return
-
-    from ..util.time_utils import format_time_remaining_short, parse_wf_timestamp
-
-    relics = []
-    for r in relics_raw:
-        name = r.get("ItemType", r.get("item_type", ""))
-        if "/" in str(name):
-            name = str(name).split("/")[-1].replace("_", " ")
-        tier = r.get("Tier", r.get("tier", ""))
-        relic_name = r.get("RelicName", r.get("relic_name", ""))
-        expiry = parse_wf_timestamp(r.get("Expiry", r.get("expiry", "")))
-        eta = format_time_remaining_short(expiry) if expiry else ""
-
-        relics.append({
-            "name": name,
-            "tier": tier,
-            "relic_name": relic_name,
-            "eta": eta,
-        })
 
     renderer = CardRenderer()
     img = renderer.create_relic_card(relics)
