@@ -15,9 +15,14 @@ from pydantic import BaseModel, Field
 
 class MarketStatusEnum(str, Enum):
     """用户在线状态 — 对应 Java MarketStatusEnum"""
+    # 在线
     ONLINE = "online"
+    # 游戏中
     INGAME = "ingame"
+    # 离线
     OFFLINE = "offline"
+    # 不可见
+    INVISIBLE = "invisible"
 
 
 class TransactionEnum(str, Enum):
@@ -42,8 +47,8 @@ class MarketUser(BaseModel):
     avatar: str | None = Field(default=None)
     reputation: int | None = Field(default=None)
     locale: str | None = Field(default=None)
-    platform: str | None = Field(default=None)
-    status: str | None = Field(default=None)
+    platform: MarketPlatformEnum | None = Field(default=None)
+    status: MarketStatusEnum | None = Field(default=None)
     last_seen: str | None = Field(default=None, alias="lastSeen")
 
     model_config = {"populate_by_name": True}

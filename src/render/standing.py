@@ -19,16 +19,34 @@ STANDING_MAX_H = 625
 # 看板娘目录
 STANDING_DIR: Path = Path(__file__).parent / "styles"
 
+# 模块级缓存：预加载所有看板娘图片，避免每次渲染都从磁盘读取
+_standing_image_cache: list[Image.Image] = []
+
+
+def _init_standing_cache() -> None:
+    """预加载 styles/ 目录下所有 PNG 到内存缓存。"""
+    global _standing_image_cache
+    if _standing_image_cache:
+        return
+    if not STANDING_DIR.exists():
+        return
+    for png_path in sorted(STANDING_DIR.glob("*.png")):
+        try:
+            img = Image.open(png_path)
+            img.load()  # 强制解码，避免延迟加载
+            if img.mode != "RGBA":
+                img = img.convert("RGBA")
+            _standing_image_cache.append(img)
+        except Exception:
+            pass
+
 
 def pick_standing_image() -> Image.Image | None:
-    """随机选择一张看板娘图片 / Randomly pick a standing drawing."""
-    if not STANDING_DIR.exists():
+    """从缓存中随机选择一张看板娘图片（无磁盘 I/O）。"""
+    _init_standing_cache()
+    if not _standing_image_cache:
         return None
-    pngs = sorted(STANDING_DIR.glob("*.png"))
-    if not pngs:
-        return None
-    chosen = random.choice(pngs)
-    return Image.open(chosen)
+    return random.choice(_standing_image_cache)
 
 
 def resize_fit(img: Image.Image, max_w: int, max_h: int) -> tuple[int, int]:
