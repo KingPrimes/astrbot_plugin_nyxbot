@@ -25,7 +25,8 @@ async def _render_syndicate(event: AstrMessageEvent, syndicate: SyndicateEnum, n
         return
 
     renderer = CardRenderer()
-    img = renderer.create_syndicate_card(sm)
+    from ..render.card_syndicate import render_syndicate_card
+    img = render_syndicate_card(renderer, sm)
     img_bytes = CardRenderer.render_to_bytes(img)
     yield event.chain_result([Comp.Image.fromBytes(img_bytes)])
 

@@ -29,7 +29,9 @@ async def wf_relics(self, event: AstrMessageEvent, name: str = ""):
         )
         return
 
+    from ..render.card_relics import render_relic_card
+
     renderer = CardRenderer()
-    img = renderer.create_relic_card(relics)
+    img = render_relic_card(renderer, relics)
     img_bytes = CardRenderer.render_to_bytes(img)
     yield event.chain_result([Comp.Image.fromBytes(img_bytes)])

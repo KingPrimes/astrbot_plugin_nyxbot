@@ -25,7 +25,7 @@ class DucatItem(BaseModel):
     id: str | None = Field(default=None)
     item: str = Field(default="")  # 物品 ID（内部），后续从数据库查名称
     item_name: str = Field(default="")  # 物品显示名称（由 service 填充）
-    median: int | None = Field(default=None)
+    median: float | None = Field(default=None)
     plat_worth: float | None = Field(default=None, alias="plat_worth")
     position_change_day: int | None = Field(default=None, alias="position_change_day")
     position_change_week: int | None = Field(default=None, alias="position_change_week")

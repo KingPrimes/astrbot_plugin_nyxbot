@@ -23,6 +23,7 @@ async def wf_calendar_1999(self, event: AstrMessageEvent):
         return
 
     renderer = CardRenderer()
-    img = renderer.create_calendar_seasons_card(calendars)
+    from ..render.card_calendar_seasons import render_calendar_seasons_card
+    img = render_calendar_seasons_card(renderer, calendars)
     img_bytes = CardRenderer.render_to_bytes(img)
     yield event.chain_result([Comp.Image.fromBytes(img_bytes)])

@@ -18,7 +18,9 @@ async def wf_duviri(self, event: AstrMessageEvent):
         yield event.plain_result("无法获取双衍王境数据")
         return
 
+    from ..render.card_duviri import render_duviri_card
+
     renderer = CardRenderer()
-    img = renderer.create_duviri_card(duviri)
+    img = render_duviri_card(renderer, duviri)
     img_bytes = CardRenderer.render_to_bytes(img)
     yield event.chain_result([Comp.Image.fromBytes(img_bytes)])

@@ -72,8 +72,8 @@ def render_market_ducats_card(
 
     # --- 副标题行（当天 / 每小时）---
     cb.set_color(ThemeColor.BG_CARD)
-    cb.draw_rect(left_x, current_y, _COL_W, _HEADER_H)
-    cb.draw_rect(right_x, current_y, _COL_W, _HEADER_H)
+    cb.fill_rect(left_x, current_y, _COL_W, _HEADER_H)
+    cb.fill_rect(right_x, current_y, _COL_W, _HEADER_H)
     cb.set_color(ThemeColor.TEXT_PRIMARY).set_font(header_font)
     cb.add_text("当天", left_x + _COL_W // 2 - 16, current_y + _HEADER_H // 2 + 6)
     cb.add_text("每小时", right_x + _COL_W // 2 - 24, current_y + _HEADER_H // 2 + 6)
@@ -82,8 +82,8 @@ def render_market_ducats_card(
 
     # --- 表头行（字段名）---
     cb.set_color(ThemeColor.BG_CARD)
-    cb.draw_rect(left_x, current_y, _COL_W, _HEADER_H)
-    cb.draw_rect(right_x, current_y, _COL_W, _HEADER_H)
+    cb.fill_rect(left_x, current_y, _COL_W, _HEADER_H)
+    cb.fill_rect(right_x, current_y, _COL_W, _HEADER_H)
     cb.set_color(ThemeColor.TEXT_PRIMARY).set_font(header_font)
 
     _draw_header(cb, left_x, current_y)
@@ -128,7 +128,7 @@ def _draw_row(cb: ImageCombiner, item: DucatItem, x: int, y: int, idx: int, font
     """绘制单行数据，交替行背景色。"""
     if idx % 2 == 1:
         cb.set_color(ThemeColor.BG_CARD_ALT)
-        cb.draw_rect(x, y, _COL_W, _ROW_H)
+        cb.fill_rect(x, y, _COL_W, _ROW_H)
 
     name = item.item_name or "未知物品"
     if len(name) > 12:
@@ -151,4 +151,4 @@ def _draw_empty_row(cb: ImageCombiner, x: int, y: int, idx: int) -> None:
     """绘制空白行。"""
     if idx % 2 == 1:
         cb.set_color(ThemeColor.BG_CARD_ALT)
-        cb.draw_rect(x, y, _COL_W, _ROW_H)
+        cb.fill_rect(x, y, _COL_W, _ROW_H)

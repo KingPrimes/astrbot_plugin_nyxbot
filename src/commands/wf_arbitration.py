@@ -22,6 +22,7 @@ async def wf_arbitration(self, event: AstrMessageEvent):
         return
 
     renderer = CardRenderer()
-    img = renderer.create_arbitration_card(arbitration)
+    from ..render.card_arbitration import render_arbitration_card
+    img = render_arbitration_card(renderer, arbitration)
     img_bytes = CardRenderer.render_to_bytes(img)
     yield event.chain_result([Comp.Image.fromBytes(img_bytes)])

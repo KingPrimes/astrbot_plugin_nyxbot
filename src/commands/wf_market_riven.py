@@ -33,7 +33,9 @@ async def wf_market_riven(self, event: AstrMessageEvent, keyword: str = ""):
         yield event.plain_result(f"未找到匹配的紫卡武器: {keyword}")
         return
 
+    from ..render.card_market_riven import render_market_riven_card
+
     renderer = CardRenderer()
-    img = renderer.create_market_riven_card(result)
+    img = render_market_riven_card(renderer, result)
     img_bytes = renderer.render_to_bytes(img)
     yield event.chain_result([Comp.Image.fromBytes(img_bytes)])

@@ -29,8 +29,10 @@ async def wf_market_god_dump(self, event: AstrMessageEvent):
         yield event.plain_result("当前没有金垃圾数据")
         return
 
+    from ..render.card_market_ducats import render_market_ducats_card
+
     renderer = CardRenderer()
-    img = renderer.create_market_ducats_card(day_items, hour_items, "金垃圾")
+    img = render_market_ducats_card(renderer, day_items, hour_items, "金垃圾")
     img_bytes = renderer.render_to_bytes(img)
     yield event.chain_result([Comp.Image.fromBytes(img_bytes)])
 
@@ -51,8 +53,10 @@ async def wf_market_silver_dump(self, event: AstrMessageEvent):
         yield event.plain_result("当前没有银垃圾数据")
         return
 
+    from ..render.card_market_ducats import render_market_ducats_card
+
     renderer = CardRenderer()
-    img = renderer.create_market_ducats_card(day_items, hour_items, "银垃圾")
+    img = render_market_ducats_card(renderer, day_items, hour_items, "银垃圾")
     img_bytes = renderer.render_to_bytes(img)
     yield event.chain_result([Comp.Image.fromBytes(img_bytes)])
 

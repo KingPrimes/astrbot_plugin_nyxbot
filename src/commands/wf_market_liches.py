@@ -38,6 +38,9 @@ async def _handle_lich_sister(
         yield event.plain_result(f"未找到匹配的{title_suffix}武器: {keyword}")
         return
 
+    from ..render.card_market_lich_sister import render_market_lich_sister_card
+    from ..render.card_market_orders import render_market_orders_possible_items_card
+
     renderer = CardRenderer()
     if isinstance(result, tuple):
         if result[1] is None:
@@ -46,9 +49,9 @@ async def _handle_lich_sister(
             if not isinstance(items, list) or not items:
                 yield event.plain_result(f"未找到匹配的{title_suffix}武器: {keyword}")
                 return
-            img = renderer.create_market_orders_possible_items_card(items)
+            img = render_market_orders_possible_items_card(renderer, items)
         else:
-            img = renderer.create_market_lich_sister_card(result[1], title_suffix)
+            img = render_market_lich_sister_card(renderer, result[1], title_suffix)
     else:
         yield event.plain_result(f"未找到匹配的{title_suffix}武器: {keyword}")
         return

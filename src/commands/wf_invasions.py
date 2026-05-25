@@ -19,6 +19,7 @@ async def wf_invasions(self, event: AstrMessageEvent):
         return
 
     renderer = CardRenderer()
-    img = renderer.create_invasion_card(invasions)
+    from ..render.card_invasions import draw_invasion_card
+    img = draw_invasion_card(renderer, invasions)
     img_bytes = CardRenderer.render_to_bytes(img)
     yield event.chain_result([Comp.Image.fromBytes(img_bytes)])

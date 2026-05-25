@@ -21,6 +21,7 @@ async def wf_sorties(self, event: AstrMessageEvent):
     sortie_data = sorties[0]
 
     renderer = CardRenderer()
-    img = renderer.create_sortie_card(sortie_data)
+    from ..render.card_sortie import render_sortie_card
+    img = render_sortie_card(renderer, sortie_data)
     img_bytes = CardRenderer.render_to_bytes(img)
     yield event.chain_result([Comp.Image.fromBytes(img_bytes)])

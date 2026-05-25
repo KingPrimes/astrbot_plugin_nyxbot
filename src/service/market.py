@@ -22,12 +22,7 @@ if TYPE_CHECKING:
         Ducats,
         MarketLichSister,
         MarketRiven,
-        MarketRivenPayload,
         Orders,
-        RivenAttribute,
-        RivenAuction,
-        RivenItem,
-        RivenOwner,
     )
 
 
@@ -391,10 +386,14 @@ class MarketService:
         """
         from ..api.api import WF_MARKET_DUCATS
         from ..model.market import Ducats
-        from ..util import fetch_json
+        from ..util import async_cached, fetch_json, market_cache
 
         try:
-            resp = await fetch_json(WF_MARKET_DUCATS, cache_key="market_ducats", ttl=120)
+            resp = await async_cached(
+                "ducats",
+                lambda: fetch_json(WF_MARKET_DUCATS),
+                market_cache,
+            )
         except Exception:
             logger.warning("获取 Ducats 数据失败")
             return None
@@ -426,19 +425,16 @@ class MarketService:
         )[:10]
 
     @classmethod
-    def _resolve_ducat_item_names(cls, items: list[DucatItem]) -> None:
+    async def _resolve_ducat_item_names(cls, items: list[DucatItem]) -> None:
         """从本地 OrdersItems 表解析物品名称 — 镜像 Java peek(d -> d.setItem(...))"""
         for d in items:
             if not d.item:
                 continue
             try:
-                import asyncio
-                asyncio.get_event_loop()
-            except RuntimeError:
+                order_item = await OrdersItems.get(id=d.item)
+                d.item_name = order_item.name or d.item
+            except DoesNotExist:
                 d.item_name = d.item
-                continue
-            # 同步查询（DucatItem 的 item 字段是物品 ID 字符串）
-            d.item_name = d.item
 
     @classmethod
     async def get_gold_dump(cls) -> tuple[list[DucatItem], list[DucatItem]]:
@@ -452,8 +448,8 @@ class MarketService:
 
         day_items = cls._get_gold_dump(ducats.payload.previous_day)
         hour_items = cls._get_gold_dump(ducats.payload.previous_hour)
-        cls._resolve_ducat_item_names(day_items)
-        cls._resolve_ducat_item_names(hour_items)
+        await cls._resolve_ducat_item_names(day_items)
+        await cls._resolve_ducat_item_names(hour_items)
         return day_items, hour_items
 
     @classmethod
@@ -468,8 +464,8 @@ class MarketService:
 
         day_items = cls._get_silver_dump(ducats.payload.previous_day)
         hour_items = cls._get_silver_dump(ducats.payload.previous_hour)
-        cls._resolve_ducat_item_names(day_items)
-        cls._resolve_ducat_item_names(hour_items)
+        await cls._resolve_ducat_item_names(day_items)
+        await cls._resolve_ducat_item_names(hour_items)
         return day_items, hour_items
 
     # ══════════════════════════════════════════════════════════════════
@@ -587,10 +583,10 @@ class MarketService:
                 platinum=o.get("platinum"),
                 quantity=o.get("quantity"),
                 rank=o.get("rank"),
-                item_id=o.get("itemId"),
+                itemId=o.get("itemId"),
                 user=MarketUser(
                     id=user.get("id"),
-                    ingame_name=user.get("ingameName"),
+                    ingameName=user.get("ingameName"),
                     reputation=user.get("reputation"),
                     status=user.get("status"),
                 ) if user else None,
@@ -603,8 +599,8 @@ class MarketService:
             is_by=is_by,
             is_max=is_max,
             ducats=item.get("ducats") or 0,
-            trading_tax=item.get("tradingTax") or item.get("trading_tax") or 0,
-            req_mastery_rank=item.get("reqMasteryRank") or 0,
+            tradingTax=item.get("tradingTax") or item.get("trading_tax") or 0,
+            reqMasteryRank=item.get("reqMasteryRank") or 0,
             orders=order_users,
         )
 
@@ -622,9 +618,16 @@ class MarketService:
         Returns:
             MarketRiven 模型或 None。
         """
-        from ..model.market import MarketRiven as MR
-
-        # 1. 查找紫卡武器
+        from ..model.market import (
+            MarketRiven as MR,
+        )
+        from ..model.market import (
+            MarketRivenPayload,
+            RivenAttribute,
+            RivenAuction,
+            RivenItem,
+            RivenOwner,
+        )
         from ..model.riven_items import RivenItems
         try:
             riven_item = await RivenItems.get(name=keyword)

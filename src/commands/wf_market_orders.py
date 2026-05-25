@@ -83,6 +83,11 @@ async def wf_market_orders(self, event: AstrMessageEvent, keyword: str = ""):
         yield event.plain_result(f"未找到匹配的物品: {kw}")
         return
 
+    from ..render.card_market_orders import (
+        render_market_orders_card,
+        render_market_orders_possible_items_card,
+    )
+
     renderer = CardRenderer()
     if isinstance(result, tuple) and result[1] is None:
         # possible_items 列表
@@ -90,9 +95,9 @@ async def wf_market_orders(self, event: AstrMessageEvent, keyword: str = ""):
         if not possible_items:
             yield event.plain_result(f"未找到匹配的物品: {kw}")
             return
-        img = renderer.create_market_orders_possible_items_card(possible_items)
+        img = render_market_orders_possible_items_card(renderer, possible_items)
     else:
-        img = renderer.create_market_orders_card(result)
+        img = render_market_orders_card(renderer, result)
 
     img_bytes = renderer.render_to_bytes(img)
     yield event.chain_result([Comp.Image.fromBytes(img_bytes)])

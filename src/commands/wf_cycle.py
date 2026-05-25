@@ -34,6 +34,7 @@ async def wf_cycle(self, event: AstrMessageEvent):
     all_cycles.cambion = cambion
 
     renderer = CardRenderer()
-    img = renderer.create_cycle_card(all_cycles, "全周期状态")
+    from ..render.card_cycle import render_cycle_card
+    img = render_cycle_card(renderer, all_cycles, "全周期状态")
     img_bytes = CardRenderer.render_to_bytes(img)
     yield event.chain_result([Comp.Image.fromBytes(img_bytes)])

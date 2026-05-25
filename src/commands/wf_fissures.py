@@ -25,7 +25,8 @@ async def _render_fissures(event: AstrMessageEvent, fissure_type: FissureTypeEnu
         return
 
     renderer = CardRenderer()
-    img = renderer.create_fissure_card(fissures)
+    from ..render.card_fissures import draw_fissure_card
+    img = draw_fissure_card(renderer, fissures)
     img_bytes = CardRenderer.render_to_bytes(img)
     yield event.chain_result([Comp.Image.fromBytes(img_bytes)])
 

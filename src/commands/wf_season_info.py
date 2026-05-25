@@ -18,7 +18,9 @@ async def wf_season_info(self, event: AstrMessageEvent):
         yield event.plain_result("无法获取午夜电波数据")
         return
 
+    from ..render.card_season_info import render_season_info_card
+
     renderer = CardRenderer()
-    img = renderer.create_season_info_card(nw)
+    img = render_season_info_card(renderer, nw)
     img_bytes = CardRenderer.render_to_bytes(img)
     yield event.chain_result([Comp.Image.fromBytes(img_bytes)])

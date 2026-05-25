@@ -20,6 +20,7 @@ async def wf_alerts(self, event: AstrMessageEvent):
         return
 
     renderer = CardRenderer()
-    img = renderer.create_alert_card(alerts)
+    from ..render.card_alert import render_alert_card
+    img = render_alert_card(renderer, alerts)
     img_bytes = CardRenderer.render_to_bytes(img)
     yield event.chain_result([Comp.Image.fromBytes(img_bytes)])
