@@ -11,7 +11,7 @@ from astrbot.api.star import Context, Star
 from .src.init.engine import close_engine, get_engine, set_init_complete
 from .src.service import (
     AliasService,
-    MarketService,
+    MarketSyncService,
     NightWaveService,
     NodesService,
     RelicsService,
@@ -58,7 +58,6 @@ class NyxBotPlugin(Star):
         try:
             # 初始化数据库（TortoiseORM 连接 + 建表）
             await get_engine()
-
             # StateTranslation 必须最先执行（导出文件下载依赖）
             if not await StateTranslationService.sync_data():
                 set_init_complete()
@@ -74,9 +73,9 @@ class NyxBotPlugin(Star):
                 RewardService.sync_data(),
                 # Market API 数据源
                 RivenService.sync_items_data(),
-                MarketService.sync_orders_items(),
-                MarketService.sync_ephemeras(),
-                MarketService.sync_lich_sister_weapons(),
+                MarketSyncService.sync_orders_items(),
+                MarketSyncService.sync_ephemeras(),
+                MarketSyncService.sync_lich_sister_weapons(),
                 # 导出文件数据源
                 NightWaveService.sync_data(),
                 NodesService.sync_data(),

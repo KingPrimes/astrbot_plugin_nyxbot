@@ -16,10 +16,10 @@ from ...registry import wf
 async def wf_market_god_dump(self, event: AstrMessageEvent):
     """查询 Warframe.Market 杜卡德金币（100 杜卡德物品）"""
     from ..render.card_renderer import CardRenderer
-    from ..service.market import MarketService
+    from ..service.market_ducats import MarketDucatsService
 
     try:
-        day_items, hour_items = await MarketService.get_gold_dump()
+        day_items, hour_items = await MarketDucatsService.get_gold_dump()
     except Exception:
         logger.exception("获取金垃圾数据失败")
         yield event.plain_result("获取金垃圾数据失败，请稍后重试")
@@ -40,10 +40,10 @@ async def wf_market_god_dump(self, event: AstrMessageEvent):
 async def wf_market_silver_dump(self, event: AstrMessageEvent):
     """查询 Warframe.Market 杜卡德银币（45-99 杜卡德物品）"""
     from ..render.card_renderer import CardRenderer
-    from ..service.market import MarketService
+    from ..service.market_ducats import MarketDucatsService
 
     try:
-        day_items, hour_items = await MarketService.get_silver_dump()
+        day_items, hour_items = await MarketDucatsService.get_silver_dump()
     except Exception:
         logger.exception("获取银垃圾数据失败")
         yield event.plain_result("获取银垃圾数据失败，请稍后重试")

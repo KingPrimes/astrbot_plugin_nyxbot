@@ -57,47 +57,69 @@ def _parse_params(text: str) -> tuple[str, str, bool, bool]:
     return keyword, platform, is_by, is_max
 
 
+def _resolve_bool(param: str, true_values: tuple[str, ...], false_values: tuple[str, ...] = ()) -> bool | None:
+    """将字符串参数解析为布尔值，无法识别时返回 None。"""
+    if not param:
+        return None
+    upper = param.strip().upper()
+    for v in true_values:
+        if v in upper:
+            return True
+    for v in false_values:
+        if v in upper:
+            return False
+    return True  # 有值但无法匹配时默认为 True（用户明确传了该参数）
+
+
 @wf.command(name="WM", alias=["市场", "wm", "market"])
-async def wf_market_orders(self, event: AstrMessageEvent, keyword: str = ""):
+async def wf_market_orders(self, event: AstrMessageEvent, keyword: str = "", is_max: str = "", is_by: str = "", platform: str = "PC"):
     """查询 Warframe.Market 物品订单"""
     from ..render.card_renderer import CardRenderer
-    from ..service.market import MarketService
+    from ..service.market_orders import MarketOrdersService
 
     if not keyword:
         yield event.plain_result("请输入正确的名称！用法：/WM 物品名称 [满级|MAX] [购买|出售] [PC|PS4|XBOX|SWITCH]")
         return
 
-    kw, platform, is_by, is_max = _parse_params(keyword)
+    # 优先从 keyword 中解析内嵌参数（处理所有参数挤在一起的情况）
+    kw, parsed_platform, parsed_is_by, parsed_is_max = _parse_params(keyword)
+
+    # 显式传入的非默认参数覆盖解析结果（处理用户正确分参数的情况）
+    if platform.upper() != "PC":
+        parsed_platform = platform.lower()
+    explicit_is_by = _resolve_bool(is_by, ("BUY", "购买", "买家"), ("SELL", "出售", "卖家"))
+    if explicit_is_by is not None:
+        parsed_is_by = explicit_is_by
+    explicit_is_max = _resolve_bool(is_max, ("MAX", "满级"))
+    if explicit_is_max is not None:
+        parsed_is_max = explicit_is_max
+
     if not kw:
         yield event.plain_result("请输入正确的名称！")
         return
 
     try:
-        result = await MarketService.search_market_orders(kw, platform, is_by, is_max)
+        result = await MarketOrdersService.search_market_orders(kw, parsed_platform, parsed_is_by, parsed_is_max)
     except Exception:
         logger.exception("查询市场订单失败")
         yield event.plain_result("查询市场订单失败，请检查名称是否正确或稍后重试")
         return
 
-    if result is None:
-        yield event.plain_result(f"未找到匹配的物品: {kw}")
-        return
-
-    from ..render.card_market_orders import (
-        render_market_orders_card,
-        render_market_orders_possible_items_card,
-    )
-
-    renderer = CardRenderer()
-    if isinstance(result, tuple) and result[1] is None:
-        # possible_items 列表
-        possible_items = result[0]
+    if result.possible_items:
+        possible_items = result.possible_items
         if not possible_items:
             yield event.plain_result(f"未找到匹配的物品: {kw}")
             return
+        from ..render.card_market_orders import render_market_orders_possible_items_card
+        renderer = CardRenderer()
         img = render_market_orders_possible_items_card(renderer, possible_items)
+    elif result.result is not None:
+        from ..render.card_market_orders import render_market_orders_card
+        renderer = CardRenderer()
+        img = render_market_orders_card(renderer, result.result)
     else:
-        img = render_market_orders_card(renderer, result)
+        yield event.plain_result(f"未找到匹配的物品: {kw}")
+        return
 
     img_bytes = renderer.render_to_bytes(img)
     yield event.chain_result([Comp.Image.fromBytes(img_bytes)])

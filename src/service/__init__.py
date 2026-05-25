@@ -9,6 +9,9 @@ from .detector import (
     InvasionsChangeDetector,
 )
 from .market import MarketService
+from .market_ducats import MarketDucatsService
+from .market_orders import MarketOrdersService
+from .market_sync import MarketSyncService
 from .nightwave import NightWaveService
 from .nodes import NodesService
 from .notification import NotificationService
@@ -30,6 +33,9 @@ __all__ = [
     "AliasService",
     "StateTranslationService",
     "MarketService",
+    "MarketDucatsService",
+    "MarketOrdersService",
+    "MarketSyncService",
     "RivenService",
     "RivenAttributeCalculator",
     "NotificationService",

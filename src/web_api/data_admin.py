@@ -34,7 +34,7 @@ from ..model.riven_tion_alias import RivenTionAlias
 from ..model.state_translation import StateTranslation
 from ..service import (
     AliasService,
-    MarketService,
+    MarketSyncService,
     NightWaveService,
     NodesService,
     RelicsService,
@@ -142,9 +142,9 @@ def register_data_apis(context: Context) -> None:
     _register_model("riven_items", RivenItems, search_fields=["name", "slug"], sync_func=RivenService.sync_items_data)
 
     # ── Market ──
-    _register_model("orders_items", OrdersItems, search_fields=["name", "slug"], sync_func=MarketService.sync_orders_items)
-    _register_model("ephemeras", Ephemeras, search_fields=["name", "slug"], sync_func=MarketService.sync_ephemeras)
-    _register_model("lich_sister_weapons", LichSisterWeapons, search_fields=["name", "slug"], sync_func=MarketService.sync_lich_sister_weapons)
+    _register_model("orders_items", OrdersItems, search_fields=["name", "slug"], sync_func=MarketSyncService.sync_orders_items)
+    _register_model("ephemeras", Ephemeras, search_fields=["name", "slug"], sync_func=MarketSyncService.sync_ephemeras)
+    _register_model("lich_sister_weapons", LichSisterWeapons, search_fields=["name", "slug"], sync_func=MarketSyncService.sync_lich_sister_weapons)
 
     # ── Translation ──
     _register_model(

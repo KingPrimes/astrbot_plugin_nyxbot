@@ -246,7 +246,7 @@ class MarketClient:
             }
         """
         return await cls._fetch_with_cache(
-            f"{WF_MARKET_BASE_URL}/orders/item/{slug}",
+            f"{WF_MARKET_BASE_URL}/item/{slug}/set",
             f"items_set_{slug}_{platform}",
             platform=platform
         )

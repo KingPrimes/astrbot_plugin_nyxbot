@@ -14,14 +14,14 @@
   "wf_data_source_cdn": {
     "description": "数据源CDN",
     "type": "string",
-    "hint": "用于加载翻译/别名等数据的CDN地址",
+    "hint": "用于加载翻译/别名等数据的CDN地址，",
     "options":[
-      "https://testingcf.jsdelivr.net/gh/KingPrimes/DataSource",
-      "https://jsd.onmicrosoft.cn/gh/KingPrimes/DataSource",
-      "https://cdn.jsdelivr.net/gh/KingPrimes/DataSource",
+      "https://testingcf.jsdelivr.net/gh/KingPrimes/DataSource@",
+      "https://jsd.onmicrosoft.cn/gh/KingPrimes/DataSource@",
+      "https://cdn.jsdelivr.net/gh/KingPrimes/DataSource@",
       "https://kingprimes.top"
     ],
-    "default":"https://testingcf.jsdelivr.net/gh/KingPrimes/DataSource"
+    "default":"https://testingcf.jsdelivr.net/gh/KingPrimes/DataSource@"
   },
   "wf_arbitration_data":{
     "description": "Warframe仲裁数据源Url地址",
