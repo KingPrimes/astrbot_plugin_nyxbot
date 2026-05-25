@@ -53,6 +53,3 @@ WF_ARBITRATION = "https://wf.555590.xyz/api/arbys?days=30"
 # Market 杜卡币 API
 WF_MARKET_DUCATS = "https://api.warframe.market/v1/tools/ducats"
 """Market 杜卡币 API"""
-# Market 赤毒/信条 拍卖 API
-WF_MARKET_AUCTIONS = "https://api.warframe.market/v1/auctions/search"
-"""Market 赤毒/信条 拍卖 API"""

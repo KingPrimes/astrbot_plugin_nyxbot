@@ -27,6 +27,14 @@ from .api import (
     WF_MARKET_SISTER_WEAPONS,
 )
 
+# v1 auctions/search 专用请求头（镜像 Java HttpUtils.marketSendGet）
+# Auction-specific headers (mirrors Java HttpUtils.marketSendGet).
+_AUCTION_EXTRA_HEADERS: dict[str, str] = {
+    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+    "Pragma": "no-cache",
+    "Crossplay": "true",
+}
+
 
 class MarketClient:
     """Warframe.Market API 客户端。
@@ -46,6 +54,7 @@ class MarketClient:
         cache_key: str,
         params: dict[str, Any] | None = None,
         platform: Platform | None = None,
+        extra_headers: dict[str, str] | None = None,
         retry: bool = False,
         retry_count: int = 3,
         retry_delay: float = 5.0,
@@ -60,6 +69,7 @@ class MarketClient:
             cache_key: 缓存键（需全局唯一）。
             params: 可选的查询参数字典，会透传给底层 fetch_json。
             platform: 平台标识，默认为 None（不发送 Platform 头）。
+            extra_headers: 额外的请求头，会合并到本次请求的 headers（不写入 cls.headers）。
             retry: 是否启用自动重试，默认 False 以保持向后兼容。
             retry_count: 最大重试次数（仅 retry=True 时生效）。
             retry_delay: 重试间隔秒数（仅 retry=True 时生效）。
@@ -71,14 +81,19 @@ class MarketClient:
         if cache_key is not None and cache_key in market_cache:
             return market_cache[cache_key]
 
+        # 局部 headers 拷贝，避免并发请求互相覆盖 cls.headers["Platform"]。
+        # Local headers copy — avoid concurrent requests overwriting cls.headers["Platform"].
+        headers = dict(cls.headers)
         if platform is not None:
-            cls.headers["Platform"] = platform.value
+            headers["Platform"] = platform.value
+        if extra_headers:
+            headers.update(extra_headers)
 
         if retry:
             data = await fetch_json_with_retry(
                 url,
                 params=params,
-                headers=cls.headers,
+                headers=headers,
                 max_retries=retry_count,
                 retry_delay=retry_delay,
             )
@@ -86,7 +101,7 @@ class MarketClient:
             data = await fetch_json(
                 url,
                 params=params,
-                headers=cls.headers,
+                headers=headers,
             )
 
         if data is None:
@@ -474,28 +489,94 @@ class MarketClient:
     async def search_auctions(
         cls,
         weapon_url_name: str,
+        *,
+        auction_type: str,
         sort_by: str = "price_asc",
-        page: int = 0,
+        # ── 紫卡专属 / Riven only ──
+        positive_stats: str | None = None,
+        negative_stats: str | None = None,
+        polarity: str | None = None,
+        mastery_rank_min: int | None = None,
+        mastery_rank_max: int | None = None,
+        buyout_policy: str | None = None,
+        # ── 赤毒/信条专属 / Lich & Sister only ──
+        element: str | None = None,
+        damage_min: int | None = None,
+        damage_max: int | None = None,
+        has_ephemera: bool | None = None,
+        # ── 通用 / Common ──
+        platform: Platform | None = None,
+        extra_params: dict[str, Any] | None = None,
     ) -> dict[str, Any] | None:
-        """搜索紫卡拍卖。
+        """搜索拍卖 — 镜像 Java MarketRivenUtils / MarketLichsSisterUtils 的 v1 auctions/search。
+
+        参数采用 None-skipping 风格：None 即不发送（对齐 Java "默认 ANY 时省略" 的行为）。
+        各 type 默认值由调用方 service 显式传入，本方法不内置 type-specific 默认。
 
         Args:
-            weapon_url_name: 武器 url_name。
-            sort_by: 排序方式（price_asc, price_desc, etc.）。
-            page: 页码。
+            weapon_url_name: 武器 url_name（slug）。
+            auction_type: "riven" / "lich" / "sister"。
+            sort_by: 排序方式，"price_asc"/"price_desc"/"damage_asc"/"damage_desc"。
+            positive_stats: 紫卡 — 逗号分隔的正面词条 url_name 列表，非空时发送。
+            negative_stats: 紫卡 — "has"/"none"，非空时发送。
+            polarity: 紫卡 — "any"/"madurai"/"vazarin"/"naramon"，非 None 时发送。
+            mastery_rank_min: 紫卡 — 段位下限，非 None 时发送。
+            mastery_rank_max: 紫卡 — 段位上限，非 None 时发送。
+            buyout_policy: 紫卡 — "any"/"direct"/"auction"，非空且非 "any" 时发送。
+            element: 赤毒/信条 — 元素类型，非空且非 "any" 时发送。
+            damage_min: 赤毒/信条 — 伤害下限，非 None 时发送。
+            damage_max: 赤毒/信条 — 伤害上限，非 None 时发送。
+            has_ephemera: 赤毒/信条 — 是否带幻纹，非 None 时序列化为 "true"/"false" 发送。
+            platform: 平台标识，默认 PC。
+            extra_params: 兜底：未列出的 v1 参数（如未来扩展）。
 
         Returns:
-            API 响应信封（v1），网络错误时返回 None。
+            API 响应信封（v1 envelope）；网络错误时返回 None。
         """
-        cache_key = f"auction_{weapon_url_name}_{sort_by}_{page}"
+        params: dict[str, Any] = {
+            "type": auction_type,
+            "weapon_url_name": weapon_url_name,
+            "sort_by": sort_by,
+        }
+        # 字符串选项参数 —— None 或 "any" 都省略（对齐 Java "默认 ANY 时省略"）
+        for key, val in (
+            ("positive_stats", positive_stats),
+            ("negative_stats", negative_stats),
+            ("buyout_policy", buyout_policy),
+            ("element", element),
+        ):
+            if val and val != "any":
+                params[key] = val
+        # polarity：始终发送（Java riven URL 必发，包括 "any"）
+        if polarity is not None:
+            params["polarity"] = polarity
+        # 整数参数 —— None 省略
+        for key, val in (
+            ("mastery_rank_min", mastery_rank_min),
+            ("mastery_rank_max", mastery_rank_max),
+            ("damage_min", damage_min),
+            ("damage_max", damage_max),
+        ):
+            if val is not None:
+                params[key] = val
+        # 布尔参数 —— None 省略，否则序列化为小写字符串
+        if has_ephemera is not None:
+            params["has_ephemera"] = "true" if has_ephemera else "false"
+        if extra_params:
+            params.update(extra_params)
+
+        # 确定性缓存键：所有参数按字典序拼接 + platform
+        key_parts = "&".join(f"{k}={v}" for k, v in sorted(params.items()))
+        cache_key = (
+            f"auction_{key_parts}_{platform.value if platform else Platform.pc.value}"
+        )
+
         return await cls._fetch_with_cache(
             WF_MARKET_SEARCH,
             cache_key,
-            params={
-                "weapon_url_name": weapon_url_name,
-                "sort_by": sort_by,
-                "page": page,
-            },
+            params=params,
+            platform=platform or Platform.pc,
+            extra_headers=_AUCTION_EXTRA_HEADERS,
         )
 
 class Platform(Enum):

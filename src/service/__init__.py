@@ -11,6 +11,7 @@ from .detector import (
 from .market import MarketService
 from .market_ducats import MarketDucatsService
 from .market_orders import MarketOrdersService
+from .market_riven import MarketRivenService
 from .market_sync import MarketSyncService
 from .nightwave import NightWaveService
 from .nodes import NodesService
@@ -35,6 +36,7 @@ __all__ = [
     "MarketService",
     "MarketDucatsService",
     "MarketOrdersService",
+    "MarketRivenService",
     "MarketSyncService",
     "RivenService",
     "RivenAttributeCalculator",
