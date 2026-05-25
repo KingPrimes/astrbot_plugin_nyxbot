@@ -123,7 +123,7 @@ class PluginConfig:
     @property
     def wf_data_source_cdn(self) -> str:
         """数据源CDN地址。"""
-        return str(self.get("wf_data_source_cdn", "https://testingcf.jsdelivr.net/gh/KingPrimes/DataSource"))
+        return str(self.get("wf_data_source_cdn", "https://testingcf.jsdelivr.net/gh/KingPrimes/DataSource@"))
 
     @property
     def wf_arbitration_data(self) -> str:
