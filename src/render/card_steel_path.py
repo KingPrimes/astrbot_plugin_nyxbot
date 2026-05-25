@@ -48,7 +48,6 @@ _STANDING_MAX_H = 390
 # ---------------------------------------------------------------------------
 
 def render_steel_path_card(
-    renderer: CardRenderer,
     steel_path: SteelPathOffering,
 ) -> Image.Image:
     """绘制钢铁之路信息卡片 — 镜像 Java DefaultDrawSteelPathImage.drawSteelPathImage()。

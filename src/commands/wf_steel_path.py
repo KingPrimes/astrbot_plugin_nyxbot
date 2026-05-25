@@ -20,6 +20,6 @@ async def wf_steel_path(self, event: AstrMessageEvent):
         yield event.plain_result("无法获取钢铁之路数据")
         return
 
-    img = render_steel_path_card(None, sp)
+    img = render_steel_path_card(sp)
     img_bytes = CardRenderer.render_to_bytes(img)
     yield event.chain_result([Comp.Image.fromBytes(img_bytes)])

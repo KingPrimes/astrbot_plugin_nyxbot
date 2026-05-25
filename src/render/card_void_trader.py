@@ -70,7 +70,6 @@ _CREDITS_COLOR = (69, 119, 143)       # #45778f
 # ---------------------------------------------------------------------------
 
 def render_void_trader_card(
-    renderer: CardRenderer,
     trader: VoidTrader,
 ) -> Image.Image:
     """绘制虚空商人信息卡片 — 镜像 Java DefaultDrawVoidTraderImage.drawVoidTraderImage()。

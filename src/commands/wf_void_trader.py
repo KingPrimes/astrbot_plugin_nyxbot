@@ -20,6 +20,6 @@ async def wf_void_trader(self, event: AstrMessageEvent):
         yield event.plain_result("虚空商人未找到数据")
         return
 
-    img = render_void_trader_card(None, vt)
+    img = render_void_trader_card(vt)
     img_bytes = CardRenderer.render_to_bytes(img)
     yield event.chain_result([Comp.Image.fromBytes(img_bytes)])
