@@ -9,7 +9,7 @@ from ..render.card_renderer import CardRenderer
 from ..service.world_state import WorldStateService
 
 
-@wf.command("执刑官猎杀")
+@wf.command("执刑官猎杀",alias=["猎杀","执行官","执政官","执刑官"])
 async def wf_lite_sortie(self, event: AstrMessageEvent):
     """查看本周执刑官猎杀（Archon Hunt）"""
     lite_sorties = await WorldStateService.get_lite_sortie()

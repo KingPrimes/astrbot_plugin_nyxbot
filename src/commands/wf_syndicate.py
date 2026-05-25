@@ -30,43 +30,22 @@ async def _render_syndicate(event: AstrMessageEvent, syndicate: SyndicateEnum, n
     yield event.chain_result([Comp.Image.fromBytes(img_bytes)])
 
 
-@wf.command("希图斯")
+@wf.command("希图斯",alias=["地球赏金"])
 async def wf_syndicate_cetus(self, event: AstrMessageEvent):
     """希图斯（Ostron）赏金任务"""
     async for result in _render_syndicate(event, SyndicateEnum.CetusSyndicate, "希图斯"):
         yield result
 
 
-@wf.command("地球赏金")
-async def wf_syndicate_earth(self, event: AstrMessageEvent):
-    """地球赏金（希图斯 Ostron）"""
-    async for result in _render_syndicate(event, SyndicateEnum.CetusSyndicate, "希图斯"):
-        yield result
-
-
-@wf.command("英择谛")
+@wf.command("英择谛",alias=["火卫二赏金"])
 async def wf_syndicate_entrati(self, event: AstrMessageEvent):
     """英择谛（Entrati）赏金任务"""
     async for result in _render_syndicate(event, SyndicateEnum.EntratiSyndicate, "英择谛"):
         yield result
 
 
-@wf.command("火卫二赏金")
-async def wf_syndicate_deimos(self, event: AstrMessageEvent):
-    """火卫二赏金（英择谛 Entrati）"""
-    async for result in _render_syndicate(event, SyndicateEnum.EntratiSyndicate, "英择谛"):
-        yield result
-
-
-@wf.command("索拉里斯")
+@wf.command("索拉里斯",alias=["金星赏金"])
 async def wf_syndicate_solaris(self, event: AstrMessageEvent):
     """索拉里斯联盟（Solaris United）赏金任务"""
-    async for result in _render_syndicate(event, SyndicateEnum.SolarisSyndicate, "索拉里斯联盟"):
-        yield result
-
-
-@wf.command("金星赏金")
-async def wf_syndicate_venus(self, event: AstrMessageEvent):
-    """金星赏金（索拉里斯联盟 Solaris United）"""
     async for result in _render_syndicate(event, SyndicateEnum.SolarisSyndicate, "索拉里斯联盟"):
         yield result

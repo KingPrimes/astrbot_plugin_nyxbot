@@ -13,24 +13,9 @@ from ..render.card_renderer import CardRenderer
 from ..service.world_state import WorldStateService
 
 
-@wf.command("1999")
+@wf.command(name="1999",alias=["日历"])
 async def wf_calendar_1999(self, event: AstrMessageEvent):
     """查看1999日历季节信息"""
-    calendars = await WorldStateService.get_known_calendar_seasons()
-
-    if not calendars:
-        yield event.plain_result("当前没有1999日历数据")
-        return
-
-    renderer = CardRenderer()
-    img = renderer.create_calendar_seasons_card(calendars)
-    img_bytes = CardRenderer.render_to_bytes(img)
-    yield event.chain_result([Comp.Image.fromBytes(img_bytes)])
-
-
-@wf.command("日历")
-async def wf_calendar(self, event: AstrMessageEvent):
-    """查看1999日历季节信息（别名）"""
     calendars = await WorldStateService.get_known_calendar_seasons()
 
     if not calendars:

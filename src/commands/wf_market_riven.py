@@ -12,7 +12,7 @@ from astrbot.api.event import AstrMessageEvent
 from ...registry import wf
 
 
-@wf.command("WR")
+@wf.command("WR",alias=["wr"])
 async def wf_market_riven(self, event: AstrMessageEvent, keyword: str = ""):
     """查询 Warframe.Market 紫卡拍卖"""
     from ..render.card_renderer import CardRenderer
@@ -37,10 +37,3 @@ async def wf_market_riven(self, event: AstrMessageEvent, keyword: str = ""):
     img = renderer.create_market_riven_card(result)
     img_bytes = renderer.render_to_bytes(img)
     yield event.chain_result([Comp.Image.fromBytes(img_bytes)])
-
-
-@wf.command("wr")
-async def wf_market_riven_lower(self, event: AstrMessageEvent, keyword: str = ""):
-    """查询 Warframe.Market 紫卡拍卖（别名）"""
-    async for r in wf_market_riven(self, event, keyword):
-        yield r

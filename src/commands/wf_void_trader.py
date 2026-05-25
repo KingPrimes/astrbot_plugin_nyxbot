@@ -9,7 +9,7 @@ from ..render.card_renderer import CardRenderer
 from ..service.world_state import WorldStateService
 
 
-@wf.command("奸商")
+@wf.command("奸商",alias=["虚空商人"])
 async def wf_void_trader(self, event: AstrMessageEvent):
     """查看虚空商人（Baro Ki'Teer）"""
     vt = await WorldStateService.get_void_trader()

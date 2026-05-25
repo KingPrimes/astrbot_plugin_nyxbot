@@ -57,19 +57,7 @@ async def _handle_lich_sister(
     yield event.chain_result([Comp.Image.fromBytes(img_bytes)])
 
 
-@wf.command("CD")
+@wf.command("CD",alias=["cd","赤毒"])
 async def wf_market_liches(self, event: AstrMessageEvent, keyword: str = "") -> AsyncGenerator[MessageEventResult, None]:
-    async for r in _handle_lich_sister(event, keyword, "lich", "赤毒"):
-        yield r
-
-
-@wf.command("cd")
-async def wf_market_liches_lower(self, event: AstrMessageEvent, keyword: str = "") -> AsyncGenerator[MessageEventResult, None]:
-    async for r in _handle_lich_sister(event, keyword, "lich", "赤毒"):
-        yield r
-
-
-@wf.command("赤毒")
-async def wf_market_liches_chi_du(self, event: AstrMessageEvent, keyword: str = "") -> AsyncGenerator[MessageEventResult, None]:
     async for r in _handle_lich_sister(event, keyword, "lich", "赤毒"):
         yield r

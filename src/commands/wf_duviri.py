@@ -9,7 +9,7 @@ from ..render.card_renderer import CardRenderer
 from ..service.world_state import WorldStateService
 
 
-@wf.command("双衍")
+@wf.command("轮换",alias=["双衍王境"])
 async def wf_duviri(self, event: AstrMessageEvent):
     """查看双衍王境周期"""
     duviri = await WorldStateService.get_duviri_cycle()

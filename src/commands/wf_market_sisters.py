@@ -13,19 +13,7 @@ from ...registry import wf
 from .wf_market_liches import _handle_lich_sister
 
 
-@wf.command("XT")
+@wf.command("XT",alias=["xt","信条"])
 async def wf_market_sisters(self, event: AstrMessageEvent, keyword: str = "") -> AsyncGenerator[MessageEventResult, None]:
-    async for r in _handle_lich_sister(event, keyword, "sister", "信条"):
-        yield r
-
-
-@wf.command("xt")
-async def wf_market_sisters_lower(self, event: AstrMessageEvent, keyword: str = "") -> AsyncGenerator[MessageEventResult, None]:
-    async for r in _handle_lich_sister(event, keyword, "sister", "信条"):
-        yield r
-
-
-@wf.command("信条")
-async def wf_market_sisters_xin_tiao(self, event: AstrMessageEvent, keyword: str = "") -> AsyncGenerator[MessageEventResult, None]:
     async for r in _handle_lich_sister(event, keyword, "sister", "信条"):
         yield r

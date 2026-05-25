@@ -136,8 +136,6 @@ class WorldState(BaseModel):
     void_traders: list[VoidTrader] = Field(default_factory=list, alias="VoidTraders")
     # 世界种子 / World Seed
     world_seed: str | None = Field(default=None, alias="WorldSeed")
-    # 钢铁之路 / Steel Path
-    steel_path: SteelPathOffering | None = Field(default=None, alias="SteelPath")
     # PVP 挑战实例 / PVP Challenge Instances
     pvp_challenge_instances: list[PVPChallengeInstance] = Field(default_factory=list, alias="PVPChallengeInstances")
     # PVP 替代模式 / PVP Alternative Modes
@@ -157,6 +155,11 @@ class WorldState(BaseModel):
     def earth_cycle(self) -> EarthCycle:
         """地球昼夜循环 / Earth Day/Night Cycle"""
         return EarthCycle()
+
+    @property
+    def steel_path(self) -> SteelPathOffering:
+        """钢铁之路奖励轮换 / Steel Path Offering (pure computed)"""
+        return SteelPathOffering()
 
     @property
     def cetus_cycle(self) -> CetusCycle:

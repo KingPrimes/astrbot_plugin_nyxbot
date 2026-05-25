@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 from PIL import Image
 
 from ..wenum.faction import FactionEnum
-from .draw_constant import DrawConstant, ThemeColor
+from .draw_constant import DrawConstant, ThemeColor, hex_to_rgb
 from .font_manager import FontManager
 from .image_combiner import ImageCombiner
 from .standing import draw_standing
@@ -80,7 +80,7 @@ def render_arbitration_card(renderer: CardRenderer, arbitration: Arbitration) ->
 
     # 派系图标
     if renderer.font_wf_icon and faction is not FactionEnum.FC_NONE:
-        cb.set_color(faction.color).set_font(renderer.font_wf_icon)
+        cb.set_color(hex_to_rgb(faction.color)).set_font(renderer.font_wf_icon)
         cb.add_text(faction.icon, content_x + 250, current_y)
 
     # 任务类型

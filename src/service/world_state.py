@@ -707,19 +707,6 @@ class WorldStateService:
         return cycle
 
     # ══════════════════════════════════════════════════════════════════
-    # get_raw() — 原始数据（向后兼容）
-    # ══════════════════════════════════════════════════════════════════
-
-    @classmethod
-    async def get_raw(cls) -> dict[str, Any] | None:
-        """获取原始 WorldState JSON 字典（向后兼容）。
-
-        注意：从文件缓存恢复时 raw 数据不可用，此时返回 None。
-        """
-        await init_ready()
-        return cls._cache.get("raw")
-
-    # ══════════════════════════════════════════════════════════════════
     # get_earth_cycle() — 地球昼夜循环 → EarthCycle | None
     # ══════════════════════════════════════════════════════════════════
 
@@ -879,6 +866,8 @@ class WorldStateService:
         try:
             from ..util.string_utils import get_last_three_segments
             key = get_last_three_segments(type_key)
+            if not key:
+                return None
             trans = await StateTranslationService.get_state_translation(key)
             if trans:
                 return trans
@@ -918,38 +907,8 @@ class WorldStateService:
         Returns:
             Arbitration 模型实例，无活跃数据时返回 None。
         """
-        from ..api.api import WF_ARBITRATION
-        from ..util import fetch_json
 
-        try:
-            resp = await fetch_json(WF_ARBITRATION, cache_key="arbitration", ttl=300)
-        except Exception:
-            logger.warning("获取仲裁数据失败")
-            return None
-
-        if not resp or not isinstance(resp, list):
-            return None
-
-        # 解析为模型列表，筛选 expiry > now 的活跃项，取剩余时间最小的
-        now_ts = __import__("time").time()
-        active: Arbitration | None = None
-        min_delta: float = float("inf")
-
-        for item in resp:
-            if not isinstance(item, dict):
-                continue
-            try:
-                arb = Arbitration(**item)
-            except Exception:
-                continue
-            if arb.expiry is None:
-                continue
-            delta = arb.expiry - now_ts
-            if delta > 0 and delta < min_delta:
-                min_delta = delta
-                active = arb
-
-        return active
+        return None
 
     # ══════════════════════════════════════════════════════════════════
     # 星图节点查询（保留原有方法）

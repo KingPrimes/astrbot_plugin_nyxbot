@@ -25,11 +25,10 @@ def register_all() -> None:
         wf_help,  # noqa: F401
         wf_invasions,  # noqa: F401
         wf_lite_sortie,  # noqa: F401
-        wf_market_god_dump,  # noqa: F401
+        wf_market_dump,  # noqa: F401
         wf_market_liches,  # noqa: F401
         wf_market_orders,  # noqa: F401
         wf_market_riven,  # noqa: F401
-        wf_market_silver_dump,  # noqa: F401
         wf_market_sisters,  # noqa: F401
         wf_perlin_sequence,  # noqa: F401
         wf_relics,  # noqa: F401
@@ -40,7 +39,6 @@ def register_all() -> None:
         wf_sorties,  # noqa: F401
         wf_steel_path,  # noqa: F401
         wf_syndicate,  # noqa: F401
-        wf_translation,  # noqa: F401
         wf_void_trader,  # noqa: F401
     )
 
