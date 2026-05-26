@@ -8,30 +8,31 @@
 """
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum, unique
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from ..base import BaseModelWithAlias
 
 
-class MarketStatusEnum(str, Enum):
+@unique
+class MarketStatusEnum(StrEnum):
     """用户在线状态 — 对应 Java MarketStatusEnum"""
-    # 在线
     ONLINE = "online"
-    # 游戏中
     INGAME = "ingame"
-    # 离线
     OFFLINE = "offline"
-    # 不可见
     INVISIBLE = "invisible"
 
 
-class TransactionEnum(str, Enum):
+@unique
+class TransactionEnum(StrEnum):
     """交易类型 — 对应 Java TransactionEnum"""
     BUY = "buy"
     SELL = "sell"
 
 
-class MarketPlatformEnum(str, Enum):
+@unique
+class MarketPlatformEnum(StrEnum):
     """平台 — 对应 Java MarketPlatformEnum"""
     PC = "pc"
     PS4 = "ps4"
@@ -40,7 +41,7 @@ class MarketPlatformEnum(str, Enum):
     MOBILE = "mobile"
 
 
-class MarketUser(BaseModel):
+class MarketUser(BaseModelWithAlias):
     """Market 用户信息 — 对应 Java MarketUser"""
     id: str | None = Field(default=None)
     ingame_name: str | None = Field(default=None, alias="ingameName")
@@ -51,10 +52,8 @@ class MarketUser(BaseModel):
     status: MarketStatusEnum | None = Field(default=None)
     last_seen: str | None = Field(default=None, alias="lastSeen")
 
-    model_config = {"populate_by_name": True}
 
-
-class OrderWithUser(BaseModel):
+class OrderWithUser(BaseModelWithAlias):
     """订单 + 用户信息 — 对应 Java OrderWithUser"""
     id: str | None = Field(default=None)
     type: str | None = Field(default=None)
@@ -72,10 +71,8 @@ class OrderWithUser(BaseModel):
     item_id: str | None = Field(default=None, alias="itemId")
     user: MarketUser | None = Field(default=None)
 
-    model_config = {"populate_by_name": True}
 
-
-class Orders(BaseModel):
+class Orders(BaseModelWithAlias):
     """市场订单渲染数据 — 对应 Java Orders"""
     name: str = Field(default="")
     form: str = Field(default="pc")
@@ -89,5 +86,3 @@ class Orders(BaseModel):
     req_mastery_rank: int = Field(default=0, alias="reqMasteryRank")
     trading_tax: int = Field(default=0, alias="tradingTax")
     orders: list[OrderWithUser] = Field(default_factory=list)
-
-    model_config = {"populate_by_name": True}

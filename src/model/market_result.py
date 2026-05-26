@@ -7,13 +7,13 @@ from __future__ import annotations
 
 from typing import Generic, TypeVar
 
-from pydantic import BaseModel
+from .base import BaseModelWithAlias
 
 E = TypeVar("E")
 R = TypeVar("R")
 
 
-class MarketResult(BaseModel, Generic[E, R]):
+class MarketResult(BaseModelWithAlias, Generic[E, R]):
     """市场搜索结果容器"""
 
     entity: E | None = None

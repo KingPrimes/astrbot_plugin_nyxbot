@@ -20,7 +20,7 @@ class StateTranslation(Model):
     name = fields.CharField(max_length=255, description="名称")
     description = fields.TextField(null=True, description="解释")
     type = fields.CharField(max_length=50, null=True, description="类型")
-    parentName = fields.CharField(max_length=255, null=True, description="能否交易")
+    parentName = fields.CharField(max_length=255, null=True, description="上级名称")
 
     class Meta:
         table = "statetranslation"

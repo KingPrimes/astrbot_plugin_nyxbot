@@ -9,9 +9,10 @@ from __future__ import annotations
 
 import time
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from ...wenum.world_state import SyndicateEnum
+from ..base import BaseModelWithAlias
 from .active_mission import ActiveMission
 from .alert import Alert
 from .cambion_cycle import CambionCycle
@@ -50,13 +51,15 @@ from .void_trader import VoidTrader
 from .zariman_cycle import ZarimanCycle
 
 
-class WorldState(BaseModel):
+class WorldState(BaseModelWithAlias):
     """世界状态 / World State
 
     对应 Java: WorldState
     顶层聚合模型，包含所有子模型。
     周期属性为 @property 计算属性（按需构造，不参与 JSON 序列化）。
     """
+
+    model_config = {"arbitrary_types_allowed": True}
 
     # === JSON 反序列化字段 / JSON-deserialized fields ===
 
@@ -87,7 +90,7 @@ class WorldState(BaseModel):
     # 闪购 / Flash Sales
     flash_sales: list[FlashSale] = Field(default_factory=list, alias="FlashSales")
     # SKU 促销 / SKU Sales
-    sku_sales: list = Field(default_factory=list, alias="SkuSales")
+    sku_sales: list[dict[str, object]] = Field(default_factory=list, alias="SkuSales")
     # 强制登出版本号 / Force Logout Version
     force_logout_version: int | None = Field(default=None, alias="ForceLogoutVersion")
     # 全局升级 / Global Upgrades
@@ -141,15 +144,13 @@ class WorldState(BaseModel):
     # PVP 挑战实例 / PVP Challenge Instances
     pvp_challenge_instances: list[PVPChallengeInstance] = Field(default_factory=list, alias="PVPChallengeInstances")
     # PVP 替代模式 / PVP Alternative Modes
-    pvp_alternative_modes: list = Field(default_factory=list, alias="PVPAlternativeModes")
+    pvp_alternative_modes: list[dict[str, object]] = Field(default_factory=list, alias="PVPAlternativeModes")
     # PVP 活跃锦标赛 / PVP Active Tournaments
-    pvp_active_tournaments: list = Field(default_factory=list, alias="PVPActiveTournaments")
+    pvp_active_tournaments: list[dict[str, object]] = Field(default_factory=list, alias="PVPActiveTournaments")
     # Twitch 促销 / Twitch Promos
-    twitch_promos: list = Field(default_factory=list, alias="TwitchPromos")
+    twitch_promos: list[dict[str, object]] = Field(default_factory=list, alias="TwitchPromos")
     # 持续敌人 / Persistent Enemies
-    persistent_enemies: list = Field(default_factory=list, alias="PersistentEnemies")
-
-    model_config = {"populate_by_name": True, "arbitrary_types_allowed": True}
+    persistent_enemies: list[dict[str, object]] = Field(default_factory=list, alias="PersistentEnemies")
 
     # === 计算属性 / Computed cycle properties ===
 

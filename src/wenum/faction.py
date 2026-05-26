@@ -8,9 +8,10 @@ Pydantic 反序列化直接用字符串匹配，无需 _missing_ 钩子。
 """
 from __future__ import annotations
 
-from enum import StrEnum
+from enum import StrEnum, unique
 
 
+@unique
 class FactionEnum(StrEnum):
     """派系枚举 — value = 成员名称字符串"""
 

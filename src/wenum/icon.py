@@ -4,9 +4,10 @@ Icon Enum / 图标枚举
 """
 from __future__ import annotations
 
-from enum import StrEnum
+from enum import StrEnum, unique
 
 
+@unique
 class IconEnum(StrEnum):
     """图标枚举 — value = 成员名称字符串"""
 

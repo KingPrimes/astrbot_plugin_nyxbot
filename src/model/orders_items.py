@@ -18,7 +18,7 @@ class OrdersItems(Model):
     bulkTradable = fields.BooleanField(null=True, description="可批量交易")
     maxRank = fields.IntField(null=True, description="最大等级")
     ducats = fields.IntField(null=True, description="杜卡币")
-    name = fields.CharField(max_length=255, null=True, description="物品名称")
+    name = fields.CharField(max_length=255, null=True, db_index=True, description="物品名称")
     icon = fields.CharField(max_length=500, null=True, description="图标")
     thumb = fields.CharField(max_length=500, null=True, description="缩略图")
     vaulted = fields.BooleanField(null=True, description="遗物是否入库")

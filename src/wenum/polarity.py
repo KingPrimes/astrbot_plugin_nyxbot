@@ -4,9 +4,10 @@ Polarity Enum / Mod 极性槽位枚举
 """
 from __future__ import annotations
 
-from enum import StrEnum
+from enum import StrEnum, unique
 
 
+@unique
 class PolarityEnum(StrEnum):
     """Mod 极性槽位枚举 — value = 成员名称字符串"""
 

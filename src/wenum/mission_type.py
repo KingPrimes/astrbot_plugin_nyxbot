@@ -8,9 +8,10 @@ mode="json" 序列化输出 "MT_SURVIVAL" 而非 ["生存", 2, "#CDA241"]。
 """
 from __future__ import annotations
 
-from enum import StrEnum
+from enum import StrEnum, unique
 
 
+@unique
 class MissionTypeEnum(StrEnum):
     """任务类型枚举 — value = 成员名称字符串"""
 

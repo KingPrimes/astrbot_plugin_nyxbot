@@ -6,11 +6,15 @@ Members count: 30
 """
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 
-class ModifierTypeEnum(Enum):
-    """突击限定条件枚举 / Sortie Modifier Type Enum"""
+class ModifierTypeEnum(StrEnum):
+    """突击限定条件枚举 / Sortie Modifier Type Enum
+
+    value = 中文显示名称字符串。
+    SORTIE_MODIFIER_POISON 为 SORTIE_MODIFIER_TOXIN 的别名。
+    """
 
     # === 环境危害 / Environmental Hazards ===
     SORTIE_MODIFIER_HAZARD_RADIATION = "辐射灾害"
@@ -54,9 +58,6 @@ class ModifierTypeEnum(Enum):
     SORTIE_MODIFIER_EXIMUS = "卓越者大本营"
     SORTIE_MODIFIER_LOW_ENERGY = "能量上限减少"
 
-    def __init__(self, display_name: str) -> None:
-        self._display_name = display_name
-
     @classmethod
     def _missing_(cls, value):
         """支持通过成员名称字符串匹配 Pydantic 验证 / Support name-based matching for Pydantic validation"""
@@ -66,8 +67,3 @@ class ModifierTypeEnum(Enum):
             except KeyError:
                 pass
         return None
-
-    @property
-    def display_name(self) -> str:
-        """限定条件显示名称"""
-        return self._display_name

@@ -1,4 +1,7 @@
 """Market model package / Warframe.Market 响应模型包"""
+from __future__ import annotations
+
+from .base import BaseAuction, MarketOwner
 from .ducats import DucatItem, Ducats, DucatsPayload, DumpType
 from .market_lich_sister import (
     LichSisterAuction,
@@ -25,6 +28,9 @@ from .market_riven import (
 )
 
 __all__ = [
+    # Shared base classes
+    "BaseAuction",
+    "MarketOwner",
     # Ducats
     "DucatItem",
     "Ducats",

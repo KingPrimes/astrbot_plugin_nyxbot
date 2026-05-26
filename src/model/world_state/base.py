@@ -12,19 +12,10 @@ from __future__ import annotations
 
 import time
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from ...util.time_utils import time_delta_to_string
-
-
-class BaseModelWithAlias(BaseModel):
-    """带别名序列化的基类 / Base model with alias support
-
-    统一配置 populate_by_name=True，避免每个模型重复声明 model_config。
-    WorldState 下所有模型（含 BastWorldState 及其子类）均继承此类。
-    """
-
-    model_config = {"populate_by_name": True}
+from ..base import BaseModelWithAlias
 
 
 class Id(BaseModelWithAlias):
@@ -43,7 +34,7 @@ class DateField(BaseModelWithAlias):
     其中 $numberLong 的值可能是 int 或 str 类型。
     """
 
-    class D(BaseModelWithAlias):
+    class DateValue(BaseModelWithAlias):
         """内部日期数据 / Inner date data"""
         number_long: int | str = Field(alias="$numberLong")
 
@@ -51,7 +42,7 @@ class DateField(BaseModelWithAlias):
             """转换为毫秒时间戳 / Convert to milliseconds timestamp"""
             return int(self.number_long)
 
-    date: D = Field(alias="$date")
+    date: DateValue = Field(alias="$date")
 
     @property
     def time_millis(self) -> int:

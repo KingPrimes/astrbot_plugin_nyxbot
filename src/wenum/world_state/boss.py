@@ -7,9 +7,10 @@ mode="json" 序列化输出 "SORTIE_BOSS_KELA" 而非 ["Kela De Thaym", "Grineer
 """
 from __future__ import annotations
 
-from enum import StrEnum
+from enum import StrEnum, unique
 
 
+@unique
 class BossEnum(StrEnum):
     """Boss 枚举（用于突击/执刑官猎杀） — value = 成员名称字符串"""
 

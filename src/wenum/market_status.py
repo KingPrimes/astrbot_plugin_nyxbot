@@ -3,9 +3,10 @@ Market Status Enum / Market 用户在线状态枚举
 """
 from __future__ import annotations
 
-from enum import StrEnum
+from enum import StrEnum, unique
 
 
+@unique
 class MarketStatusEnum(StrEnum):
     """Market 用户在线状态枚举 — value = 成员名称字符串"""
 

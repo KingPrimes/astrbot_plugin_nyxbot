@@ -1,6 +1,8 @@
 """
 Warframe Enum  Package/ Warframe 枚举包
 """
+from __future__ import annotations
+
 from .element import ElementEnum
 from .faction import FactionEnum
 from .fissure_type import FissureTier, FissureTypeEnum

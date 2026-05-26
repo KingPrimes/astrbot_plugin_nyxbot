@@ -7,9 +7,10 @@ mode="json" 序列化输出 "VoidT4" 而非 ["后纪", "#C1BE39"]。
 """
 from __future__ import annotations
 
-from enum import StrEnum
+from enum import StrEnum, unique
 
 
+@unique
 class VoidEnum(StrEnum):
     """虚空遗物等级枚举 — value = 成员名称字符串"""
 

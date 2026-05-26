@@ -3,9 +3,10 @@ Market Platform Enum / Market 支持平台枚举
 """
 from __future__ import annotations
 
-from enum import StrEnum
+from enum import StrEnum, unique
 
 
+@unique
 class MarketPlatformEnum(StrEnum):
     """Market 支持平台枚举 — value = 平台标识字符串"""
 

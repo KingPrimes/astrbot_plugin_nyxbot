@@ -8,19 +8,18 @@ from __future__ import annotations
 import time as _time
 from datetime import datetime, timezone
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from ..wenum.faction import FactionEnum
+from .base import BaseModelWithAlias
 
 
-class Arbitration(BaseModel):
+class Arbitration(BaseModelWithAlias):
     """仲裁预测任务 — 镜像 Java Arbitration.java
 
     字段对应第三方仲裁 API 返回的 JSON 结构。
     时间字段为 epoch 秒（float），与 DateField（MongoDB 格式）不同。
     """
-
-    model_config = {"populate_by_name": True}
 
     activation: float | None = Field(default=None, alias="activation")
     """开始时间 (epoch 秒)"""

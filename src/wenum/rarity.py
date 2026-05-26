@@ -1,36 +1,40 @@
 """Rarity Enum / 稀有度枚举"""
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum, unique
 
 
-class RarityEnum(Enum):
-    """Warframe 物品稀有度枚举"""
+@unique
+class RarityEnum(StrEnum):
+    """Warframe 物品稀有度枚举 — value = 成员名称字符串"""
 
-    COMMON = ("常见", "Common", 0)
-    UNCOMMON = ("罕见", "Uncommon", 1)
-    RARE = ("稀有", "Rare", 2)
-    LEGENDARY = ("传说", "Legendary", 3)
+    COMMON = ("COMMON", "常见", "Common", 0)
+    UNCOMMON = ("UNCOMMON", "罕见", "Uncommon", 1)
+    RARE = ("RARE", "稀有", "Rare", 2)
+    LEGENDARY = ("LEGENDARY", "传说", "Legendary", 3)
 
-    def __init__(self, cn_name: str, en_name: str, tier: int) -> None:
-        self._cn_name = cn_name
-        self._en_name = en_name
-        self._tier = tier
+    def __new__(cls, value: str, cn_name: str, en_name: str, tier: int):
+        obj = str.__new__(cls, value)
+        obj._value_ = value
+        obj._cn_name = cn_name  # type: ignore
+        obj._en_name = en_name  # type: ignore
+        obj._tier = tier  # type: ignore
+        return obj
 
     @property
     def cn_name(self) -> str:
         """中文名称"""
-        return self._cn_name
+        return self._cn_name  # type: ignore
 
     @property
     def en_name(self) -> str:
         """英文名称"""
-        return self._en_name
+        return self._en_name  # type: ignore
 
     @property
     def tier(self) -> int:
         """稀有度等级"""
-        return self._tier
+        return self._tier  # type: ignore
 
     @classmethod
     def from_en_name(cls, en_name: str) -> RarityEnum:

@@ -7,7 +7,9 @@ from __future__ import annotations
 
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from ..base import BaseModelWithAlias
 
 
 class DumpType(str, Enum):
@@ -16,7 +18,7 @@ class DumpType(str, Enum):
     HOUR = "每小时"
 
 
-class DucatItem(BaseModel):
+class DucatItem(BaseModelWithAlias):
     """单条杜卡币数据 — 镜像 Java Ducats.Ducat"""
     datetime: str | None = Field(default=None)
     ducats: int | None = Field(default=None)
@@ -33,19 +35,15 @@ class DucatItem(BaseModel):
     volume: int | None = Field(default=None)
     wa_price: float | None = Field(default=None, alias="wa_price")
 
-    model_config = {"populate_by_name": True}
 
 
-class DucatsPayload(BaseModel):
+class DucatsPayload(BaseModelWithAlias):
     """杜卡币载荷"""
     previous_day: list[DucatItem] = Field(default_factory=list, alias="previous_day")
     previous_hour: list[DucatItem] = Field(default_factory=list, alias="previous_hour")
 
-    model_config = {"populate_by_name": True}
 
 
-class Ducats(BaseModel):
+class Ducats(BaseModelWithAlias):
     """杜卡币数据 — 镜像 Java Ducats.java"""
     payload: DucatsPayload | None = Field(default=None)
-
-    model_config = {"populate_by_name": True}
