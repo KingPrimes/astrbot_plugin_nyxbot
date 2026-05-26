@@ -70,7 +70,7 @@ class NyxBotPlugin(Star):
                 return
 
             # 所有独立数据源一次性并发拉取（无跨组依赖，最大化并发）
-            await asyncio.gather(
+            results = await asyncio.gather(
                 # CDN 数据源
                 AliasService.sync_data(),
                 RivenService.sync_tion_data(),
@@ -88,6 +88,9 @@ class NyxBotPlugin(Star):
                 WeaponsService.sync_data(),
                 return_exceptions=True,
             )
+            for i, result in enumerate(results):
+                if isinstance(result, BaseException):
+                    logger.error(f"数据同步任务 #{i} 失败: {result}", exc_info=result)
 
             # Stub Service（无网络开销，串行即可）
             await RelicsService.sync_data()

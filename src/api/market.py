@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 from enum import Enum
 from typing import Any
 
@@ -34,6 +35,10 @@ _AUCTION_EXTRA_HEADERS: dict[str, str] = {
     "Pragma": "no-cache",
     "Crossplay": "true",
 }
+
+# 每个缓存键一个锁，防止并发请求击穿缓存。
+# Per-cache-key lock to prevent concurrent stampede on the same resource.
+_cache_locks: dict[str, asyncio.Lock] = {}
 
 
 class MarketClient:
@@ -78,9 +83,42 @@ class MarketClient:
             API 响应信封 {"apiVersion": str, "data": ..., "error": None}；
             网络错误或无响应时返回 None。
         """
-        if cache_key is not None and cache_key in market_cache:
-            return market_cache[cache_key]
+        if cache_key is not None:
+            # 缓存命中 → 直接返回 / Cache hit → return immediately
+            if cache_key in market_cache:
+                return market_cache[cache_key]
 
+            # 获取或创建 per-key 锁，防止并发 stampede
+            # Get or create per-key lock to prevent concurrent stampede
+            lock = _cache_locks.setdefault(cache_key, asyncio.Lock())
+            async with lock:
+                # 双检查：前一个持有者可能已填充缓存
+                # Double-check: previous holder may have filled the cache
+                if cache_key in market_cache:
+                    return market_cache[cache_key]
+                return await cls._fetch_and_cache(
+                    url, cache_key, params, platform, extra_headers,
+                    retry, retry_count, retry_delay,
+                )
+
+        return await cls._fetch_and_cache(
+            url, None, params, platform, extra_headers,
+            retry, retry_count, retry_delay,
+        )
+
+    @classmethod
+    async def _fetch_and_cache(
+        cls,
+        url: str,
+        cache_key: str | None,
+        params: dict[str, Any] | None,
+        platform: Platform | None,
+        extra_headers: dict[str, str] | None,
+        retry: bool,
+        retry_count: int,
+        retry_delay: float,
+    ) -> dict[str, Any] | None:
+        """执行实际的 HTTP 请求并写入缓存（内部方法）。"""
         # 局部 headers 拷贝，避免并发请求互相覆盖 cls.headers["Platform"]。
         # Local headers copy — avoid concurrent requests overwriting cls.headers["Platform"].
         headers = dict(cls.headers)

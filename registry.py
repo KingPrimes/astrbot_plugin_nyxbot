@@ -23,8 +23,9 @@ import orjson
 
 from astrbot.api import logger
 from astrbot.api.event import filter
+from astrbot.core.utils.astrbot_path import get_astrbot_config_path
 
-MAIN_MODULE = "data.plugins.astrbot_plugin_nyxbot.main"
+MAIN_MODULE = __name__.rsplit(".", 1)[0] + ".main"
 
 
 def _patch_module(func):
@@ -44,8 +45,7 @@ def _load_prefix_from_config() -> str:
     """
     try:
         plugin_dir = Path(__file__).resolve().parent
-        # Config at data/config/{plugin_name}_config.json
-        config_path = plugin_dir.parent.parent / "config" / f"{plugin_dir.name}_config.json"
+        config_path = Path(get_astrbot_config_path()) / f"{plugin_dir.name}_config.json"
 
         if config_path.exists():
             config = orjson.loads(config_path.read_text(encoding="utf-8-sig"))
