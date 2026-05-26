@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 from PIL import Image, ImageDraw, ImageFont
 
-from .draw_constant import DrawConstant, ThemeColor
+from .draw_constant import LayoutConstants, ThemeColor
 from .font_manager import FontManager
 from .image_combiner import ImageCombiner
 from .standing import draw_standing
@@ -28,10 +28,7 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 _CANVAS_W = 1600
-_MARGIN = 40
-_CONTENT_PAD = 20
-_CONTENT_X = _MARGIN + _CONTENT_PAD
-_CONTENT_W = _CANVAS_W - 2 * _CONTENT_X
+_CONTENT_X, _CONTENT_W = LayoutConstants.get_content_bounds(_CANVAS_W)
 
 # 卡片网格
 _CARDS_PER_ROW = 2
@@ -114,22 +111,16 @@ def _draw_nodes_view(
 
     title_font = FontManager.get_text_font(40)
     body_font = FontManager.get_text_font(28)
-    footer_font = FontManager.get_text_font(20)
+    FontManager.get_text_font(20)
 
     cb = ImageCombiner(_CANVAS_W, canvas_h, ThemeColor.BG_DARK)
 
-    cb.draw_double_border(
-        border_padding=16,
-        border_color_outer=ThemeColor.TABLE_BORDER,
-        border_color_inner=ThemeColor.DIVIDER,
-        stroke=3,
-    )
+    cb.draw_default_double_border()
 
     cb.set_color(ThemeColor.ACCENT_BLUE).set_font(title_font)
     cb.add_centered_text(f"{tag_name} - 节点", _TITLE_Y)
 
-    cb.set_color(ThemeColor.DIVIDER)
-    cb.draw_line(_CONTENT_X, _DIVIDER_Y, _CONTENT_X + _CONTENT_W, _DIVIDER_Y, width=1)
+    cb.draw_content_divider(_DIVIDER_Y, _CONTENT_X, _CONTENT_W)
 
     y = 170
     cb.set_color(ThemeColor.TEXT_PRIMARY).set_font(body_font)
@@ -139,8 +130,7 @@ def _draw_nodes_view(
 
     draw_standing(cb, max_w=_STANDING_MAX_W, max_h=_STANDING_MAX_H)
 
-    cb.set_color(ThemeColor.TEXT_MUTED).set_font(footer_font)
-    cb.add_centered_text(DrawConstant.FOOTER_TEXT, canvas_h - _FOOTER_OFFSET)
+    cb.draw_card_footer(canvas_h)
 
     return cb.to_image()
 
@@ -181,24 +171,18 @@ def _draw_jobs_view(
     card_title_font = FontManager.get_text_font(22)
     card_body_font = FontManager.get_text_font(18)
     card_bold_font = FontManager.get_text_font(20)
-    footer_font = FontManager.get_text_font(20)
+    FontManager.get_text_font(20)
 
     # ---- 主画布 ----
     cb = ImageCombiner(_CANVAS_W, canvas_h, ThemeColor.BG_DARK)
 
-    cb.draw_double_border(
-        border_padding=16,
-        border_color_outer=ThemeColor.TABLE_BORDER,
-        border_color_inner=ThemeColor.DIVIDER,
-        stroke=3,
-    )
+    cb.draw_default_double_border()
 
     # ---- 标题 ----
     cb.set_color(ThemeColor.ACCENT_BLUE).set_font(title_font)
     cb.add_centered_text(f"{tag_name} - 赏金任务", _TITLE_Y)
 
-    cb.set_color(ThemeColor.DIVIDER)
-    cb.draw_line(_CONTENT_X, _DIVIDER_Y, _CONTENT_X + _CONTENT_W, _DIVIDER_Y, width=1)
+    cb.draw_content_divider(_DIVIDER_Y, _CONTENT_X, _CONTENT_W)
 
     # ---- 计算列 X 坐标（居中整个卡片网格） ----
     total_grid_w = _CARDS_PER_ROW * _CARD_W + (_CARDS_PER_ROW - 1) * _CARD_MARGIN_X
@@ -227,8 +211,7 @@ def _draw_jobs_view(
     draw_standing(cb, max_w=_STANDING_MAX_W, max_h=_STANDING_MAX_H)
 
     # ---- 底部署名 ----
-    cb.set_color(ThemeColor.TEXT_MUTED).set_font(footer_font)
-    cb.add_centered_text(DrawConstant.FOOTER_TEXT, canvas_h - _FOOTER_OFFSET)
+    cb.draw_card_footer(canvas_h)
 
     return cb.to_image()
 

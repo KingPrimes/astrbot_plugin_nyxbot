@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 
 from PIL import Image, ImageFont
 
-from .draw_constant import DrawConstant, ThemeColor
+from .draw_constant import LayoutConstants, ThemeColor
 from .font_manager import FontManager
 from .image_combiner import ImageCombiner
 from .standing import draw_standing_at
@@ -29,10 +29,7 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 _CANVAS_W = 1200
-_MARGIN = 40                       # 双层边框外边距
-_CONTENT_PAD = 20                  # 边框内缩进
-_CONTENT_X = _MARGIN + _CONTENT_PAD  # 内容区起始 X = 60
-_CONTENT_W = _CANVAS_W - 2 * _CONTENT_X  # 980
+_CONTENT_X, _CONTENT_W = LayoutConstants.get_content_bounds(_CANVAS_W)
 
 _COLS = 2                          # 每行列数
 _COL_GAP = 20                      # 列间距
@@ -186,7 +183,7 @@ def render_alert_card(renderer: CardRenderer, alerts: list[Alert]) -> Image.Imag
     badge_font = FontManager.get_text_font(22)
     body_font = FontManager.get_text_font(24)
     time_font = FontManager.get_text_font(20)
-    footer_font = FontManager.get_text_font(20)
+    FontManager.get_text_font(20)
 
     # ---- 布局计算 ----
     n = len(alerts)
@@ -211,20 +208,14 @@ def render_alert_card(renderer: CardRenderer, alerts: list[Alert]) -> Image.Imag
     cb = ImageCombiner(_CANVAS_W, canvas_h, ThemeColor.BG_DARK)
 
     # ---- 双层装饰边框 ----
-    cb.draw_double_border(
-        border_padding=16,
-        border_color_outer=ThemeColor.TABLE_BORDER,
-        border_color_inner=ThemeColor.DIVIDER,
-        stroke=3,
-    )
+    cb.draw_default_double_border()
 
     # ---- 标题 ----
     cb.set_color(ThemeColor.ACCENT_BLUE).set_font(title_font)
     cb.add_centered_text("警报", _TITLE_Y)
 
     # ---- 分割线（标题下方，与卡片区域等宽） ----
-    cb.set_color(ThemeColor.DIVIDER)
-    cb.draw_line(_CONTENT_X, _TITLE_Y + 68, _CONTENT_X + _CONTENT_W, _TITLE_Y + 68, width=1)
+    cb.draw_content_divider(_TITLE_Y + 68, _CONTENT_X, _CONTENT_W)
 
     # ---- 警报卡片（两列网格） ----
     for i, alert in enumerate(alerts):
@@ -247,9 +238,8 @@ def render_alert_card(renderer: CardRenderer, alerts: list[Alert]) -> Image.Imag
         draw_standing_at(cb, standing_x, content_end + 10,
                          _STANDING_EVEN_W, _STANDING_EVEN_H)
 
-    # ---- Footer（距底部固定 55px） ----
-    cb.set_color(ThemeColor.TEXT_MUTED).set_font(footer_font)
-    cb.add_centered_text(DrawConstant.FOOTER_TEXT, canvas_h - _FOOTER_OFFSET)
+    # ---- 底部署名 ----
+    cb.draw_card_footer(canvas_h, 60)
 
     return cb.to_image()
 

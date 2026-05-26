@@ -20,8 +20,9 @@ from PIL import Image, ImageFont
 
 from ..wenum.element import ElementEnum
 from ..wenum.icon import IconEnum
-from .draw_constant import DrawConstant, ThemeColor, hex_to_rgb
+from .draw_constant import ThemeColor, hex_to_rgb
 from .font_manager import FontManager
+from .graphics_utils import truncate_text
 from .image_combiner import ImageCombiner
 from .standing import draw_standing_at
 
@@ -111,32 +112,12 @@ def _resolve_attribute(
     return fallback, color, "", False
 
 
-def _status_color(status: str | None) -> tuple[int, int, int]:
-    """卖家在线状态颜色映射。/ Seller status → color."""
-    if not status:
-        return ThemeColor.TEXT_MUTED
-    s = status.lower()
-    if s in ("online", "ingame"):
-        return ThemeColor.SUCCESS
-    return ThemeColor.TEXT_MUTED
-
-
 def _format_dots(rank: int | None, max_rank: int = 8) -> str:
     """生成 mod 等级实心/空心点字符串。/ Render mod rank as filled/empty dots."""
     if rank is None or rank < 0:
         rank = 0
     rank = min(rank, max_rank)
     return "●" * rank + "○" * (max_rank - rank)
-
-
-def _truncate(cb: ImageCombiner, text: str, max_w: int) -> str:
-    """按当前字体截断字符串到 max_w 内，必要时追加省略号。"""
-    if cb.get_string_width(text) <= max_w:
-        return text
-    ellipsis = "…"
-    while text and cb.get_string_width(text + ellipsis) > max_w:
-        text = text[:-1]
-    return text + ellipsis if text else ellipsis
 
 
 # ---------------------------------------------------------------------------
@@ -198,11 +179,11 @@ def _draw_riven_card(
     # 标题区：武器名 + 紫卡后缀
     title_max_w = inner_w - polarity_w - mr_badge_w - 21
     cb.set_color(ThemeColor.ACCENT_GOLD).set_font(fonts["weapon"])
-    cb.add_text(_truncate(cb, item_name, title_max_w), inner_x, card_y + 23)
+    cb.add_text(truncate_text(cb, item_name, title_max_w), inner_x, card_y + 23)
 
     if rim.name:
         cb.set_color(_RIVEN_SUFFIX_COLOR).set_font(fonts["suffix"])
-        cb.add_text(_truncate(cb, rim.name, title_max_w), inner_x, card_y + 65)
+        cb.add_text(truncate_text(cb, rim.name, title_max_w), inner_x, card_y + 65)
 
     # 分隔线 1
     cb.set_color(ThemeColor.DIVIDER)
@@ -243,7 +224,7 @@ def _draw_riven_card(
         # 名字
         cb.set_color(color).set_font(fonts["attr"])
         name_x = cursor_x + val_w + 13
-        cb.add_text(_truncate(cb, name, inner_right - name_x), name_x, attr_y)
+        cb.add_text(truncate_text(cb, name, inner_right - name_x), name_x, attr_y)
 
         attr_y += _CARD_ATTR_LINE_H
 
@@ -330,12 +311,12 @@ def _draw_riven_card(
     owner = auction.owner
     seller_name = owner.ingame_name if owner and owner.ingame_name else "未知卖家"
     cb.set_color(ThemeColor.TEXT_PRIMARY).set_font(fonts["owner"])
-    name_text = _truncate(cb, seller_name, 234)
+    name_text = truncate_text(cb, seller_name, 234)
     cb.add_text(name_text, inner_x, card_y + _CARD_OWNER_Y)
     name_w = cb.get_string_width(name_text)
 
     if owner and owner.status:
-        status_color = _status_color(owner.status)
+        status_color = ThemeColor.get_status_color(owner.status)
         status_label = _STATUS_LABEL.get(owner.status.lower(), owner.status)
         cb.set_color(status_color).set_font(fonts["badge"])
         cb.add_text_with_background(
@@ -382,7 +363,7 @@ def render_market_riven_card(
     # 字体（已整体放大约 1.3x）
     title_font = FontManager.get_text_font(60)
     subtitle_font = FontManager.get_text_font(32)
-    footer_font = FontManager.get_text_font(24)
+    FontManager.get_text_font(24)
 
     fonts: dict[str, ImageFont.FreeTypeFont | ImageFont.ImageFont] = {
         "weapon": FontManager.get_text_font(28),
@@ -458,7 +439,6 @@ def render_market_riven_card(
                          _STANDING_BELOW_W, _STANDING_BELOW_H)
 
     # Footer
-    cb.set_color(ThemeColor.TEXT_MUTED).set_font(footer_font)
-    cb.add_centered_text(DrawConstant.FOOTER_TEXT, canvas_h - _FOOTER_OFFSET)
+    cb.draw_card_footer(canvas_h, _FOOTER_OFFSET, 24)
 
     return cb.to_image()

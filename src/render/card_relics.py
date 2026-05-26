@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 from PIL import ImageFont
 
 from ..wenum.rarity import RarityEnum
-from .draw_constant import DrawConstant, ThemeColor
+from .draw_constant import LayoutConstants, ThemeColor
 from .font_manager import FontManager
 from .image_combiner import ImageCombiner
 from .standing import draw_standing_at
@@ -32,10 +32,7 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 _CANVAS_W = 1900
-_MARGIN = 40
-_CONTENT_PAD = 20
-_CONTENT_X = _MARGIN + _CONTENT_PAD  # 60
-_CONTENT_W = _CANVAS_W - 2 * _CONTENT_X  # 1780
+_CONTENT_X, _CONTENT_W = LayoutConstants.get_content_bounds(_CANVAS_W)
 
 _COLS = 3
 _COL_GAP = 20
@@ -163,7 +160,7 @@ def render_relic_card(
     title_font = FontManager.get_text_font(64)
     name_font = FontManager.get_text_font(42)
     reward_font = FontManager.get_text_font(32)
-    footer_font = FontManager.get_text_font(26)
+    FontManager.get_text_font(26)
 
     # ---- 布局计算 ----
     n = len(relics)
@@ -186,24 +183,14 @@ def render_relic_card(
     cb = ImageCombiner(_CANVAS_W, canvas_h, ThemeColor.BG_DARK)
 
     # ---- 双层边框 ----
-    cb.draw_double_border(
-        border_padding=16,
-        border_color_outer=ThemeColor.TABLE_BORDER,
-        border_color_inner=ThemeColor.DIVIDER,
-        stroke=3,
-    )
+    cb.draw_default_double_border()
 
     # ---- 标题 ----
     cb.set_color(ThemeColor.ACCENT_GOLD).set_font(title_font)
     cb.add_centered_text("遗物查询", _TITLE_Y)
 
     # ---- 分割线 ----
-    cb.set_color(ThemeColor.DIVIDER)
-    cb.draw_line(
-        _CONTENT_X, _TITLE_Y + 68,
-        _CONTENT_X + _CONTENT_W, _TITLE_Y + 68,
-        width=1,
-    )
+    cb.draw_content_divider(_TITLE_Y + 68, _CONTENT_X, _CONTENT_W)
 
     # ---- 遗物卡片（3 列网格） ----
     for i, relic in enumerate(relics):
@@ -220,7 +207,6 @@ def render_relic_card(
     draw_standing_at(cb, standing_x, standing_y, _STANDING_W, _STANDING_H)
 
     # ---- 底部署名 ----
-    cb.set_color(ThemeColor.TEXT_MUTED).set_font(footer_font)
-    cb.add_centered_text(DrawConstant.FOOTER_TEXT, canvas_h - _FOOTER_OFFSET)
+    cb.draw_card_footer(canvas_h, _FOOTER_OFFSET, 26)
 
     return cb.to_image()

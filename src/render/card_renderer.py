@@ -12,9 +12,15 @@
 """
 from __future__ import annotations
 
+import asyncio
 import io
+from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from PIL import Image, ImageDraw, ImageFont
+
+if TYPE_CHECKING:
+    from astrbot.api.message_components import BaseMessageComponent
 
 from ..wenum.faction import FactionEnum
 from ..wenum.mission_type import MissionTypeEnum
@@ -60,6 +66,26 @@ class CardRenderer:
         "icon_large": 48,      # 大图标
     }
 
+    # 预构建 O(1) 查找字典 — 消除每次调用时的全枚举遍历
+    _FACTION_LOOKUP: dict[str, tuple[str, tuple[int, int, int]]] = {}
+    _MISSION_TYPE_LOOKUP: dict[str, tuple[int, int, int]] = {}
+
+    @classmethod
+    def _build_lookup_caches(cls) -> None:
+        """延迟构建枚举查找缓存（模块导入后自动调用一次）。"""
+        if cls._FACTION_LOOKUP:
+            return
+        for fe in FactionEnum:
+            rgb = hex_to_rgb(fe.color)
+            cls._FACTION_LOOKUP[fe.display_name.lower()] = (fe.icon, rgb)
+            cls._FACTION_LOOKUP[fe.name.lower()] = (fe.icon, rgb)
+            cls._FACTION_LOOKUP[fe.name.removeprefix("FC_").lower()] = (fe.icon, rgb)
+        for mt in MissionTypeEnum:
+            rgb = hex_to_rgb(mt.color)
+            cls._MISSION_TYPE_LOOKUP[mt.display_name] = rgb
+            cls._MISSION_TYPE_LOOKUP[mt.name.lower()] = rgb
+            cls._MISSION_TYPE_LOOKUP[mt.name.removeprefix("MT_").lower().replace("_", " ")] = rgb
+
     def __init__(self, font_path: str | None = None):
         """初始化渲染器，加载字体。
 
@@ -92,76 +118,39 @@ class CardRenderer:
 
     @staticmethod
     def resolve_faction_icon_and_color(faction: FactionEnum | str | None) -> tuple[str, tuple[int, int, int]]:
-        """根据派系名称解析图标字符和颜色。
+        """根据派系名称解析图标字符和颜色 — O(1) 预构建字典查找。
 
         支持直接传入 FactionEnum 枚举值或字符串（英文/中文）。
-        在 FactionEnum 中按 display_name 或成员名匹配。
-
-        Args:
-            faction: FactionEnum 枚举值、派系名称（英文或中文）或 None。
-
-        Returns:
-            (icon_unicode_string, rgb_color) 元组。未匹配时返回 ("", (120,120,120))。
         """
         if faction is None:
             return ("", ThemeColor.TEXT_MUTED)
 
-        # 如果已经是 FactionEnum 实例，直接取图标和颜色
         if isinstance(faction, FactionEnum):
-            rgb = hex_to_rgb(faction.color)
-            return (faction.icon, rgb)
+            return (faction.icon, hex_to_rgb(faction.color))
 
-        faction_name_lower = faction.lower().strip()
-
-        for fe in FactionEnum:
-            if fe.display_name.lower() == faction_name_lower:
-                rgb = hex_to_rgb(fe.color)
-                return (fe.icon, rgb)
-            # 匹配完整枚举名（如 "FC_CORPUS"）
-            if fe.name.lower() == faction_name_lower:
-                rgb = hex_to_rgb(fe.color)
-                return (fe.icon, rgb)
-            # 也尝试匹配去掉 FC_ 前缀的成员名
-            enum_name = fe.name.removeprefix("FC_").lower()
-            if enum_name == faction_name_lower:
-                rgb = hex_to_rgb(fe.color)
-                return (fe.icon, rgb)
-
-        return ("", ThemeColor.TEXT_MUTED)
+        CardRenderer._build_lookup_caches()
+        key = faction.lower().strip()
+        return CardRenderer._FACTION_LOOKUP.get(key, ("", ThemeColor.TEXT_MUTED))
 
     @staticmethod
     def resolve_mission_type_color(mission_type: MissionTypeEnum | str | None) -> tuple[int, int, int]:
-        """根据任务类型获取颜色。
+        """根据任务类型获取颜色 — O(1) 预构建字典查找。
 
         支持直接传入 MissionTypeEnum 枚举值或字符串（英文/中文）。
-
-        Args:
-            mission_type: MissionTypeEnum 枚举值、任务类型名称或 None。
-
-        Returns:
-            RGB 颜色元组。
         """
         if mission_type is None:
             return ThemeColor.TEXT_SECONDARY
 
-        # 如果已经是 MissionTypeEnum 实例，直接取颜色
         if isinstance(mission_type, MissionTypeEnum):
             return hex_to_rgb(mission_type.color)
 
-        mt_lower = mission_type.lower().strip()
-
-        for mt in MissionTypeEnum:
-            if mt.display_name == mission_type:
-                return hex_to_rgb(mt.color)
-            # 匹配完整枚举名（如 "MT_MOBILE_DEFENSE"）
-            if mt.name.lower() == mt_lower:
-                return hex_to_rgb(mt.color)
-            # 也尝试匹配去掉 MT_ 前缀的成员名
-            enum_name = mt.name.removeprefix("MT_").lower().replace("_", " ")
-            if enum_name == mt_lower:
-                return hex_to_rgb(mt.color)
-
-        return ThemeColor.TEXT_SECONDARY
+        CardRenderer._build_lookup_caches()
+        key = mission_type.strip()
+        # 先尝试精确匹配 display_name，再尝试 lower 匹配
+        result = CardRenderer._MISSION_TYPE_LOOKUP.get(key)
+        if result is not None:
+            return result
+        return CardRenderer._MISSION_TYPE_LOOKUP.get(key.lower(), ThemeColor.TEXT_SECONDARY)
 
     # ========================================================================
     # 通用工具
@@ -173,6 +162,30 @@ class CardRenderer:
         buf = io.BytesIO()
         img.save(buf, format=fmt)
         return buf.getvalue()
+
+    @staticmethod
+    async def render_card_to_chain_result(
+        render_func: Callable[..., Image.Image], *args: object, **kwargs: object
+    ) -> list[BaseMessageComponent]:
+        """消除 17 个命令文件中重复的 renderer + run_in_executor 样板。
+
+        用法::
+
+            result = await CardRenderer.render_card_to_chain_result(
+                render_alert_card, alerts
+            )
+            yield event.chain_result(result)
+        """
+        renderer = CardRenderer()
+        loop = asyncio.get_running_loop()
+        img_bytes = await loop.run_in_executor(
+            None,
+            lambda: CardRenderer.render_to_bytes(render_func(renderer, *args, **kwargs)),
+        )
+        # 延迟导入避免循环依赖
+        import astrbot.api.message_components as Comp
+
+        return [Comp.Image.fromBytes(img_bytes)]
 
     @staticmethod
     def create_text_image(text: str, width: int = 600, height: int = 200) -> Image.Image:

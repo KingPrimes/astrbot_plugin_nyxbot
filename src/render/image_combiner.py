@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 
 from PIL import Image, ImageDraw, ImageFont
 
-from .draw_constant import ThemeColor
+from .draw_constant import DrawConstant, LayoutConstants, ThemeColor
 from .font_manager import FontManager
 from .graphics_utils import (
     create_rounded_image,
@@ -703,6 +703,50 @@ class ImageCombiner:
         )
 
         return self
+
+    def draw_default_double_border(self) -> ImageCombiner:
+        """绘制标准双层边框 — 消除 12+ 个 card_*.py 中的重复样板。
+
+        使用大多数卡片统一的参数: padding=16, 外层 TABLE_BORDER, 内层 DIVIDER, stroke=3。
+        """
+        return self.draw_double_border(
+            border_padding=16,
+            border_color_outer=ThemeColor.TABLE_BORDER,
+            border_color_inner=ThemeColor.DIVIDER,
+            stroke=3,
+        )
+
+    def draw_content_divider(
+        self, y: int, content_x: int | None = None, content_w: int | None = None
+    ) -> ImageCombiner:
+        """在内容宽度内绘制水平分割线 — 消除 9+ 个 card_*.py 中的重复样板。
+
+        Args:
+            y: 分割线的 Y 坐标。
+            content_x: 起始 X 坐标（默认使用 LayoutConstants.CONTENT_X）。
+            content_w: 内容宽度（默认使用 LayoutConstants.CONTENT_W_DEFAULT）。
+        """
+        cx = content_x if content_x is not None else LayoutConstants.CONTENT_X
+        cw = content_w if content_w is not None else LayoutConstants.CONTENT_W_DEFAULT
+        self.set_color(ThemeColor.DIVIDER)
+        return self.draw_line(cx, y, cx + cw, y, width=1)
+
+    def draw_card_footer(
+        self,
+        canvas_h: int,
+        footer_offset: int = 55,
+        footer_font_size: int = 20,
+    ) -> ImageCombiner:
+        """绘制卡片底部居中署名 — 消除 20 个 card_*.py 中的重复样板。
+
+        Args:
+            canvas_h: 画布总高度。
+            footer_offset: 页脚文字距画布底部的偏移量。
+            footer_font_size: 页脚字体大小（默认 20）。
+        """
+        footer_font = FontManager.get_text_font(footer_font_size)
+        self.set_color(ThemeColor.TEXT_MUTED).set_font(footer_font)
+        return self.add_centered_text(DrawConstant.FOOTER_TEXT, canvas_h - footer_offset)
 
     # ========================================================================
     # 工具方法

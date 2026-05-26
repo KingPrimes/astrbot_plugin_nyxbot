@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 from PIL import Image, ImageFont
 
-from .draw_constant import DrawConstant, ThemeColor
+from .draw_constant import ThemeColor
 from .font_manager import FontManager
 from .image_combiner import ImageCombiner
 from .standing import draw_standing
@@ -80,7 +80,7 @@ def render_duviri_card(
     header_font = FontManager.get_text_font(26)
     body_font = FontManager.get_text_font(22)
     label_font = FontManager.get_text_font(18)
-    footer_font = FontManager.get_text_font(16)
+    FontManager.get_text_font(16)
 
     # ---- 画布 ----
     cb = ImageCombiner(_CANVAS_W, _CANVAS_H, ThemeColor.BG_DARK)
@@ -133,8 +133,7 @@ def render_duviri_card(
     draw_standing(cb, max_w=300, max_h=450)
 
     # ---- 底部署名 ----
-    cb.set_color(ThemeColor.TEXT_MUTED).set_font(footer_font)
-    cb.add_centered_text(DrawConstant.FOOTER_TEXT, _CANVAS_H - 40)
+    cb.draw_card_footer(_CANVAS_H, 40, 16)
 
     return cb.to_image()
 

@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 from PIL import Image
 
-from .draw_constant import DrawConstant, ThemeColor, lerp_color
+from .draw_constant import ThemeColor, lerp_color
 from .font_manager import FontManager
 from .image_combiner import ImageCombiner
 from .standing import draw_standing
@@ -73,7 +73,7 @@ def render_market_ducats_card(
     subtitle_font = FontManager.get_text_font(26)
     header_font = FontManager.get_text_font(22)
     row_font = FontManager.get_text_font(20)
-    footer_font = FontManager.get_text_font(22)
+    FontManager.get_text_font(22)
 
     cb = ImageCombiner(_CANVAS_W, canvas_h, ThemeColor.BG_DARK)
     cb.draw_double_border(12, ThemeColor.TABLE_BORDER, ThemeColor.DIVIDER, 2)
@@ -131,8 +131,7 @@ def render_market_ducats_card(
     draw_standing(cb, max_w=190, max_h=260)
 
     # --- 底部署名 ---
-    cb.set_color(ThemeColor.TEXT_MUTED).set_font(footer_font)
-    cb.add_centered_text(DrawConstant.FOOTER_TEXT, canvas_h - _FOOTER_H)
+    cb.draw_card_footer(canvas_h, _FOOTER_H, 22)
 
     return cb.to_image()
 

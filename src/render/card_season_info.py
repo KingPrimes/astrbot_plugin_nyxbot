@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 from PIL import ImageFont
 
-from .draw_constant import DrawConstant, ThemeColor
+from .draw_constant import LayoutConstants, ThemeColor
 from .font_manager import FontManager
 from .image_combiner import ImageCombiner
 from .standing import draw_standing_at
@@ -30,10 +30,7 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 _CANVAS_W = 1800
-_MARGIN = 40
-_CONTENT_PAD = 20
-_CONTENT_X = _MARGIN + _CONTENT_PAD                       # 60
-_CONTENT_W = _CANVAS_W - 2 * _CONTENT_X                   # 1680
+_CONTENT_X, _CONTENT_W = LayoutConstants.get_content_bounds(_CANVAS_W)
 
 _COLS = 3
 _COL_GAP = 20
@@ -183,7 +180,7 @@ def render_season_info_card(
     name_font = FontManager.get_text_font(30)
     desc_font = FontManager.get_text_font(24)
     standing_font = FontManager.get_text_font(24)
-    footer_font = FontManager.get_text_font(22)
+    FontManager.get_text_font(22)
 
     desc_max_w = _CARD_W - 2 * _CARD_PAD  # 506px
 
@@ -213,12 +210,7 @@ def render_season_info_card(
     cb = ImageCombiner(_CANVAS_W, canvas_h, ThemeColor.BG_DARK)
 
     # ---- 双层装饰边框 ----
-    cb.draw_double_border(
-        border_padding=16,
-        border_color_outer=ThemeColor.TABLE_BORDER,
-        border_color_inner=ThemeColor.DIVIDER,
-        stroke=3,
-    )
+    cb.draw_default_double_border()
 
     # ---- 标题 ----
     cb.set_color(ThemeColor.ACCENT_BLUE).set_font(title_font)
@@ -230,8 +222,7 @@ def render_season_info_card(
         cb.add_centered_text(f"第 {season} 季", _SEASON_Y)
 
     # ---- 分割线 ----
-    cb.set_color(ThemeColor.DIVIDER)
-    cb.draw_line(_CONTENT_X, divider_y, _CONTENT_X + _CONTENT_W, divider_y, width=1)
+    cb.draw_content_divider(divider_y, _CONTENT_X, _CONTENT_W)
 
     # ---- 挑战卡片 (3 列网格) ----
     for i, challenge in enumerate(challenges):
@@ -250,7 +241,6 @@ def render_season_info_card(
     draw_standing_at(cb, standing_x, standing_y, _STANDING_MAX_W, _STANDING_MAX_H)
 
     # ---- 底部署名 ----
-    cb.set_color(ThemeColor.TEXT_MUTED).set_font(footer_font)
-    cb.add_centered_text(DrawConstant.FOOTER_TEXT, canvas_h - _FOOTER_OFFSET)
+    cb.draw_card_footer(canvas_h, _FOOTER_OFFSET, 22)
 
     return cb.to_image()

@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 from PIL import Image
 
 from ..wenum.faction import FactionEnum
-from .draw_constant import DrawConstant, ThemeColor, hex_to_rgb
+from .draw_constant import ThemeColor, hex_to_rgb
 from .font_manager import FontManager
 from .image_combiner import ImageCombiner
 from .standing import draw_standing
@@ -49,7 +49,7 @@ def render_arbitration_card(renderer: CardRenderer, arbitration: Arbitration) ->
 
     title_font = FontManager.get_text_font(28)
     body_font = FontManager.get_text_font(20)
-    footer_font = FontManager.get_text_font(18)
+    FontManager.get_text_font(18)
 
     cb = ImageCombiner(_CANVAS_W, canvas_h, ThemeColor.BG_DARK)
     cb.draw_double_border(
@@ -109,7 +109,6 @@ def render_arbitration_card(renderer: CardRenderer, arbitration: Arbitration) ->
     draw_standing(cb, max_w=240, max_h=360)
 
     # 底部署名
-    cb.set_color(ThemeColor.TEXT_MUTED).set_font(footer_font)
-    cb.add_centered_text(DrawConstant.FOOTER_TEXT, canvas_h - 30)
+    cb.draw_card_footer(canvas_h, 30, 18)
 
     return cb.to_image()

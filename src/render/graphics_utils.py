@@ -10,6 +10,8 @@
 """
 from __future__ import annotations
 
+from functools import lru_cache
+
 from PIL import Image, ImageDraw
 
 
@@ -51,6 +53,7 @@ def create_rounded_image(
     return rounded
 
 
+@lru_cache(maxsize=128)
 def create_gradient_background(
     width: int,
     height: int,
@@ -73,27 +76,22 @@ def create_gradient_background(
         带渐变背景的新 Image 对象，RGBA 模式。
     """
     image = Image.new("RGBA", (width, height))
-    pixels = image.load()
+    draw = ImageDraw.Draw(image)
 
-    if pixels is None:
-        # 极端回退：逐像素使用 putpixel
+    if vertical:
         for y in range(height):
-            for x in range(width):
-                t = y / max(height - 1, 1) if vertical else x / max(width - 1, 1)
-                r = int(start_color[0] + (end_color[0] - start_color[0]) * t)
-                g = int(start_color[1] + (end_color[1] - start_color[1]) * t)
-                b = int(start_color[2] + (end_color[2] - start_color[2]) * t)
-                image.putpixel((x, y), (r, g, b, 255))
-        return image
-
-    for y in range(height):
-        for x in range(width):
-            t = y / max(height - 1, 1) if vertical else x / max(width - 1, 1)
-
+            t = y / max(height - 1, 1)
             r = int(start_color[0] + (end_color[0] - start_color[0]) * t)
             g = int(start_color[1] + (end_color[1] - start_color[1]) * t)
             b = int(start_color[2] + (end_color[2] - start_color[2]) * t)
-            pixels[x, y] = (r, g, b, 255)
+            draw.line([(0, y), (width, y)], fill=(r, g, b, 255))
+    else:
+        for x in range(width):
+            t = x / max(width - 1, 1)
+            r = int(start_color[0] + (end_color[0] - start_color[0]) * t)
+            g = int(start_color[1] + (end_color[1] - start_color[1]) * t)
+            b = int(start_color[2] + (end_color[2] - start_color[2]) * t)
+            draw.line([(x, 0), (x, height)], fill=(r, g, b, 255))
 
     return image
 
@@ -170,3 +168,16 @@ def draw_horizontal_divider(
         width: 线条宽度。
     """
     draw.line([(x1, y), (x2, y)], fill=color, width=width)
+
+
+def truncate_text(cb: object, text: str, max_w: int) -> str:
+    """使用 cb.get_string_width 截断文本至 max_w，必要时追加省略号。
+
+    取代 card_market_riven.py 和 card_riven_analyse.py 中重复的 _truncate()。
+    """
+    if cb.get_string_width(text) <= max_w:  # type: ignore[union-attr]
+        return text
+    ellipsis = "…"  # noqa: RUF001
+    while text and cb.get_string_width(text + ellipsis) > max_w:  # type: ignore[union-attr]
+        text = text[:-1]
+    return text + ellipsis if text else ellipsis

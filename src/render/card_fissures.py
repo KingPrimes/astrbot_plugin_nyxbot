@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 
 from PIL import ImageFont
 
-from .draw_constant import DrawConstant, ThemeColor, hex_to_rgb
+from .draw_constant import LayoutConstants, ThemeColor, hex_to_rgb
 from .font_manager import FontManager
 from .image_combiner import ImageCombiner
 from .standing import draw_standing_at
@@ -31,10 +31,7 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 _CANVAS_W = 1200
-_MARGIN = 40                       # 双层边框外边距
-_CONTENT_PAD = 20                  # 边框内缩进
-_CONTENT_X = _MARGIN + _CONTENT_PAD  # 内容区起始 X = 60
-_CONTENT_W = _CANVAS_W - 2 * _CONTENT_X  # 1080
+_CONTENT_X, _CONTENT_W = LayoutConstants.get_content_bounds(_CANVAS_W)
 
 _COLS = 2                          # 每行列数
 _COL_GAP = 20                      # 列间距
@@ -65,11 +62,6 @@ _STANDING_EVEN_H = 390
 # ---------------------------------------------------------------------------
 # 辅助函数
 # ---------------------------------------------------------------------------
-
-def _draw_bold_text(cb: ImageCombiner, text: str, x: int, y: int) -> None:
-    """绘制加粗文本 — 1px 偏移叠加模拟更粗字重。"""
-    cb.add_text(text, x + 1, y)
-    cb.add_text(text, x, y)
 
 
 def _get_time_color(time_left: str) -> tuple[int, int, int]:
@@ -162,13 +154,13 @@ def _draw_one_fissure_card(
     tier_text = _build_tier_display(modifier) if modifier else "未知等级"
     tier_color = _lighten_color(hex_to_rgb(modifier.color)) if modifier else ThemeColor.TEXT_SECONDARY
     cb.set_color(tier_color).set_font(tier_font)
-    _draw_bold_text(cb, tier_text, inner_x, card_y + 32)
+    cb.add_text( tier_text, inner_x, card_y + 32)
 
     time_left = mission.time_left or "未知"
     time_color = _get_time_color(time_left)
     cb.set_color(time_color).set_font(time_font)
     time_w = cb.get_string_width(time_left)
-    _draw_bold_text(cb, time_left, inner_x + inner_w - time_w, card_y + 33)
+    cb.add_text( time_left, inner_x + inner_w - time_w, card_y + 33)
 
     # ---- 行 2: 任务类型 + 派系图标 + 派系名称（左右居中） ----
     row2_y = card_y + 72
@@ -201,13 +193,13 @@ def _draw_one_fissure_card(
     cursor_x = inner_x + (inner_w - total_row2_w) // 2
     for text, color, font in fragments:
         cb.set_color(color).set_font(font)
-        _draw_bold_text(cb, text, cursor_x, row2_y + 3)
+        cb.add_text( text, cursor_x, row2_y + 3)
         cursor_x += cb.get_string_width(text) + gap
 
     # ---- 行 3: 节点位置 ----
     node = mission.node or "未知节点"
     cb.set_color(ThemeColor.TEXT_PRIMARY).set_font(location_font)
-    _draw_bold_text(cb, node, inner_x, card_y + 118)
+    cb.add_text( node, inner_x, card_y + 118)
 
 
 # ---------------------------------------------------------------------------
@@ -236,7 +228,7 @@ def draw_fissure_card(
     body_font = FontManager.get_text_font(26)
     time_font = FontManager.get_text_font(24)
     location_font = FontManager.get_text_font(22)
-    footer_font = FontManager.get_text_font(20)
+    FontManager.get_text_font(20)
 
     # ---- 布局计算 ----
     n = len(fissures)
@@ -259,12 +251,7 @@ def draw_fissure_card(
     cb = ImageCombiner(_CANVAS_W, canvas_h, ThemeColor.BG_DARK)
 
     # ---- 双层边框 ----
-    cb.draw_double_border(
-        border_padding=16,
-        border_color_outer=ThemeColor.TABLE_BORDER,
-        border_color_inner=ThemeColor.DIVIDER,
-        stroke=3,
-    )
+    cb.draw_default_double_border()
 
     # ---- 标题 ----
     title_text, title_color = _build_title(fissures)
@@ -272,8 +259,7 @@ def draw_fissure_card(
     cb.add_centered_text(title_text, _TITLE_Y)
 
     # ---- 分割线 ----
-    cb.set_color(ThemeColor.DIVIDER)
-    cb.draw_line(_CONTENT_X, _TITLE_Y + 68, _CONTENT_X + _CONTENT_W, _TITLE_Y + 68, width=1)
+    cb.draw_content_divider(_TITLE_Y + 68, _CONTENT_X, _CONTENT_W)
 
     # ---- 裂隙卡片（两列网格） ----
     for i, fissure in enumerate(fissures):
@@ -297,7 +283,6 @@ def draw_fissure_card(
                          _STANDING_EVEN_W, _STANDING_EVEN_H)
 
     # ---- 底部署名 ----
-    cb.set_color(ThemeColor.TEXT_MUTED).set_font(footer_font)
-    cb.add_centered_text(DrawConstant.FOOTER_TEXT, canvas_h - _FOOTER_OFFSET)
+    cb.draw_card_footer(canvas_h, 50)
 
     return cb.to_image()

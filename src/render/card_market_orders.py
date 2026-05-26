@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 from PIL import Image, ImageFont
 
 from ..wenum.icon import IconEnum
-from .draw_constant import DrawConstant, ThemeColor
+from .draw_constant import LayoutConstants, ThemeColor
 from .font_manager import FontManager
 from .image_combiner import ImageCombiner
 from .standing import draw_standing
@@ -27,10 +27,7 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 _CANVAS_W = 1000
-_MARGIN = 40
-_CONTENT_PAD = 20
-_CONTENT_X = _MARGIN + _CONTENT_PAD         # 60
-_CONTENT_W = _CANVAS_W - 2 * _CONTENT_X      # 880
+_CONTENT_X, _CONTENT_W = LayoutConstants.get_content_bounds(_CANVAS_W)
 
 _ROW_H = 52
 _TABLE_HEADER_H = 46
@@ -80,15 +77,6 @@ _INFO_GAP = 16
 # ---------------------------------------------------------------------------
 # 辅助函数
 # ---------------------------------------------------------------------------
-
-def _get_status_color(status: str | None) -> tuple[int, int, int]:
-    """根据在线状态返回对应颜色。"""
-    if status in ("online", "ingame"):
-        return ThemeColor.SUCCESS
-    if status == "offline":
-        return ThemeColor.TEXT_MUTED
-    return ThemeColor.TEXT_SECONDARY
-
 
 def _get_platform_color(platform: str) -> tuple[int, int, int]:
     """获取平台对应的主题色。"""
@@ -280,7 +268,7 @@ def _draw_order_row(
     cb.add_text(seller, _COL_SELLER_X + 14, text_y)
 
     # 状态（带颜色）
-    cb.set_color(_get_status_color(status)).set_font(row_font)
+    cb.set_color(ThemeColor.get_status_color(status)).set_font(row_font)
     cb.add_text(status, _COL_STATUS_X + 14, text_y)
 
 
@@ -319,25 +307,19 @@ def render_market_orders_card(
     info_value_font = FontManager.get_text_font(24)
     header_font = FontManager.get_text_font(22)
     row_font = FontManager.get_text_font(20)
-    footer_font = FontManager.get_text_font(20)
+    FontManager.get_text_font(20)
     icon_font = FontManager.get_wf_icon_font(24)
 
     # ---- 画布 + 双层边框 ----
     cb = ImageCombiner(_CANVAS_W, canvas_h, ThemeColor.BG_DARK)
-    cb.draw_double_border(
-        border_padding=16,
-        border_color_outer=ThemeColor.TABLE_BORDER,
-        border_color_inner=ThemeColor.DIVIDER,
-        stroke=3,
-    )
+    cb.draw_default_double_border()
 
     # ---- 标题 ----
     cb.set_color(ThemeColor.ACCENT_BLUE).set_font(title_font)
     cb.add_centered_text(orders.name, _TITLE_Y)
 
     # ---- 分割线 ----
-    cb.set_color(ThemeColor.DIVIDER)
-    cb.draw_line(_CONTENT_X, _DIVIDER_Y, _CONTENT_X + _CONTENT_W, _DIVIDER_Y, width=1)
+    cb.draw_content_divider(_DIVIDER_Y, _CONTENT_X, _CONTENT_W)
 
     # ---- 信息栏 ----
     _draw_info_bar(cb, orders, info_label_font, info_value_font, icon_font)
@@ -354,8 +336,7 @@ def render_market_orders_card(
     draw_standing(cb, max_w=_STANDING_MAX_W, max_h=_STANDING_MAX_H)
 
     # ---- 底部署名 ----
-    cb.set_color(ThemeColor.TEXT_MUTED).set_font(footer_font)
-    cb.add_centered_text(DrawConstant.FOOTER_TEXT, canvas_h - _FOOTER_OFFSET)
+    cb.draw_card_footer(canvas_h)
 
     return cb.to_image()
 
@@ -376,6 +357,8 @@ def render_market_orders_possible_items_card(
     if not possible_items:
         return renderer.create_text_image("没有找到匹配的物品", 800, 120)
 
+    possible_items = possible_items[:15]
+
     # ---- 动态高度 ----
     item_count = len(possible_items)
     list_h = _TABLE_HEADER_H + item_count * _ROW_H
@@ -386,24 +369,18 @@ def render_market_orders_possible_items_card(
     title_font = FontManager.get_text_font(36)
     header_font = FontManager.get_text_font(22)
     row_font = FontManager.get_text_font(20)
-    footer_font = FontManager.get_text_font(20)
+    FontManager.get_text_font(20)
 
     # ---- 画布 + 双层边框 ----
     cb = ImageCombiner(_CANVAS_W, canvas_h, ThemeColor.BG_DARK)
-    cb.draw_double_border(
-        border_padding=16,
-        border_color_outer=ThemeColor.TABLE_BORDER,
-        border_color_inner=ThemeColor.DIVIDER,
-        stroke=3,
-    )
+    cb.draw_default_double_border()
 
     # ---- 标题 ----
     cb.set_color(ThemeColor.ACCENT_BLUE).set_font(title_font)
     cb.add_centered_text("可能要查询的物品列表", _TITLE_Y)
 
     # ---- 分割线 ----
-    cb.set_color(ThemeColor.DIVIDER)
-    cb.draw_line(_CONTENT_X, _DIVIDER_Y, _CONTENT_X + _CONTENT_W, _DIVIDER_Y, width=1)
+    cb.draw_content_divider(_DIVIDER_Y, _CONTENT_X, _CONTENT_W)
 
     # ---- 子标题 ----
     cb.set_color(ThemeColor.TEXT_SECONDARY).set_font(header_font)
@@ -437,7 +414,6 @@ def render_market_orders_possible_items_card(
     draw_standing(cb, max_w=_STANDING_MAX_W, max_h=_STANDING_MAX_H)
 
     # ---- 底部署名 ----
-    cb.set_color(ThemeColor.TEXT_MUTED).set_font(footer_font)
-    cb.add_centered_text(DrawConstant.FOOTER_TEXT, canvas_h - _FOOTER_OFFSET)
+    cb.draw_card_footer(canvas_h)
 
     return cb.to_image()

@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 from PIL import ImageFont
 
 from ..wenum.icon import IconEnum
-from .draw_constant import DrawConstant, ThemeColor
+from .draw_constant import LayoutConstants, ThemeColor
 from .font_manager import FontManager
 from .image_combiner import ImageCombiner
 from .standing import draw_standing
@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from PIL import Image
 
     from ..model.world_state import VoidTrader
+    from .card_renderer import CardRenderer
 
 
 # ---------------------------------------------------------------------------
@@ -30,10 +31,7 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 _CANVAS_W = 1400
-_MARGIN = 40
-_CONTENT_PAD = 20
-_CONTENT_X = _MARGIN + _CONTENT_PAD
-_CONTENT_W = _CANVAS_W - 2 * _CONTENT_X
+_CONTENT_X, _CONTENT_W = LayoutConstants.get_content_bounds(_CANVAS_W)
 
 # 表格列宽 — 镜像 Java columnWidths = {600, 200, 200}，按比例适配 1400px 画布
 _COL_ITEM_W = 700
@@ -69,6 +67,7 @@ _CREDITS_COLOR = (69, 119, 143)       # #45778f
 # ---------------------------------------------------------------------------
 
 def render_void_trader_card(
+    renderer: CardRenderer,
     trader: VoidTrader,
 ) -> Image.Image:
     """绘制虚空商人信息卡片 — 镜像 Java DefaultDrawVoidTraderImage.drawVoidTraderImage()。
@@ -98,18 +97,13 @@ def render_void_trader_card(
     table_header_font = FontManager.get_text_font(26)
     table_row_font = FontManager.get_text_font(24)
     icon_font = FontManager.get_wf_icon_font(28)
-    footer_font = FontManager.get_text_font(20)
+    FontManager.get_text_font(20)
 
     # ---- 画布 ----
     cb = ImageCombiner(_CANVAS_W, canvas_h, ThemeColor.BG_DARK)
 
     # ---- 双层边框 ----
-    cb.draw_double_border(
-        border_padding=16,
-        border_color_outer=ThemeColor.TABLE_BORDER,
-        border_color_inner=ThemeColor.DIVIDER,
-        stroke=3,
-    )
+    cb.draw_default_double_border()
 
     # ---- 标题 ----
     trader_name = trader.character or "Baro Ki'Teer"
@@ -117,8 +111,7 @@ def render_void_trader_card(
     cb.add_centered_text(f"虚空商人 - {trader_name}", _TITLE_Y)
 
     # ---- 分割线 ----
-    cb.set_color(ThemeColor.DIVIDER)
-    cb.draw_line(_CONTENT_X, _DIVIDER_Y, _CONTENT_X + _CONTENT_W, _DIVIDER_Y, width=1)
+    cb.draw_content_divider(_DIVIDER_Y, _CONTENT_X, _CONTENT_W)
 
     # ---- 商人信息行 ----
     _draw_trader_info(cb, trader, info_font)
@@ -130,8 +123,7 @@ def render_void_trader_card(
     draw_standing(cb, max_w=_STANDING_MAX_W, max_h=_STANDING_MAX_H)
 
     # ---- 底部署名 ----
-    cb.set_color(ThemeColor.TEXT_MUTED).set_font(footer_font)
-    cb.add_centered_text(DrawConstant.FOOTER_TEXT, canvas_h - _FOOTER_OFFSET)
+    cb.draw_card_footer(canvas_h)
 
     return cb.to_image()
 

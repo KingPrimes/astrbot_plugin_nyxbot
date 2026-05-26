@@ -112,13 +112,20 @@ def _get_ascent(
     draw: ImageDraw.ImageDraw,
     font: ImageFont.FreeTypeFont | ImageFont.ImageFont | None,
 ) -> int:
-    """估算字体 ascent 值（Pillow 不直接暴露 metrics）。"""
+    """估算字体 ascent 值（Pillow 不直接暴露 metrics）。
+
+    使用模块级缓存避免对同字体同字号的重复 textbbox 计算。
+    """
     if font is None:
         return 0
+    cache_key = f"{getattr(font, 'path', 'default')}:{getattr(font, 'size', 0)}"
+    if cache_key in _FONT_ASCENT_CACHE:
+        return _FONT_ASCENT_CACHE[cache_key]
     try:
         bbox = draw.textbbox((0, 0), "Ay", font=font)
-        # ascent ≈ 大写字母顶部偏移的绝对值
-        return int(abs(bbox[1]))
+        ascent = int(abs(bbox[1]))
+        _FONT_ASCENT_CACHE[cache_key] = ascent
+        return ascent
     except Exception:
         return 0
 
@@ -206,10 +213,9 @@ def calc_line_height(
     """
     if font is None:
         return 20
-    # 使用 "Ay" 的高度作为行高估算（含 ascent + descent）
-    temp_img = _make_temp_image()
-    temp_draw = ImageDraw.Draw(temp_img)
-    bbox = temp_draw.textbbox((0, 0), "Ay", font=font)
+    # 使用模块级缓存的度量用 Draw 对象，避免每次创建临时 Image/Draw
+    draw = _get_measure_draw()
+    bbox = draw.textbbox((0, 0), "Ay", font=font)
     return int(bbox[3] - bbox[1])
 
 
@@ -531,7 +537,23 @@ def draw_advanced_text(
 # 内部工具
 # ============================================================================
 
+# 模块级缓存的度量用临时 Image/Draw 对象，避免高频创建
+_MEASURE_IMAGE: Image.Image | None = None
+_MEASURE_DRAW: ImageDraw.ImageDraw | None = None
+# 字体 ascent 缓存: key = f"{font_path}:{size}", value = ascent pixels
+_FONT_ASCENT_CACHE: dict[str, int] = {}
+
+
+def _get_measure_draw() -> ImageDraw.ImageDraw:
+    """获取模块级缓存的度量用 ImageDraw 对象。"""
+    global _MEASURE_IMAGE, _MEASURE_DRAW
+    if _MEASURE_IMAGE is None:
+        from PIL import Image  # noqa: PLC0415
+        _MEASURE_IMAGE = Image.new("RGBA", (1, 1))
+        _MEASURE_DRAW = ImageDraw.Draw(_MEASURE_IMAGE)
+    return _MEASURE_DRAW
+
+
 def _make_temp_image() -> Image.Image:
-    """创建一个 1x1 的临时图像用于字体度量。"""
-    from PIL import Image  # noqa: PLC0415
-    return Image.new("RGBA", (1, 1))
+    """创建一个 1x1 的临时图像用于字体度量（向后兼容别名）。"""
+    return _get_measure_draw()._image

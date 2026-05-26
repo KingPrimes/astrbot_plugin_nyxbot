@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 
 from PIL import ImageFont
 
-from .draw_constant import DrawConstant, ThemeColor
+from .draw_constant import LayoutConstants, ThemeColor
 from .font_manager import FontManager
 from .image_combiner import ImageCombiner
 from .standing import draw_standing
@@ -30,10 +30,7 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 _CANVAS_W = 900
-_MARGIN = 40
-_CONTENT_PAD = 20
-_CONTENT_X = _MARGIN + _CONTENT_PAD
-_CONTENT_W = _CANVAS_W - 2 * _CONTENT_X
+_CONTENT_X, _CONTENT_W = LayoutConstants.get_content_bounds(_CANVAS_W)
 
 _ROW_H = 50
 _MIN_HEIGHT = 600
@@ -79,26 +76,20 @@ def render_lite_sortie_card(
     title_font = FontManager.get_text_font(44)
     info_font = FontManager.get_text_font(26)
     mission_font = FontManager.get_text_font(24)
-    footer_font = FontManager.get_text_font(20)
+    FontManager.get_text_font(20)
 
     # ---- 画布 ----
     cb = ImageCombiner(_CANVAS_W, canvas_h, ThemeColor.BG_DARK)
 
     # ---- 双层边框 ----
-    cb.draw_double_border(
-        border_padding=16,
-        border_color_outer=ThemeColor.TABLE_BORDER,
-        border_color_inner=ThemeColor.DIVIDER,
-        stroke=3,
-    )
+    cb.draw_default_double_border()
 
     # ---- 标题 ----
     cb.set_color(ThemeColor.ACCENT_BLUE).set_font(title_font)
     cb.add_centered_text("执刑官猎杀", _TITLE_Y)
 
     # ---- 分割线 ----
-    cb.set_color(ThemeColor.DIVIDER)
-    cb.draw_line(_CONTENT_X, _DIVIDER_Y, _CONTENT_X + _CONTENT_W, _DIVIDER_Y, width=1)
+    cb.draw_content_divider(_DIVIDER_Y, _CONTENT_X, _CONTENT_W)
 
     # ---- Boss + 结束时间 ----
     current_y = _INFO_START_Y
@@ -132,8 +123,7 @@ def render_lite_sortie_card(
     draw_standing(cb, max_w=_STANDING_MAX_W, max_h=_STANDING_MAX_H)
 
     # ---- 底部署名 ----
-    cb.set_color(ThemeColor.TEXT_MUTED).set_font(footer_font)
-    cb.add_centered_text(DrawConstant.FOOTER_TEXT, canvas_h - _FOOTER_OFFSET)
+    cb.draw_card_footer(canvas_h)
 
     return cb.to_image()
 

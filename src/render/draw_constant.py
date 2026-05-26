@@ -11,6 +11,38 @@ from typing import Final
 # 尺寸常量 / Dimension Constants
 # ============================================================================
 
+class LayoutConstants:
+    """统一画布布局常量 — card_*.py 布局计算的单一来源。
+
+    消除 card_fissures/card_alert/card_sortie 中重复定义的
+    _CANVAS_W / _MARGIN / _CONTENT_PAD / _CONTENT_X / _CONTENT_W。
+    """
+
+    CANVAS_W: Final[int] = 1200
+    MARGIN: Final[int] = 40
+    CONTENT_PAD: Final[int] = 20
+    CONTENT_X: Final[int] = MARGIN + CONTENT_PAD  # = 60
+    CONTENT_W_DEFAULT: Final[int] = CANVAS_W - 2 * (MARGIN + CONTENT_PAD)  # = 1080
+
+    @staticmethod
+    def get_content_bounds(canvas_w: int, margin: int = 40, pad: int = 20) -> tuple[int, int]:
+        """根据画布宽度计算内容区域的 X 起始坐标和宽度。
+
+        消除 14 个 card 文件中重复的 4 行 _MARGIN/_CONTENT_PAD/_CONTENT_X/_CONTENT_W 计算。
+
+        Args:
+            canvas_w: 画布宽度。
+            margin: 外边距（默认 40）。
+            pad: 内边距（默认 20）。
+
+        Returns:
+            (content_x, content_w) 元组。
+        """
+        content_x = margin + pad
+        content_w = canvas_w - 2 * content_x
+        return content_x, content_w
+
+
 class DrawConstant:
     """绘图常量集合 — 对应 Java DrawConstants。
 
@@ -115,6 +147,19 @@ class ThemeColor:
     VOID_T3: Final[tuple[int, int, int]] = (159, 158, 158)
     VOID_T4: Final[tuple[int, int, int]] = (193, 190, 57)
     VOID_T5: Final[tuple[int, int, int]] = (135, 42, 44)
+
+    @staticmethod
+    def get_status_color(status: str | None) -> tuple[int, int, int]:
+        """按卖家在线状态返回对应颜色 — 消除 card_market_orders 和
+        card_market_riven 中重复的 _get_status_color / _status_color。
+
+        online/ingame → SUCCESS, offline → TEXT_MUTED, 未知 → TEXT_SECONDARY。
+        """
+        if status in ("online", "ingame"):
+            return ThemeColor.SUCCESS
+        if status == "offline":
+            return ThemeColor.TEXT_MUTED
+        return ThemeColor.TEXT_SECONDARY
 
 
 # ============================================================================

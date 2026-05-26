@@ -1,4 +1,6 @@
 """Render package / 图片渲染包"""
+from __future__ import annotations
+
 from .card_renderer import CardRenderer
 from .composer import ImageComposer
 from .draw_constant import DrawConstant, ThemeColor, hex_to_rgb, lerp_color, rgb_to_hex

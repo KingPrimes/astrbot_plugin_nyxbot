@@ -49,7 +49,7 @@ def render_daily_deals_card(
     # 使用更大的字体，适配 1000x600 画布
     title_font = FontManager.get_text_font(56)
     body_font = FontManager.get_text_font(30)
-    small_font = FontManager.get_text_font(20)
+    FontManager.get_text_font(20)
 
     cb = ImageCombiner(_CANVAS_W, _CANVAS_H, _PAGE_BG)
 
@@ -129,7 +129,6 @@ def render_daily_deals_card(
     cb.add_text(time_left, value_x, start_y)
 
     # 底部署名 — 对应 Java addFooter(combiner, height - IMAGE_FOOTER_HEIGHT)
-    cb.set_color(ThemeColor.TEXT_MUTED).set_font(small_font)
-    cb.add_centered_text(DrawConstant.FOOTER_TEXT, _CANVAS_H - 55)
+    cb.draw_card_footer(_CANVAS_H)
 
     return cb.to_image()
