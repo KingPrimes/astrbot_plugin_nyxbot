@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Command registration hub / 指令注册中心
 
 Importing this module triggers all command module imports, which in turn
@@ -8,7 +6,7 @@ registers their handlers via the patched decorators in registry.py.
 导入此模块会触发所有指令模块的导入，进而通过 registry.py 中
 修补过的装饰器注册各自的 Handler。
 """
-
+from __future__ import annotations
 
 def register_all() -> None:
     """Import all command modules to trigger handler registration.
