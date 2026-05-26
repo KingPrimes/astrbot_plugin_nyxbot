@@ -18,7 +18,7 @@ from ..util import (
 
 GITHUB_TAGS_URL = "https://api.github.com/repos/KingPrimes/DataSource/tags"
 _tag_cache: TTLCache = TTLCache(maxsize=1, ttl=120)
-_tag_lock: asyncio.Lock = asyncio.Lock()
+_tag_lock: asyncio.Lock | None = None
 
 
 class CdnClient:
@@ -30,9 +30,12 @@ class CdnClient:
     @classmethod
     async def _get_latest_tag(cls) -> str:
         """获取 DataSource 仓库的最新 tag，带 2 分钟缓存 + 防惊群锁。"""
+        global _tag_lock
         cache_key = "latest_tag"
         if cache_key in _tag_cache:
             return _tag_cache[cache_key]
+        if _tag_lock is None:
+            _tag_lock = asyncio.Lock()
         async with _tag_lock:
             # 双重检查：等待锁期间其他协程可能已填充缓存
             if cache_key in _tag_cache:

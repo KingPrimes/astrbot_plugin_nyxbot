@@ -22,17 +22,25 @@ from ..util import get_public_data_path
 # ============================================================
 # 初始化完成信号量（供命令/API 等待初始化完成）
 # ============================================================
-_init_complete: asyncio.Event = asyncio.Event()
+_init_complete: asyncio.Event | None = None
+
+
+def _get_init_event() -> asyncio.Event:
+    """惰性获取 Event，避免模块导入时绑定事件循环。"""
+    global _init_complete
+    if _init_complete is None:
+        _init_complete = asyncio.Event()
+    return _init_complete
 
 
 def set_init_complete() -> None:
     """标记初始化完成，唤醒所有等待者。"""
-    _init_complete.set()
+    _get_init_event().set()
 
 
 async def init_ready() -> None:
     """阻塞等待直到数据初始化完成。命令执行前可调用此函数确保数据就绪。"""
-    await _init_complete.wait()
+    await _get_init_event().wait()
 
 
 # ============================================================
@@ -54,7 +62,7 @@ _MODEL_MODULE = __name__.rsplit(".", 2)[0] + ".model"
 _MODELS_MODULES = [_MODEL_MODULE]
 
 _tortoise_initialized: bool = False
-_engine_lock: asyncio.Lock = asyncio.Lock()
+_engine_lock: asyncio.Lock | None = None
 
 
 async def get_engine():
@@ -68,11 +76,13 @@ async def get_engine():
     确保所有 asyncio task 都能通过 require_context() 获取连接。
     这是 Tortoise 官方为 FastAPI lifespan 跨 task 场景设计的 API。
     """
-    global _tortoise_initialized
+    global _tortoise_initialized, _engine_lock
 
     _db_path: str = str(Path(get_public_data_path()) / "nyxbot.db")
     logger.debug(f"数据库路径: {_db_path}")
     if not _tortoise_initialized:
+        if _engine_lock is None:
+            _engine_lock = asyncio.Lock()
         async with _engine_lock:
             if not _tortoise_initialized:
                 # 根据配置开关控制 Tortoise ORM 的 SQL 日志输出

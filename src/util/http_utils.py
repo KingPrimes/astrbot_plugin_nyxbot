@@ -42,7 +42,7 @@ DEFAULT_TIMEOUT = aiohttp.ClientTimeout(total=30)
 
 # 共享的 ClientSession 单例 + 线程安全锁
 _session: aiohttp.ClientSession | None = None
-_session_lock: asyncio.Lock = asyncio.Lock()
+_session_lock: asyncio.Lock | None = None
 
 
 async def get_session() -> aiohttp.ClientSession:
@@ -51,8 +51,10 @@ async def get_session() -> aiohttp.ClientSession:
     复用 ClientSession 以利用连接池，提升性能。
     使用 asyncio.Lock 防止并发创建导致的连接泄漏。
     """
-    global _session
+    global _session, _session_lock
     if _session is None or _session.closed:
+        if _session_lock is None:
+            _session_lock = asyncio.Lock()
         async with _session_lock:
             if _session is None or _session.closed:
                 _session = aiohttp.ClientSession(
