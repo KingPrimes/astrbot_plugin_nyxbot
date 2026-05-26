@@ -17,6 +17,10 @@ from astrbot.api import logger
 from astrbot.api.event import AstrMessageEvent
 
 from ...registry import wf
+from ..init import init_ready
+from ..render.card_market_riven import render_market_riven_card
+from ..render.card_renderer import CardRenderer
+from ..service.market_riven import MarketRivenService
 
 
 @wf.command("WR", alias=["wr"])
@@ -34,8 +38,7 @@ async def wf_market_riven(
         positive_stats: 正面词条（逗号分隔，支持中文逗号）。
         negative_stats: 负面词条限定（"有"/"无"）。
     """
-    from ..render.card_renderer import CardRenderer
-    from ..service.market_riven import MarketRivenService
+    await init_ready()
 
     if not keyword:
         yield event.plain_result(
@@ -60,8 +63,6 @@ async def wf_market_riven(
     if result is None:
         yield event.plain_result(f"未找到匹配的紫卡武器: {keyword}")
         return
-
-    from ..render.card_market_riven import render_market_riven_card
 
     renderer = CardRenderer()
     img = render_market_riven_card(renderer, result)

@@ -32,7 +32,7 @@ from .invasion import Invasion
 from .job import Job
 from .known_calendar_seasons import DaysTypeEnum, KnownCalendarSeasons, SeasonEnum
 from .library_info import LibraryInfo
-from .lite_sortie import LiteSorite
+from .lite_sortie import LiteSortie
 from .manifest_item import ManifestItem
 from .message import LanguageCode, Message
 from .mission import Mission
@@ -66,7 +66,7 @@ __all__ = [
     "Alert",
     "DailyDeals",
     "Invasion",
-    "LiteSorite",
+    "LiteSortie",
     "SeasonInfo",
     "Sortie",
     "SyndicateMission",

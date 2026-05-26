@@ -1,4 +1,4 @@
-"""执刑官猎杀卡片渲染器 — 迁移自 Java DefaultDrawLiteSoriteImage
+"""执刑官猎杀卡片渲染器 — 迁移自 Java DefaultDrawLiteSortieImage
 
 采用单列列表布局：
   - 居中标题 + 双层装饰边框
@@ -21,7 +21,7 @@ from .standing import draw_standing
 if TYPE_CHECKING:
     from PIL import Image
 
-    from ..model.world_state import LiteSorite, Mission
+    from ..model.world_state import LiteSortie, Mission
     from .card_renderer import CardRenderer
 
 
@@ -54,13 +54,13 @@ _STANDING_MAX_H = 360
 
 def render_lite_sortie_card(
     renderer: CardRenderer,
-    lite_sortie: LiteSorite,
+    lite_sortie: LiteSortie,
 ) -> Image.Image:
-    """绘制执刑官猎杀信息卡片 — 镜像 Java DefaultDrawLiteSoriteImage.drawLiteSoriteImage()。
+    """绘制执刑官猎杀信息卡片 — 镜像 Java DefaultDrawLiteSortieImage.drawLiteSortieImage()。
 
     Args:
         renderer: CardRenderer 实例。
-        lite_sortie: LiteSorite 模型。
+        lite_sortie: LiteSortie 模型。
 
     Returns:
         PIL Image 对象。
@@ -151,7 +151,7 @@ def _draw_mission_row(
 ) -> None:
     """绘制单个任务行（带颜色的任务类型 + 节点名）。
 
-    镜像 Java DefaultDrawLiteSoriteImage 中 mission 行循环：
+    镜像 Java DefaultDrawLiteSortieImage 中 mission 行循环：
       combiner.setColor(mission.getMissionTypeColor())
              .addText("• " + mission.getMissionTypeName() + " - " + mission.getNode(), ...)
     """

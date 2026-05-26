@@ -17,8 +17,9 @@ AstrBot 插件管理器通过匹配 handler_module_path 与主插件模块路径
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
+
+import orjson
 
 from astrbot.api import logger
 from astrbot.api.event import filter
@@ -47,11 +48,11 @@ def _load_prefix_from_config() -> str:
         config_path = plugin_dir.parent.parent / "config" / f"{plugin_dir.name}_config.json"
 
         if config_path.exists():
-            config = json.loads(config_path.read_text(encoding="utf-8"))
+            config = orjson.loads(config_path.read_text(encoding="utf-8-sig"))
             return str(config.get("wf_command_prefix", "")).strip()
     except FileNotFoundError:
         return ""
-    except json.JSONDecodeError:
+    except orjson.JSONDecodeError:
         logger.warning(f"配置文件 JSON 解析失败: {config_path}")
     except Exception:
         logger.exception("读取配置文件时发生未知错误", exc_info=True)

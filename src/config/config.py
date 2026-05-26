@@ -7,10 +7,12 @@
 
 from __future__ import annotations
 
-import json
-import os
+from pathlib import Path
 from typing import Any
 
+import orjson
+
+from astrbot.api import logger
 from astrbot.core.utils.astrbot_path import get_astrbot_config_path
 
 from ..util import get_plugin_name
@@ -46,15 +48,15 @@ class PluginConfig:
             PluginConfig 实例。
         """
         if plugin_dir is None:
-            plugin_dir = os.path.dirname(os.path.abspath(__file__))
+            plugin_dir = str(Path(__file__).resolve().parent.parent.parent)
 
-        schema_path = os.path.join(plugin_dir, "_conf_schema.json")
+        schema_path = str(Path(plugin_dir) / "_conf_schema.json")
 
         # 通过 AstrBot 提供的接口获取配置目录
         config_dir = get_astrbot_config_path()
         # 通过 metadata.yaml 获取插件名称
         plugin_name = get_plugin_name()
-        config_path = os.path.join(config_dir, f"{plugin_name}_config.json")
+        config_path = str(Path(config_dir) / f"{plugin_name}_config.json")
 
         return cls(schema_path=schema_path, config_path=config_path)
 
@@ -63,19 +65,23 @@ class PluginConfig:
     def _load_schema(self) -> None:
         """加载 _conf_schema.json 配置模板。"""
         try:
-            if os.path.exists(self._schema_path):
-                with open(self._schema_path, encoding="utf-8") as f:
-                    self._schema = json.load(f)
+            if Path(self._schema_path).exists():
+                self._schema = orjson.loads(
+                    Path(self._schema_path).read_text(encoding="utf-8-sig")
+                )
         except Exception:
+            logger.warning("加载 _conf_schema.json 失败，使用空 schema")
             self._schema = {}
 
     def _load_config(self) -> None:
         """加载 AstrBot 插件配置文件。"""
         try:
-            if os.path.exists(self._config_path):
-                with open(self._config_path, encoding="utf-8") as f:
-                    self._config = json.load(f)
+            if Path(self._config_path).exists():
+                self._config = orjson.loads(
+                    Path(self._config_path).read_text(encoding="utf-8-sig")
+                )
         except Exception:
+            logger.warning("加载插件配置文件失败，使用空配置")
             self._config = {}
 
     def reload(self) -> None:

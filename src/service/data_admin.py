@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from tortoise.exceptions import DoesNotExist
 from tortoise.expressions import Q
 from tortoise.models import Model
 
@@ -89,8 +90,9 @@ class DataAdminService:
         """
         await get_engine()
 
-        instance = await model_cls.get(id=record_id)
-        if not instance:
+        try:
+            instance = await model_cls.get(id=record_id)
+        except DoesNotExist:
             raise ValueError(f"Record {record_id} not found in {model_cls.__name__}")
 
         for key, value in data.items():

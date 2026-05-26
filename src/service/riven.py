@@ -29,7 +29,7 @@ class RivenService:
         from .data_sync import DataSyncService
 
         logger.info("从 CdnClient 加载紫卡词条参数数据")
-        data = await CdnClient.fetch_rive_tion()
+        data = await CdnClient.fetch_riven_tion()
         if not data:
             logger.warning("紫卡词条参数数据为空，跳过初始化")
             return

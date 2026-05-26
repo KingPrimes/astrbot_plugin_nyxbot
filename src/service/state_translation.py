@@ -5,10 +5,10 @@
 """
 from __future__ import annotations
 
-import json
 import re
 from pathlib import Path
 
+import orjson
 from tortoise.exceptions import DoesNotExist
 from tortoise.expressions import Q
 
@@ -81,7 +81,7 @@ class StateTranslationService:
         5. 处理 description 字段（支持 list/str，镜像 Java setDescription()）
         """
         result: list[dict] = []
-        raw = json.loads(Path(export_path).read_text(encoding="utf-8"))
+        raw = orjson.loads(Path(export_path).read_bytes())
         items = raw.get(json_key, [])
         if not isinstance(items, list):
             return result

@@ -6,6 +6,7 @@ from astrbot.api.event import AstrMessageEvent
 
 from ...registry import wf
 from ..render.card_renderer import CardRenderer
+from ..render.card_season_info import render_season_info_card
 from ..service.world_state import WorldStateService
 
 
@@ -17,8 +18,6 @@ async def wf_season_info(self, event: AstrMessageEvent):
     if not nw:
         yield event.plain_result("无法获取午夜电波数据")
         return
-
-    from ..render.card_season_info import render_season_info_card
 
     renderer = CardRenderer()
     img = render_season_info_card(renderer, nw)

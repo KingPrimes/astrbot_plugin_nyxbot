@@ -5,9 +5,10 @@
 """
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+import orjson
 
 from astrbot.api import logger
 
@@ -60,7 +61,7 @@ class RelicsService:
             list[dict]: 每个 dict 包含 Relics 字段 + "rewards" 子列表
         """
         result: list[dict] = []
-        raw = json.loads(Path(export_path).read_text(encoding="utf-8"))
+        raw = orjson.loads(Path(export_path).read_bytes())
         items = raw.get("ExportRelicArcane", [])
         if not isinstance(items, list):
             return result
@@ -137,7 +138,7 @@ class RelicsService:
             for r in item.get("rewards", []):
                 if (rn := r.get("rewardName")) and (kw := get_last_three_segments(rn)) and (translated := translation_map.get(kw)):
                     r["rewardName"] = translated
-                    continue
+                elif rn:
                     # 未找到翻译，收集（去重）
                     # 生成兜底名称：取路径最后一段 → 驼峰拆分 → WF 术语翻译
                     if rn not in untranslated_map:
@@ -167,7 +168,7 @@ class RelicsService:
         file_path = Path(get_public_data_path()) / "untranslated_relics_rewards.json"
         try:
             file_path.write_text(
-                json.dumps(untranslated, ensure_ascii=False, indent=2),
+                orjson.dumps(untranslated, option=orjson.OPT_INDENT_2).decode(),
                 encoding="utf-8",
             )
             logger.info(

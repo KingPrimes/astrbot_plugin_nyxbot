@@ -11,6 +11,7 @@ import astrbot.api.message_components as Comp
 from astrbot.api.event import AstrMessageEvent
 
 from ...registry import wf
+from ..render.card_fissures import draw_fissure_card
 from ..render.card_renderer import CardRenderer
 from ..service.world_state import WorldStateService
 from ..wenum.fissure_type import FissureTypeEnum
@@ -25,7 +26,6 @@ async def _render_fissures(event: AstrMessageEvent, fissure_type: FissureTypeEnu
         return
 
     renderer = CardRenderer()
-    from ..render.card_fissures import draw_fissure_card
     img = draw_fissure_card(renderer, fissures)
     img_bytes = CardRenderer.render_to_bytes(img)
     yield event.chain_result([Comp.Image.fromBytes(img_bytes)])

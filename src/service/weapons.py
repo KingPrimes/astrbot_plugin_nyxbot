@@ -5,9 +5,10 @@
 """
 from __future__ import annotations
 
-import json
 import re
 from pathlib import Path
+
+import orjson
 
 from astrbot.api import logger
 
@@ -78,7 +79,7 @@ class WeaponsService:
             list[dict]: 处理后的武器数据列表
         """
         result: list[dict] = []
-        raw = json.loads(Path(export_path).read_text(encoding="utf-8"))
+        raw = orjson.loads(Path(export_path).read_bytes())
         items = raw.get("ExportWeapons", [])
         if not isinstance(items, list):
             return result
@@ -93,7 +94,7 @@ class WeaponsService:
             # --- 特殊处理 1: damagePerShot 序列化 ---
             dps = item.get("damagePerShot")
             if dps is not None and isinstance(dps, list):
-                item["damagePerShot"] = json.dumps(dps)
+                item["damagePerShot"] = orjson.dumps(dps).decode()
 
             # --- 特殊处理 2: englishName 提取 ---
             # Java: weapons.forEach(w -> w.setEnglishName(w.contEnglishName()));

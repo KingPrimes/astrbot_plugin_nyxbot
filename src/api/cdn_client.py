@@ -90,7 +90,7 @@ class CdnClient:
         )
 
     @classmethod
-    async def fetch_rive_tion(cls) -> list[dict] | None:
+    async def fetch_riven_tion(cls) -> list[dict] | None:
         """获取Riven Tion 紫卡属性查询参数"""
         url = f"{await cls._base_url()}/warframe/market_riven_tion.json"
         return await fetch_json_with_retry(

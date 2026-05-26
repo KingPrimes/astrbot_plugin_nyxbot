@@ -8,8 +8,9 @@ Functions:
 """
 from __future__ import annotations
 
-import json
 from pathlib import Path
+
+import orjson
 
 from astrbot.api import logger
 
@@ -20,9 +21,9 @@ from ..util import (
     get_public_data_path,
 )
 
-ExportDir: str = get_public_data_path() + "/export"
+ExportDir: str = str(Path(get_public_data_path()) / "export")
 """导出数据目录"""
-ExportHash: str = ExportDir + "/Hash.json"
+ExportHash: str = str(Path(ExportDir) / "Hash.json")
 """导出数据Hash列表"""
 Key: str = "zh"
 """导出数据语言"""
@@ -92,14 +93,14 @@ async def _compare_hash(lines: list[str]) -> dict[str, str]:
     export_hash_path = Path(ExportHash)
     if export_hash_path.exists():
         try:
-            old = json.loads(export_hash_path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
+            old = orjson.loads(export_hash_path.read_bytes())
+        except (orjson.JSONDecodeError, OSError):
             logger.warning("ExportHash 文件损坏，将视为首次运行")
 
     # 3. 写出新 hash 快照
     export_hash_path.parent.mkdir(parents=True, exist_ok=True)
     export_hash_path.write_text(
-        json.dumps(current, ensure_ascii=False, indent=2),
+        orjson.dumps(current, option=orjson.OPT_INDENT_2).decode(),
         encoding="utf-8",
     )
 
@@ -197,9 +198,9 @@ async def _load_hash_data() -> dict[str, str]:
     if mtime == _hash_cache_mtime:
         return _hash_cache
     try:
-        _hash_cache = json.loads(hash_path.read_text(encoding="utf-8"))
+        _hash_cache = orjson.loads(hash_path.read_bytes())
         _hash_cache_mtime = mtime
-    except (json.JSONDecodeError, OSError):
+    except (orjson.JSONDecodeError, OSError):
         _hash_cache = {}
         _hash_cache_mtime = 0.0
     return _hash_cache

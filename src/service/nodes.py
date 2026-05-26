@@ -5,8 +5,9 @@
 """
 from __future__ import annotations
 
-import json
 from pathlib import Path
+
+import orjson
 
 from astrbot.api import logger
 
@@ -38,7 +39,7 @@ class NodesService:
             list[dict]: 过滤空 name 后的节点数据列表
         """
         result: list[dict] = []
-        raw = json.loads(Path(export_path).read_text(encoding="utf-8"))
+        raw = orjson.loads(Path(export_path).read_bytes())
         items = raw.get("ExportRegions", [])
         if not isinstance(items, list):
             return result

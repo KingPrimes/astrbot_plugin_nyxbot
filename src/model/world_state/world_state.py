@@ -7,6 +7,8 @@ WorldState Model / 世界状态顶层模型
 """
 from __future__ import annotations
 
+import time
+
 from pydantic import BaseModel, Field
 
 from ...wenum.world_state import SyndicateEnum
@@ -33,7 +35,7 @@ from .in_game_market import InGameMarket
 from .invasion import Invasion
 from .known_calendar_seasons import KnownCalendarSeasons
 from .library_info import LibraryInfo
-from .lite_sortie import LiteSorite
+from .lite_sortie import LiteSortie
 from .node_override import NodeOverride
 from .prime_access_availability import PrimeAccessAvailability
 from .prime_vault_trader import PrimeVaultTrader
@@ -103,7 +105,7 @@ class WorldState(BaseModel):
     # 图书馆信息 / Library Info
     library_info: LibraryInfo | None = Field(default=None, alias="LibraryInfo")
     # 执刑官猎杀 / Lite Sorties (Archon Hunt)
-    lite_sorties: list[LiteSorite] = Field(default_factory=list, alias="LiteSorties")
+    lite_sorties: list[LiteSortie] = Field(default_factory=list, alias="LiteSorties")
     # 手机版本 / Mobile Version
     mobile_version: str | None = Field(default=None, alias="MobileVersion")
     # 节点覆盖 / Node Overrides
@@ -199,8 +201,6 @@ class WorldState(BaseModel):
         Returns:
             毫秒时间戳，未找到时返回当前时间戳
         """
-        import time
-
         for mission in self.syndicate_missions:
             if mission.tag == key and mission.expiry is not None:
                 return mission.expiry.time_millis

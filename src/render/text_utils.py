@@ -13,7 +13,6 @@
 """
 from __future__ import annotations
 
-import logging
 from enum import Enum
 from typing import TYPE_CHECKING
 
@@ -23,8 +22,6 @@ from .graphics_utils import draw_rounded_rect
 
 if TYPE_CHECKING:
     from PIL import Image
-
-logger = logging.getLogger(__name__)
 
 
 # ============================================================================

@@ -12,14 +12,17 @@ from astrbot.api import logger
 from astrbot.api.event import AstrMessageEvent, MessageEventResult
 
 from ...registry import wf
+from ..init import init_ready
+from ..render.card_market_lich_sister import render_market_lich_sister_card
+from ..render.card_market_orders import render_market_orders_possible_items_card
+from ..render.card_renderer import CardRenderer
+from ..service.market import MarketService
 
 
 async def _handle_lich_sister(
     event: AstrMessageEvent, keyword: str, search_type: str, title_suffix: str
 ) -> AsyncGenerator[MessageEventResult, None]:
     """通用赤毒/信条拍卖处理。"""
-    from ..render.card_renderer import CardRenderer
-    from ..service.market import MarketService
 
     if not keyword:
         yield event.plain_result(f"请输入武器名称！用法：/{title_suffix} 武器名称")
@@ -37,9 +40,6 @@ async def _handle_lich_sister(
     if result is None:
         yield event.plain_result(f"未找到匹配的{title_suffix}武器: {keyword}")
         return
-
-    from ..render.card_market_lich_sister import render_market_lich_sister_card
-    from ..render.card_market_orders import render_market_orders_possible_items_card
 
     renderer = CardRenderer()
     if isinstance(result, tuple):
@@ -62,5 +62,6 @@ async def _handle_lich_sister(
 
 @wf.command("CD",alias=["cd","赤毒"])
 async def wf_market_liches(self, event: AstrMessageEvent, keyword: str = "") -> AsyncGenerator[MessageEventResult, None]:
+    await init_ready()
     async for r in _handle_lich_sister(event, keyword, "lich", "赤毒"):
         yield r

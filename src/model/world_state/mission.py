@@ -16,7 +16,7 @@ class Mission(BaseModelWithAlias):
     """任务详情 / Mission Detail
 
     对应 Java: Mission
-    用于 LiteSorite（执刑官猎杀）的 missions 列表。
+    用于 LiteSortie（执刑官猎杀）的 missions 列表。
     """
 
     mission_type: MissionTypeEnum | None = Field(default=None, alias="missionType")

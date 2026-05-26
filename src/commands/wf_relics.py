@@ -5,6 +5,8 @@ import astrbot.api.message_components as Comp
 from astrbot.api.event import AstrMessageEvent
 
 from ...registry import wf
+from ..init import init_ready
+from ..render.card_relics import render_relic_card
 from ..render.card_renderer import CardRenderer
 from ..service.relics import RelicsService
 
@@ -19,6 +21,7 @@ async def wf_relics(self, event: AstrMessageEvent, name: str = ""):
       /遗物 丽斯         → 搜索名称含"丽斯"的遗物
       /遗物 Frost Prime  → 搜索奖励含"Frost Prime"的遗物
     """
+    await init_ready()
 
     relics = await RelicsService.find_by_name_or_reward(name)
 
@@ -28,8 +31,6 @@ async def wf_relics(self, event: AstrMessageEvent, name: str = ""):
             else "遗物数据为空，请先执行数据同步"
         )
         return
-
-    from ..render.card_relics import render_relic_card
 
     renderer = CardRenderer()
     img = render_relic_card(renderer, relics)

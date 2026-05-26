@@ -35,7 +35,7 @@ from ..model.world_state import (
     EndlessXpCategory,
     Invasion,
     KnownCalendarSeasons,
-    LiteSorite,
+    LiteSortie,
     SeasonInfo,
     Sortie,
     SteelPathOffering,
@@ -608,17 +608,17 @@ class WorldStateService:
         return ws.daily_deals
 
     # ══════════════════════════════════════════════════════════════════
-    # get_lite_sortie() — 执刑官猎杀 → list[LiteSorite]
+    # get_lite_sortie() — 执刑官猎杀 → list[LiteSortie]
     # ══════════════════════════════════════════════════════════════════
 
     @classmethod
-    async def get_lite_sortie(cls) -> list[LiteSorite]:
+    async def get_lite_sortie(cls) -> list[LiteSortie]:
         """获取执刑官猎杀列表（翻译 missions 节点名称，修改模型字段就地）。
 
-        镜像 Java: getLiteSorite()
+        镜像 Java: getLiteSortie()
 
         Returns:
-            LiteSorite 模型列表，missions 中各 mission.node 已翻译为节点名。
+            LiteSortie 模型列表，missions 中各 mission.node 已翻译为节点名。
         """
         ws = await cls._get_cached()
         if ws is None:

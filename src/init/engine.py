@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
+from pathlib import Path
 
 from tortoise import Tortoise
 from tortoise.context import get_current_context, set_global_context
@@ -69,7 +69,7 @@ async def get_engine():
     """
     global _tortoise_initialized
 
-    _db_path: str = os.path.join(get_public_data_path(), "nyxbot.db")
+    _db_path: str = str(Path(get_public_data_path()) / "nyxbot.db")
     logger.debug(f"数据库路径: {_db_path}")
     if not _tortoise_initialized:
         # 根据配置开关控制 Tortoise ORM 的 SQL 日志输出

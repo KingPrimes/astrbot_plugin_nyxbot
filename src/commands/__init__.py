@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Command registration hub / 指令注册中心
 
 Importing this module triggers all command module imports, which in turn

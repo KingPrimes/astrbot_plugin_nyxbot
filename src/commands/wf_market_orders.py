@@ -16,6 +16,13 @@ from astrbot.api import logger
 from astrbot.api.event import AstrMessageEvent
 
 from ...registry import wf
+from ..init import init_ready
+from ..render.card_market_orders import (
+    render_market_orders_card,
+    render_market_orders_possible_items_card,
+)
+from ..render.card_renderer import CardRenderer
+from ..service.market_orders import MarketOrdersService
 
 
 def _parse_params(text: str) -> tuple[str, str, bool, bool]:
@@ -65,14 +72,18 @@ def _resolve_bool(param: str, true_values: tuple[str, ...], false_values: tuple[
     for v in true_values:
         if v in upper:
             return True
-    return all(v not in upper for v in false_values)
+    if not false_values:
+        return None
+    for v in false_values:
+        if v in upper:
+            return False
+    return None
 
 
 @wf.command(name="WM", alias=["市场", "wm", "market"])
 async def wf_market_orders(self, event: AstrMessageEvent, keyword: str = "", is_max: str = "", is_by: str = "", platform: str = "PC"):
     """查询 Warframe.Market 物品订单"""
-    from ..render.card_renderer import CardRenderer
-    from ..service.market_orders import MarketOrdersService
+    await init_ready()
 
     if not keyword:
         yield event.plain_result("请输入正确的名称！用法：/WM 物品名称 [满级|MAX] [购买|出售] [PC|PS4|XBOX|SWITCH]")
@@ -107,11 +118,9 @@ async def wf_market_orders(self, event: AstrMessageEvent, keyword: str = "", is_
         if not possible_items:
             yield event.plain_result(f"未找到匹配的物品: {kw}")
             return
-        from ..render.card_market_orders import render_market_orders_possible_items_card
         renderer = CardRenderer()
         img = render_market_orders_possible_items_card(renderer, possible_items)
     elif result.result is not None:
-        from ..render.card_market_orders import render_market_orders_card
         renderer = CardRenderer()
         img = render_market_orders_card(renderer, result.result)
     else:

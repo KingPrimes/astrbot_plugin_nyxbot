@@ -12,6 +12,7 @@ from astrbot.api.event import AstrMessageEvent
 
 from ...registry import wf
 from ..render.card_renderer import CardRenderer
+from ..render.card_syndicate import render_syndicate_card
 from ..service.world_state import WorldStateService
 from ..wenum.world_state.syndicate import SyndicateEnum
 
@@ -25,7 +26,6 @@ async def _render_syndicate(event: AstrMessageEvent, syndicate: SyndicateEnum, n
         return
 
     renderer = CardRenderer()
-    from ..render.card_syndicate import render_syndicate_card
     img = render_syndicate_card(renderer, sm)
     img_bytes = CardRenderer.render_to_bytes(img)
     yield event.chain_result([Comp.Image.fromBytes(img_bytes)])

@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PIL import Image as PILImage
@@ -19,8 +20,13 @@ from PIL import Image as PILImage
 import astrbot.api.message_components as Comp
 from astrbot.api import logger
 from astrbot.api.event import AstrMessageEvent
+from astrbot.core.utils.session_waiter import session_waiter
 
 from ...registry import wf
+from ..init import init_ready
+from ..render.card_renderer import CardRenderer
+from ..render.card_riven_analyse import render_riven_analyse_card
+from ..service.riven_analyse import RivenAnalyseService
 
 if TYPE_CHECKING:
     from astrbot.core.utils.session_waiter import SessionController
@@ -29,6 +35,7 @@ if TYPE_CHECKING:
 @wf.command(name="紫卡分析", alias=["分析紫卡", "Wfen"])
 async def wf_riven_analyse(self, event: AstrMessageEvent):
     """OCR 识别紫卡图片并进行属性趋势分析。"""
+    await init_ready()
 
     # 同消息内已带图片 → 直接处理
     images = [
@@ -42,8 +49,6 @@ async def wf_riven_analyse(self, event: AstrMessageEvent):
 
     # 进入会话等待
     yield event.plain_result("请发送一张紫卡截图（30 秒内有效）")
-
-    from astrbot.core.utils.session_waiter import session_waiter
 
     try:
         @session_waiter(timeout=30, record_history_chains=False)
@@ -97,11 +102,10 @@ async def _do_analyse(ev: AstrMessageEvent, img_comp: Comp.Image) -> None:
     path = await img_comp.convert_to_file_path()
     logger.debug(f"紫卡分析图片路径: {path}")
 
-    pil = PILImage.open(path).convert("RGB")
-
-    from ..render.card_renderer import CardRenderer
-    from ..render.card_riven_analyse import render_riven_analyse_card
-    from ..service.riven_analyse import RivenAnalyseService
+    try:
+        pil = PILImage.open(path).convert("RGB")
+    finally:
+        Path(path).unlink(missing_ok=True)
 
     try:
         results = await RivenAnalyseService.analyse_image(pil)

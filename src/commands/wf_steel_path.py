@@ -5,14 +5,15 @@ import astrbot.api.message_components as Comp
 from astrbot.api.event import AstrMessageEvent
 
 from ...registry import wf
+from ..render.card_renderer import CardRenderer
+from ..render.card_steel_path import render_steel_path_card
 from ..service.world_state import WorldStateService
 
 
 @wf.command("钢铁")
 async def wf_steel_path(self, event: AstrMessageEvent):
     """查看钢铁之路"""
-    from ..render.card_renderer import CardRenderer
-    from ..render.card_steel_path import render_steel_path_card
+
 
     sp = await WorldStateService.get_steel_path()
 

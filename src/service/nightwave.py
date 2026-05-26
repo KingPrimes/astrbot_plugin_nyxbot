@@ -5,8 +5,9 @@
 """
 from __future__ import annotations
 
-import json
 from pathlib import Path
+
+import orjson
 
 from astrbot.api import logger
 
@@ -37,7 +38,7 @@ class NightWaveService:
             list[dict]: 电波挑战数据列表
         """
         result: list[dict] = []
-        raw = json.loads(Path(export_path).read_text(encoding="utf-8"))
+        raw = orjson.loads(Path(export_path).read_bytes())
         export_nightwave = raw.get("ExportNightwave")
         if not isinstance(export_nightwave, dict):
             return result

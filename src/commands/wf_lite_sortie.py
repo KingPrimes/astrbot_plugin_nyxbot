@@ -5,6 +5,7 @@ import astrbot.api.message_components as Comp
 from astrbot.api.event import AstrMessageEvent
 
 from ...registry import wf
+from ..render.card_lite_sortie import render_lite_sortie_card
 from ..render.card_renderer import CardRenderer
 from ..service.world_state import WorldStateService
 
@@ -21,7 +22,6 @@ async def wf_lite_sortie(self, event: AstrMessageEvent):
     lite_sortie_data = lite_sorties[0]
 
     renderer = CardRenderer()
-    from ..render.card_lite_sortie import render_lite_sortie_card
     img = render_lite_sortie_card(renderer, lite_sortie_data)
     img_bytes = CardRenderer.render_to_bytes(img)
     yield event.chain_result([Comp.Image.fromBytes(img_bytes)])

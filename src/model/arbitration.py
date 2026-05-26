@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import time as _time
+from datetime import datetime, timezone
 
 from pydantic import BaseModel, Field
 
@@ -75,7 +76,6 @@ class Arbitration(BaseModel):
         """格式化的开始时间"""
         if self.activation is None:
             return "未知"
-        from datetime import datetime, timezone
         dt = datetime.fromtimestamp(self.activation, tz=timezone.utc)
         return dt.strftime("%Y-%m-%d %H:%M:%S")
 
@@ -84,6 +84,5 @@ class Arbitration(BaseModel):
         """格式化的结束时间"""
         if self.expiry is None:
             return "未知"
-        from datetime import datetime, timezone
         dt = datetime.fromtimestamp(self.expiry, tz=timezone.utc)
         return dt.strftime("%Y-%m-%d %H:%M:%S")

@@ -5,6 +5,8 @@ StateTranslation Model / 状态翻译模型
 """
 from __future__ import annotations
 
+import re
+
 from tortoise import fields
 from tortoise.models import Model
 
@@ -54,7 +56,6 @@ class StateTranslation(Model):
         """序列化标识"""
         name_upper = (self.name or "").upper().strip()
         unique_upper = (self.uniqueName or "").upper().strip()
-        import re
         name_trimmed = re.sub(r"[^a-zA-Z0-9]", "", name_upper)
         unique_trimmed = re.sub(r"[^a-zA-Z0-9]", "", unique_upper)
         return name_trimmed + unique_trimmed

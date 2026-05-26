@@ -5,11 +5,11 @@ Weapons Model / 武器模型
 """
 from __future__ import annotations
 
-import json
 import re
 from dataclasses import dataclass
 from enum import Enum
 
+import orjson
 from tortoise import fields
 from tortoise.models import Model
 
@@ -102,8 +102,8 @@ class Weapons(Model):
         if not self.damagePerShot:
             return []
         try:
-            values = json.loads(self.damagePerShot)
-        except (json.JSONDecodeError, TypeError):
+            values = orjson.loads(self.damagePerShot)
+        except (orjson.JSONDecodeError, TypeError):
             return []
         result: list[DamagePerShot] = []
         for i, val in enumerate(values):
