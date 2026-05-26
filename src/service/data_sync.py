@@ -14,6 +14,34 @@ from ..init.engine import get_engine
 _T = TypeVar("_T", bound=TortoiseModel)
 
 _BATCH_SIZE = 1000
+# SQLite 参数上限 999，__in 查询分片大小需小于此值
+_IN_QUERY_CHUNK_SIZE = 500
+
+_SQLITE_MAX_VARIABLES = 999
+
+
+def _safe_update_batch_size(num_fields: int) -> int:
+    """计算 bulk_update 的安全批次大小。
+
+    TortoiseORM 的 bulk_update 使用 CASE WHEN 语法，
+    每条记录产生 (1 + num_fields) 个 SQL 参数：
+    1 个 PK 匹配 + N 个字段 THEN 值。
+    """
+    return _SQLITE_MAX_VARIABLES // (1 + num_fields)
+
+
+async def _fetch_existing_chunked(
+    model_cls: type[TortoiseModel],
+    key_field: str,
+    keys: list,
+) -> dict:
+    """分批 __in 查询，避免超过 SQLite 参数上限 (999)。"""
+    result: dict = {}
+    for i in range(0, len(keys), _IN_QUERY_CHUNK_SIZE):
+        chunk = keys[i : i + _IN_QUERY_CHUNK_SIZE]
+        async for obj in model_cls.filter(**{f"{key_field}__in": chunk}):
+            result[getattr(obj, key_field)] = obj
+    return result
 
 
 class DataSyncService:
@@ -48,12 +76,11 @@ class DataSyncService:
         async def _do_upsert() -> tuple[int, int]:
             await get_engine()
 
-            # 查询已存在的 key 集合
+            # 查询已存在的 key 集合（分片避免 SQLite 参数上限）
             keys = [item[key_field] for item in data if item.get(key_field)]
-            existing_map: dict[str, _T] = {
-                getattr(row, key_field): row
-                async for row in model_cls.filter(**{f"{key_field}__in": keys})
-            }
+            existing_map: dict[str, _T] = (
+                await _fetch_existing_chunked(model_cls, key_field, keys)
+            )
 
             # Insert: 构建新实例并批量插入
             new_instances = [
@@ -67,6 +94,7 @@ class DataSyncService:
                 new_count = len(created) if created else 0
 
             # Update: 脏检测（仅当提供 update_fields 时）
+            # bulk_update 使用 CASE WHEN 语法，需分批避免 SQLite 参数上限
             updated_count = 0
             if update_fields:
                 to_update: list[_T] = []
@@ -77,16 +105,19 @@ class DataSyncService:
                     obj = existing_map.get(key)
                     if obj is None:
                         continue
-                    new_inst = build_instance(item)
                     changed = False
                     for field in update_fields:
-                        if getattr(obj, field) != getattr(new_inst, field):
-                            setattr(obj, field, getattr(new_inst, field))
+                        new_val = item.get(field)
+                        if getattr(obj, field) != new_val:
+                            setattr(obj, field, new_val)
                             changed = True
                     if changed:
                         to_update.append(obj)
                 if to_update:
-                    await model_cls.bulk_update(to_update, fields=update_fields)
+                    update_chunk = _safe_update_batch_size(len(update_fields))
+                    for i in range(0, len(to_update), update_chunk):
+                        chunk = to_update[i : i + update_chunk]
+                        await model_cls.bulk_update(chunk, fields=update_fields)
                     updated_count = len(to_update)
 
             return new_count, updated_count
@@ -126,12 +157,11 @@ class DataSyncService:
         from tortoise.transactions import in_transaction
 
         async def _do_upsert() -> int:
-            # --- 先查询已存在的 keys（用于可靠计数 + Phase B 脏检测）---
+            # --- 先查询已存在的 keys（分片避免 SQLite 参数上限）---
             keys = [item[key_field] for item in items]
-            existing_map = {
-                getattr(obj, key_field): obj
-                async for obj in model_cls.filter(**{f"{key_field}__in": keys})
-            }
+            existing_map = await _fetch_existing_chunked(
+                model_cls, key_field, keys
+            )
 
             # Phase A 前的新增数 = 不在 existing_map 中的 key 数
             total_new = sum(
@@ -150,22 +180,21 @@ class DataSyncService:
                 await model_cls.bulk_create(batch, ignore_conflicts=True)
 
             # --- Phase B: 脏检测 + 分批 bulk_update ---
+            # bulk_update 使用 CASE WHEN 语法，每条记录产生 (1+N_fields) 个 SQL 参数
+            up_batch = min(batch_size, _safe_update_batch_size(len(update_fields)))
             to_update: list[_T] = []
             for item in items:
                 obj = existing_map.get(item[key_field])
                 if obj is not None:
-                    # 构建新实例用于值比较
-                    new_instance = build_instance(item)
                     changed = False
                     for field in update_fields:
-                        old_val = getattr(obj, field)
-                        new_val = getattr(new_instance, field)
-                        if old_val != new_val:
+                        new_val = item.get(field)
+                        if getattr(obj, field) != new_val:
                             setattr(obj, field, new_val)
                             changed = True
                     if changed:
                         to_update.append(obj)
-                        if len(to_update) >= batch_size:
+                        if len(to_update) >= up_batch:
                             await model_cls.bulk_update(to_update, fields=update_fields)
                             total_new += len(to_update)
                             to_update.clear()

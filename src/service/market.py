@@ -11,17 +11,20 @@
 """
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from tortoise.exceptions import DoesNotExist
 
 from astrbot.api import logger
 
+from ..api import MarketClient
 from ..model.ephemeras import Ephemeras
 from ..model.lich_sister_weapons import LichSisterWeapons
-
-if TYPE_CHECKING:
-    from ..model.market import MarketLichSister
+from ..model.market import (
+    LichSisterAuction,
+    LichSisterItem,
+    LichSisterOwner,
+    MarketLichSister,
+    MarketLichSisterPayload,
+)
 
 
 class MarketService:
@@ -66,17 +69,6 @@ class MarketService:
         Returns:
             (item_name, MarketLichSister) 或 (possible_items, None) 或 None。
         """
-        from ..api import MarketClient
-        from ..model.market import (
-            LichSisterAuction,
-            LichSisterItem,
-            LichSisterOwner,
-            MarketLichSisterPayload,
-        )
-        from ..model.market import (
-            MarketLichSister as MLS,
-        )
-
         try:
             weapon = await LichSisterWeapons.get(name=keyword)
         except DoesNotExist:
@@ -92,41 +84,29 @@ class MarketService:
         if not slug:
             return None
 
-        try:
-            resp = await MarketClient.search_auctions(
-                weapon_url_name=slug,
-                auction_type=search_type,
-                has_ephemera=False,
-                sort_by="price_asc",
-                damage_min=25,
-                damage_max=60,
-            )
-        except Exception:
-            logger.exception(f"赤毒/信条拍卖查询失败: {keyword}")
+        raw_auctions = await cls._call_search_auctions(
+            keyword,
+            weapon_url_name=slug,
+            auction_type=search_type,
+            has_ephemera=False,
+            sort_by="price_asc",
+            damage_min=25,
+            damage_max=60,
+        )
+        if raw_auctions is None:
             return None
-
-        if not resp:
-            return None
-
-        raw_auctions = resp.get("payload", {}).get("auctions", [])
         if not raw_auctions:
-            return (weapon.name or keyword, MLS(payload=None))
+            return (weapon.name or keyword, MarketLichSister(payload=None))
 
-        auction_list = []
-        for a in raw_auctions:
-            if a.get("closed") or not a.get("visible"):
-                continue
-            owner = a.get("owner", {})
-            if owner.get("status") not in ("online", "ingame"):
-                continue
+        # 过滤 + 排序 → 取 top 10
+        filtered = cls._filter_and_sort_auctions(raw_auctions)
 
+        auction_list: list[LichSisterAuction] = []
+        for a in filtered:
             item_data = a.get("item", {})
+            owner = a.get("owner", {})
             element = item_data.get("element")
-            if isinstance(element, str) and element:
-                pass
-            elif element is None:
-                element = None
-            else:
+            if not isinstance(element, (str, type(None))):
                 element = str(element)
 
             auction_list.append(
@@ -154,20 +134,62 @@ class MarketService:
                 )
             )
 
-        auction_list.sort(
-            key=lambda a: a.buyout_price or a.starting_price or a.top_bid or 999999,
-        )
-        auction_list = auction_list[:10]
-
         return (
             weapon.name or keyword,
-            MLS(
+            MarketLichSister(
                 payload=MarketLichSisterPayload(
                     auctions=auction_list,
                     item_name=weapon.name or keyword,
                 )
             ),
         )
+
+    # ══════════════════════════════════════════════════════════════════
+    # 共享工具 / Shared utilities — 消除 market.py / market_riven.py 重复
+    # ══════════════════════════════════════════════════════════════════
+
+    @staticmethod
+    def _filter_and_sort_auctions(
+        raw_auctions: list[dict], top_n: int = 10
+    ) -> list[dict]:
+        """过滤在线卖家 + 按价格排序取 top_n — 消除两处完全相同的三段式过滤。
+
+        market.py search_market_lich_sister 和 market_riven.py search_market_riven
+        使用完全相同的 closed/visible/status 过滤和 buyout/starting/top_bid 排序。
+        """
+        filtered = [
+            a
+            for a in raw_auctions
+            if not a.get("closed")
+            and a.get("visible")
+            and (a.get("owner") or {}).get("status") in ("online", "ingame")
+        ]
+        filtered.sort(
+            key=lambda a: (
+                a.get("buyout_price")
+                or a.get("starting_price")
+                or a.get("top_bid")
+                or 999999
+            ),
+        )
+        return filtered[:top_n]
+
+    @classmethod
+    async def _call_search_auctions(
+        cls, log_keyword: str, **kwargs: object
+    ) -> list[dict] | None:
+        """封装 MarketClient.search_auctions 的 try/except + 空检查 + payload 提取。
+
+        消除 market.py 和 market_riven.py 中完全相同的异常处理样板。
+        """
+        try:
+            resp = await MarketClient.search_auctions(**kwargs)
+        except Exception:
+            logger.exception(f"Market API 查询失败: {log_keyword}")
+            return None
+        if not resp:
+            return None
+        return resp.get("payload", {}).get("auctions", [])
 
     # ══════════════════════════════════════════════════════════════════
     # 缓存

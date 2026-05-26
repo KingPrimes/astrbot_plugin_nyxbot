@@ -4,16 +4,14 @@
 """
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-from tortoise.exceptions import DoesNotExist
+from collections.abc import Callable
 
 from astrbot.api import logger
 
+from ..api.api import WF_MARKET_DUCATS
+from ..model.market import DucatItem, Ducats
 from ..model.orders_items import OrdersItems
-
-if TYPE_CHECKING:
-    from ..model.market import DucatItem, Ducats
+from ..util import async_cached, fetch_json, market_cache
 
 
 class MarketDucatsService:
@@ -26,10 +24,6 @@ class MarketDucatsService:
         Returns:
             Ducats 模型实例，失败时返回 None。
         """
-        from ..api.api import WF_MARKET_DUCATS
-        from ..model.market import Ducats
-        from ..util import async_cached, fetch_json, market_cache
-
         try:
             resp = await async_cached(
                 "ducats",
@@ -68,44 +62,42 @@ class MarketDucatsService:
 
     @classmethod
     async def _resolve_ducat_item_names(cls, items: list[DucatItem]) -> None:
-        """从本地 OrdersItems 表解析物品名称 — 镜像 Java peek(d -> d.setItem(...))"""
+        """从本地 OrdersItems 表解析物品名称 — 镜像 Java peek(d -> d.setItem(...))
+
+        批量查询避免 N+1 问题。
+        """
+        item_ids = {d.item for d in items if d.item}
+        if not item_ids:
+            return
+        db_items = await OrdersItems.filter(id__in=list(item_ids)).all()
+        name_map: dict[str, str] = {
+            oi.id: oi.name for oi in db_items if oi.name
+        }
         for d in items:
-            if not d.item:
-                continue
-            try:
-                order_item = await OrdersItems.get(id=d.item)
-                d.item_name = order_item.name or d.item
-            except DoesNotExist:
-                d.item_name = d.item
+            if d.item:
+                d.item_name = name_map.get(d.item, d.item)
+
+    @classmethod
+    async def _get_dump(
+        cls,
+        dump_fn: Callable[[list[DucatItem]], list[DucatItem]],
+    ) -> tuple[list[DucatItem], list[DucatItem]]:
+        """公共获取方法 — 消除 get_gold_dump / get_silver_dump 重复结构。"""
+        ducats = await cls.get_ducats_data()
+        if ducats is None or ducats.payload is None:
+            return [], []
+        day_items = dump_fn(ducats.payload.previous_day)
+        hour_items = dump_fn(ducats.payload.previous_hour)
+        await cls._resolve_ducat_item_names(day_items)
+        await cls._resolve_ducat_item_names(hour_items)
+        return day_items, hour_items
 
     @classmethod
     async def get_gold_dump(cls) -> tuple[list[DucatItem], list[DucatItem]]:
-        """获取金垃圾数据 — 返回 (day_items, hour_items)。
-
-        镜像 Java getDuats(DucatsType.GOD, ducats)
-        """
-        ducats = await cls.get_ducats_data()
-        if ducats is None or ducats.payload is None:
-            return [], []
-
-        day_items = cls._get_gold_dump(ducats.payload.previous_day)
-        hour_items = cls._get_gold_dump(ducats.payload.previous_hour)
-        await cls._resolve_ducat_item_names(day_items)
-        await cls._resolve_ducat_item_names(hour_items)
-        return day_items, hour_items
+        """获取金垃圾数据 — 返回 (day_items, hour_items)。"""
+        return await cls._get_dump(cls._get_gold_dump)
 
     @classmethod
     async def get_silver_dump(cls) -> tuple[list[DucatItem], list[DucatItem]]:
-        """获取银垃圾数据 — 返回 (day_items, hour_items)。
-
-        镜像 Java getDuats(DucatsType.SILVER, ducats)
-        """
-        ducats = await cls.get_ducats_data()
-        if ducats is None or ducats.payload is None:
-            return [], []
-
-        day_items = cls._get_silver_dump(ducats.payload.previous_day)
-        hour_items = cls._get_silver_dump(ducats.payload.previous_hour)
-        await cls._resolve_ducat_item_names(day_items)
-        await cls._resolve_ducat_item_names(hour_items)
-        return day_items, hour_items
+        """获取银垃圾数据 — 返回 (day_items, hour_items)。"""
+        return await cls._get_dump(cls._get_silver_dump)

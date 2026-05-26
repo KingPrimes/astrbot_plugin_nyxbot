@@ -12,6 +12,8 @@ import orjson
 
 from astrbot.api import logger
 
+from ..util.alias_cache import AliasCacheHelper
+
 if TYPE_CHECKING:
     from ..model.export.relics import Relics
 
@@ -26,6 +28,8 @@ _WARFRAME_PART_TRANSLATIONS: dict[str, str] = {
 
 class RelicsService:
     """遗物服务。"""
+
+    _alias_helper = AliasCacheHelper()
 
     # ══════════════════════════════════════════════════════════════════
     # 私有：ExportRelicArcane 解析（原 export_parsers.py）
@@ -376,7 +380,6 @@ class RelicsService:
         """
         from tortoise.expressions import Q
 
-        from ..model.alias import Alias
         from ..model.export.relic_rewards import RelicRewards
         from ..model.export.relics import Relics
 
@@ -428,12 +431,8 @@ class RelicsService:
 
         logger.debug(f"未查询到包含 '{name}' 的遗物，使用别名模糊查询奖励列表")
 
-        # 4. 别名替换后再次模糊匹配
-        aliases = await Alias.all()
-        key = name
-        for a in aliases:
-            if a.cn and a.cn in key:
-                key = key.replace(a.cn, a.en or "")
+        # 4. 别名替换后再次模糊匹配（预编译正则，O(m) 替代 O(n*m) 线性扫描）
+        key = await cls._alias_helper.replace(name)
 
         if key != name:
             reward_ids = await RelicRewards.filter(

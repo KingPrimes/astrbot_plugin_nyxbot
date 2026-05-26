@@ -4,6 +4,8 @@ from __future__ import annotations
 from tortoise.exceptions import DoesNotExist
 from tortoise.expressions import Q
 
+from astrbot.api import logger
+
 from ..model.alias import Alias
 
 
@@ -86,8 +88,6 @@ class AliasService:
         镜像原 init_alias_data() 逻辑：
         从 CdnClient 获取别名 JSON → simple_upsert 对比插入。
         """
-        from astrbot.api import logger
-
         from ..api import CdnClient
         from .data_sync import DataSyncService
 

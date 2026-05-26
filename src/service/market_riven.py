@@ -5,15 +5,21 @@
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING
 
 from tortoise.exceptions import DoesNotExist
 
-from astrbot.api import logger
-
-if TYPE_CHECKING:
-    from ..model.market import MarketRiven
-    from ..model.riven_items import RivenItems
+from ..model.market import (
+    MarketRiven,
+    MarketRivenPayload,
+    RivenAttribute,
+    RivenAuction,
+    RivenItem,
+    RivenOwner,
+)
+from ..model.riven_items import RivenItems
+from ..model.riven_tion import RivenTion
+from ..model.riven_tion_alias import RivenTionAlias
+from .market import MarketService
 
 # 紫卡查询默认值（镜像 Java MarketRivenUtils 默认）
 # Riven query defaults — mirror Java MarketRivenUtils.
@@ -47,18 +53,6 @@ class MarketRivenService:
         Returns:
             MarketRiven 模型或 None。
         """
-        from ..api import MarketClient
-        from ..model.market import (
-            MarketRiven as MR,
-        )
-        from ..model.market import (
-            MarketRivenPayload,
-            RivenAttribute,
-            RivenAuction,
-            RivenItem,
-            RivenOwner,
-        )
-
         # ── 1. 双语法兼容解析 ──
         kw = (keyword or "").strip()
         if "-" in kw:
@@ -83,50 +77,28 @@ class MarketRivenService:
         pos_url_names = await cls._resolve_positive_stats(final_pos)
         neg_value = cls._parse_negative_stat(final_neg)
 
-        # ── 4. 请求拍卖 API（通过 MarketClient.search_auctions）──
-        try:
-            resp = await MarketClient.search_auctions(
-                weapon_url_name=riven_item.slug or weapon_part,
-                auction_type="riven",
-                positive_stats=pos_url_names or None,
-                negative_stats=neg_value or None,
-                polarity="any",
-                mastery_rank_min=_MASTERY_MIN_DEFAULT,
-                mastery_rank_max=_MASTERY_MAX_DEFAULT,
-                sort_by="price_asc",
-            )
-        except Exception:
-            logger.exception(f"紫卡拍卖查询失败: {keyword}")
+        # ── 4. 请求拍卖 API（通过共享 _call_search_auctions）──
+        raw_auctions = await MarketService._call_search_auctions(
+            keyword,
+            weapon_url_name=riven_item.slug or weapon_part,
+            auction_type="riven",
+            positive_stats=pos_url_names or None,
+            negative_stats=neg_value or None,
+            polarity="any",
+            mastery_rank_min=_MASTERY_MIN_DEFAULT,
+            mastery_rank_max=_MASTERY_MAX_DEFAULT,
+            sort_by="price_asc",
+        )
+        if raw_auctions is None:
             return None
 
-        if not resp:
-            return None
-
-        raw_auctions = resp.get("payload", {}).get("auctions", [])
         item_name = riven_item.name or weapon_part
 
         if not raw_auctions:
-            return MR(item_name=item_name, payload=None)
+            return MarketRiven(item_name=item_name, payload=None)
 
-        # ── 5. 过滤 + 排序 + Top10 ──
-        filtered: list[dict] = []
-        for a in raw_auctions:
-            if a.get("closed") or not a.get("visible"):
-                continue
-            owner = a.get("owner") or {}
-            if owner.get("status") not in ("online", "ingame"):
-                continue
-            filtered.append(a)
-
-        filtered.sort(
-            key=lambda a: (
-                a.get("buyout_price")
-                or a.get("starting_price")
-                or a.get("top_bid")
-                or 999999
-            ),
-        )
-        filtered = filtered[:10]
+        # ── 5. 过滤 + 排序 + Top10（共享方法）──
+        filtered = MarketService._filter_and_sort_auctions(raw_auctions)
 
         # ── 6. 收集所有出现过的 url_name，批量翻译为中文 effect ──
         url_name_to_cn = await cls._build_url_name_translation_map(filtered)
@@ -176,7 +148,7 @@ class MarketRivenService:
                 )
             )
 
-        return MR(
+        return MarketRiven(
             item_name=item_name,
             payload=MarketRivenPayload(auctions=auction_list),
         )
@@ -195,8 +167,6 @@ class MarketRivenService:
         Returns:
             匹配到的 RivenItems；找不到或歧义时返回 None。
         """
-        from ..model.riven_items import RivenItems
-
         if not name:
             return None
 
@@ -248,6 +218,7 @@ class MarketRivenService:
         """把中文/英文词条名映射为逗号分隔的 url_name 列表。
 
         映射顺序：RivenTion.effect → RivenTionAlias.cn → 丢弃。
+        批量查询避免 N+1 问题。
 
         Args:
             text: 用户输入（支持中文逗号；空字符串返回 ""）。
@@ -255,31 +226,30 @@ class MarketRivenService:
         Returns:
             逗号分隔的 url_name 字符串；输入为空时返回 ""。
         """
-        from ..model.riven_tion import RivenTion
-        from ..model.riven_tion_alias import RivenTionAlias
-
         t = (text or "").strip()
         if not t:
             return ""
         normalized = t.replace("，", ",")
         parts = [p.strip() for p in normalized.split(",") if p.strip()]
+        if not parts:
+            return ""
+
+        # 批量查询 RivenTion 和 RivenTionAlias
+        db_tions = await RivenTion.filter(effect__in=parts).all()
+        tion_map = {t.effect: t.url_name for t in db_tions if t.url_name}
+
+        remaining = [p for p in parts if p not in tion_map]
+        alias_map: dict[str, str] = {}
+        if remaining:
+            db_aliases = await RivenTionAlias.filter(cn__in=remaining).all()
+            alias_map = {a.cn: a.en for a in db_aliases if a.en}
+
         url_names: list[str] = []
         for effect in parts:
-            # 优先 RivenTion.effect → url_name
-            try:
-                tion = await RivenTion.get(effect=effect)
-            except DoesNotExist:
-                tion = None
-            if tion and tion.url_name:
-                url_names.append(tion.url_name)
-                continue
-            # 回退 RivenTionAlias.cn → en (= url_name)
-            try:
-                alias = await RivenTionAlias.get(cn=effect)
-            except DoesNotExist:
-                alias = None
-            if alias and alias.en:
-                url_names.append(alias.en)
+            if effect in tion_map:
+                url_names.append(tion_map[effect])
+            elif effect in alias_map:
+                url_names.append(alias_map[effect])
         return ",".join(url_names)
 
     @staticmethod
@@ -302,8 +272,6 @@ class MarketRivenService:
         Returns:
             url_name → effect 的字典；缺失项不会出现在结果中。
         """
-        from ..model.riven_tion import RivenTion
-
         url_names: set[str] = set()
         for a in auctions:
             item_data = a.get("item") or {}

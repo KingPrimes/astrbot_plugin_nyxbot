@@ -1,4 +1,6 @@
 """Service layer package / 业务逻辑层包"""
+from __future__ import annotations
+
 from .alias import AliasService
 from .data_admin import DataAdminService
 from .data_sync import DataSyncService

@@ -14,6 +14,7 @@ from ..model.riven_analyse_trend import RivenAnalyseTrend
 from ..model.riven_items import RivenItems
 from ..model.riven_tion import RivenTion
 from ..model.riven_tion_alias import RivenTionAlias
+from ..util.i18n_utils import extract_i18n
 
 
 class RivenService:
@@ -24,19 +25,38 @@ class RivenService:
     # ══════════════════════════════════════════════════════════════════
 
     @classmethod
-    async def sync_tion_data(cls) -> None:
-        """初始化 RivenTion（紫卡词条参数）表数据 — 从 CDN。"""
+    async def _sync_cdn_resource(
+        cls,
+        fetch_fn,
+        model_cls,
+        key_field: str,
+        build_instance,
+        log_name: str,
+    ) -> None:
+        """通用 CDN 资源同步骨架 — 获取数据 → 空检查 → simple_upsert → 日志。"""
         from .data_sync import DataSyncService
 
-        logger.info("从 CdnClient 加载紫卡词条参数数据")
-        data = await CdnClient.fetch_riven_tion()
+        logger.info(f"从 CdnClient 加载{log_name}数据")
+        data = await fetch_fn()
         if not data:
-            logger.warning("紫卡词条参数数据为空，跳过初始化")
+            logger.warning(f"{log_name}数据为空，跳过初始化")
             return
 
         new_count, _ = await DataSyncService.simple_upsert(
-            model_cls=RivenTion,
+            model_cls=model_cls,
             data=data,
+            key_field=key_field,
+            build_instance=build_instance,
+        )
+        total = await model_cls.all().count()
+        logger.info(f"{log_name}数据初始化完成，共 {total} 条记录（本次新增 {new_count} 条）")
+
+    @classmethod
+    async def sync_tion_data(cls) -> None:
+        """初始化 RivenTion（紫卡词条参数）表数据 — 从 CDN。"""
+        await cls._sync_cdn_resource(
+            fetch_fn=CdnClient.fetch_riven_tion,
+            model_cls=RivenTion,
             key_field="url_name",
             build_instance=lambda item: RivenTion(
                 effect=item.get("effect"),
@@ -50,44 +70,26 @@ class RivenService:
                 url_name=item.get("url_name", ""),
                 exclusive_to=item.get("exclusive_to"),
             ),
+            log_name="紫卡词条参数",
         )
-        total = await RivenTion.all().count()
-        logger.info(f"紫卡词条参数数据初始化完成，共 {total} 条记录（本次新增 {new_count} 条）")
 
     @classmethod
     async def sync_tion_alias_data(cls) -> None:
         """初始化 RivenTionAlias（紫卡词条别名）表数据 — 从 CDN。"""
-        from .data_sync import DataSyncService
-
-        logger.info("从 CdnClient 加载紫卡词条别名数据")
-        data = await CdnClient.fetch_riven_tion_alias()
-        if not data:
-            logger.warning("紫卡词条别名数据为空，跳过初始化")
-            return
-
-        new_count, _ = await DataSyncService.simple_upsert(
+        await cls._sync_cdn_resource(
+            fetch_fn=CdnClient.fetch_riven_tion_alias,
             model_cls=RivenTionAlias,
-            data=data,
             key_field="cn",
             build_instance=lambda item: RivenTionAlias(cn=item["cn"], en=item.get("en")),
+            log_name="紫卡词条别名",
         )
-        total = await RivenTionAlias.all().count()
-        logger.info(f"紫卡词条别名数据初始化完成，共 {total} 条记录（本次新增 {new_count} 条）")
 
     @classmethod
     async def sync_analyse_trend_data(cls) -> None:
         """初始化 RivenAnalyseTrend（紫卡分析参数）表数据 — 从 CDN。"""
-        from .data_sync import DataSyncService
-
-        logger.info("从 CdnClient 加载紫卡分析参数数据")
-        data = await CdnClient.fetch_riven_analyse_trend()
-        if not data:
-            logger.warning("紫卡分析参数数据为空，跳过初始化")
-            return
-
-        new_count, _ = await DataSyncService.simple_upsert(
+        await cls._sync_cdn_resource(
+            fetch_fn=CdnClient.fetch_riven_analyse_trend,
             model_cls=RivenAnalyseTrend,
-            data=data,
             key_field="name",
             build_instance=lambda item: RivenAnalyseTrend(
                 archwing=item.get("archwing"),
@@ -99,9 +101,8 @@ class RivenService:
                 shotgun=item.get("shotgun"),
                 suffix=item.get("suffix"),
             ),
+            log_name="紫卡分析参数",
         )
-        total = await RivenAnalyseTrend.all().count()
-        logger.info(f"紫卡分析参数数据初始化完成，共 {total} 条记录（本次新增 {new_count} 条）")
 
     @classmethod
     async def sync_items_data(cls) -> None:
@@ -122,7 +123,7 @@ class RivenService:
             logger.warning("紫卡武器数据为空，跳过")
             return
 
-        items: list[dict] = [{**item, **cls._extract_i18n(item)} for item in data]
+        items: list[dict] = [{**item, **extract_i18n(item)} for item in data]
 
         total_upserted = await DataSyncService.batch_upsert(
             model_cls=RivenItems,
@@ -147,28 +148,6 @@ class RivenService:
         )
         total = await RivenItems.all().count()
         logger.info(f"紫卡武器数据初始化完成，共 {total} 条记录（本次处理 {total_upserted} 条）")
-
-    @staticmethod
-    def _extract_i18n(item: dict, lang: str = "zh-hans") -> dict:
-        """从 API 返回的 item 中提取 i18n 本地化 name/icon/thumb。
-
-        所有 Market API 端点返回的 item 都遵循统一结构:
-            item["i18n"][lang] = {"name": "...", "icon": "...", "thumb": "..."}
-
-        Args:
-            item: API 返回的原始 item 字典。
-            lang: 目标语言代码，默认 "zh-hans"。
-
-        Returns:
-            包含 name/icon/thumb 的 dict，缺失时值为 None。
-        """
-        i18n = item.get("i18n", {})
-        localized = i18n.get(lang, {})
-        return {
-            "name": localized.get("name"),
-            "icon": localized.get("icon"),
-            "thumb": localized.get("thumb"),
-        }
 
     # ══════════════════════════════════════════════════════════════════
     # 本地数据库查询（原有，保持不变）

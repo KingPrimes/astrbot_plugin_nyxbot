@@ -4,6 +4,7 @@
 """
 from __future__ import annotations
 
+import time
 from datetime import datetime, timedelta, timezone
 
 from ..model.notification import NotificationHistory
@@ -19,7 +20,7 @@ class NotificationService:
         mission_id: str,
         title: str = "",
         content: str = "",
-        notified_users: str = "",
+        notified_users: list[str] | None = None,
     ) -> NotificationHistory:
         """记录通知历史。
 
@@ -28,7 +29,7 @@ class NotificationService:
             mission_id: 任务唯一 ID。
             title: 通知标题。
             content: 通知内容。
-            notified_users: 已通知的用户 ID 列表（逗号分隔）。
+            notified_users: 已通知的用户 ID 列表。
 
         Returns:
             创建的通知历史记录。
@@ -38,7 +39,8 @@ class NotificationService:
             mission_id=mission_id,
             title=title,
             content=content,
-            notified_users=notified_users,
+            notified_users=notified_users or [],
+            notified_at=int(time.time()),
         )
         await instance.save()
         return instance
@@ -70,7 +72,9 @@ class NotificationService:
         Returns:
             清理的记录数。
         """
-        cutoff = (datetime.now(timezone.utc) - timedelta(hours=retention_hours)).isoformat()
+        cutoff = int(
+            (datetime.now(timezone.utc) - timedelta(hours=retention_hours)).timestamp()
+        )
         deleted = await NotificationHistory.filter(notified_at__lt=cutoff).delete()
         return deleted
 

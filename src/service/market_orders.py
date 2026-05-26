@@ -5,6 +5,8 @@ OrdersItems 多步匹配管道 + Warframe.Market 订单查询。
 """
 from __future__ import annotations
 
+import asyncio
+
 from tortoise import Tortoise
 from tortoise.exceptions import DoesNotExist
 
@@ -15,10 +17,13 @@ from ..api.market import Platform
 from ..model.market import MarketUser, Orders, OrderWithUser
 from ..model.market_result import MarketResult
 from ..model.orders_items import OrdersItems
+from ..util.alias_cache import AliasCacheHelper
 
 
 class MarketOrdersService:
     """市场订单查询服务。"""
+
+    _alias_helper = AliasCacheHelper()
 
     # ══════════════════════════════════════════════════════════════════
     # 本地数据库查询
@@ -78,17 +83,13 @@ class MarketOrdersService:
 
         return [OrdersItems(**row) for row in rows]
 
-    @staticmethod
-    async def _replace_aliases_in_keyword(keyword: str) -> str:
-        """将关键词中的中文别名替换为英文 — 镜像 Java processAliases()"""
-        from ..model.alias import Alias
+    @classmethod
+    async def _replace_aliases_in_keyword(cls, keyword: str) -> str:
+        """将关键词中的中文别名替换为英文 — 镜像 Java processAliases()
 
-        aliases = await Alias.all()
-        result = keyword
-        for alias in aliases:
-            if alias.cn and alias.en and alias.cn in result:
-                result = result.replace(alias.cn, alias.en)
-        return result
+        使用 AliasCacheHelper 封装缓存 + 预编译正则替换。
+        """
+        return await cls._alias_helper.replace(keyword)
 
     @staticmethod
     def _process_prime_in_keyword(keyword: str) -> str:
@@ -368,12 +369,9 @@ class MarketOrdersService:
         if not slug:
             return MarketResult()
 
-        req_mr, tax = await cls._enrich_item_details_from_api(
-            slug, platform, item.id
-        )
-
-        order_users = await cls._fetch_and_filter_market_orders(
-            slug, platform, is_by, is_max, item
+        (req_mr, tax), order_users = await asyncio.gather(
+            cls._enrich_item_details_from_api(slug, platform, item.id),
+            cls._fetch_and_filter_market_orders(slug, platform, is_by, is_max, item),
         )
 
         orders = cls._build_orders_model_from_item(

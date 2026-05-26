@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import random
 import time
 from pathlib import Path
 from typing import Any
@@ -18,7 +19,7 @@ from tortoise.exceptions import DoesNotExist
 
 from astrbot.api import logger
 
-from ..api.api import WF_WORLD_STATE
+from ..api.api import WF_ARBITRATION, WF_WORLD_STATE
 from ..init import init_ready
 from ..model.arbitration import Arbitration
 from ..model.export.night_wave import NightWave
@@ -74,11 +75,11 @@ class WorldStateService:
         return await fetch_json(WF_WORLD_STATE)
 
     # ── 类变量 ──────────────────────────────────────────────────────────
-    _cache: dict[str, Any] = {"ws": None, "raw": None}
+    _cache: dict[str, Any] = {"ws": None}
     _refresh_task: asyncio.Task | None = None
     _failed: bool = False
     _MAX_RETRIES: int = 3
-    _RETRY_DELAY: int = 5
+    _RETRY_DELAY: float = 5.0
 
     # ══════════════════════════════════════════════════════════════════
     # 缓存生命周期（镜像 Java WarframeCache + 计划 v2 状态机）
@@ -89,7 +90,12 @@ class WorldStateService:
         """启动缓存：优先从文件恢复，否则 API 拉取 + 启动后台刷新循环。
 
         在 main.py 的 _do_initialize() 末尾调用。
+        内置可重入保护：重复调用不会创建僵尸后台任务。
         """
+        if cls._refresh_task is not None and not cls._refresh_task.done():
+            logger.warning("WorldState 缓存刷新任务已在运行，跳过重复启动")
+            return
+
         cache_path = Path(get_public_data_path()) / "world_state_cache.json"
 
         if cache_path.exists():
@@ -153,7 +159,6 @@ class WorldStateService:
                 ws, raw = await cls._fetch_and_parse()
                 if ws and raw:
                     cls._cache["ws"] = ws
-                    cls._cache["raw"] = raw
                     cls._save_to_file(ws)
                     cls._failed = False
                     logger.info(f"WorldState API 拉取成功 (第 {attempt} 次)")
@@ -163,7 +168,9 @@ class WorldStateService:
                     f"WorldState API 请求失败 ({attempt}/{cls._MAX_RETRIES}): {e}"
                 )
             if attempt < cls._MAX_RETRIES:
-                await asyncio.sleep(cls._RETRY_DELAY)
+                delay = cls._RETRY_DELAY * (2 ** (attempt - 1))
+                delay += random.uniform(0, delay * 0.5)
+                await asyncio.sleep(delay)
 
         cls._failed = True
         logger.error("WorldState API 全部重试失败，已停止自动请求")
@@ -222,7 +229,6 @@ class WorldStateService:
                 new_ws, new_raw = await cls._fetch_and_parse()
                 if new_ws and new_raw:
                     cls._cache["ws"] = new_ws
-                    cls._cache["raw"] = new_raw
                     cls._save_to_file(new_ws)
                     logger.debug("WorldState 后台刷新成功")
             except Exception as e:
@@ -297,6 +303,30 @@ class WorldStateService:
         return node_key
 
     @classmethod
+    async def _batch_translate_nodes(
+        cls, node_keys: set[str],
+    ) -> dict[str, str]:
+        """批量翻译节点 key 为显示名称，避免 N+1 查询。
+
+        Args:
+            node_keys: 需要翻译的节点 key 集合。
+
+        Returns:
+            {node_key: display_name} 映射表。
+        """
+        if not node_keys:
+            return {}
+        db_nodes = await Nodes.filter(uniqueName__in=list(node_keys)).all()
+        result: dict[str, str] = {}
+        for n in db_nodes:
+            if n.systemName:
+                result[n.uniqueName] = f"{n.name}({n.systemName})"
+            else:
+                result[n.uniqueName] = n.name
+        # 未找到的 key 保留原值
+        return {k: result.get(k, k) for k in node_keys}
+
+    @classmethod
     async def _batch_translate_items(cls, paths: set[str]) -> dict[str, str]:
         """批量翻译物品路径 → 中文名（通过 suffix 匹配）。
 
@@ -352,6 +382,14 @@ class WorldStateService:
         # 批量翻译物品
         item_translations = await cls._batch_translate_items(all_item_paths)
 
+        # 批量翻译节点名
+        node_keys = {
+            a.mission_info.location
+            for a in valid_alerts
+            if a.mission_info and a.mission_info.location
+        }
+        node_translations = await cls._batch_translate_nodes(node_keys)
+
         # 就地翻译节点名和物品名
         for a in valid_alerts:
             mi = a.mission_info
@@ -360,7 +398,7 @@ class WorldStateService:
 
             # 翻译节点名 → 覆盖 location 字段
             if mi.location:
-                mi.location = await cls._translate_node(mi.location)
+                mi.location = node_translations.get(mi.location, mi.location)
 
             # 翻译物品名 → 覆盖 counted_items 中 Item 的 name
             reward = mi.mission_reward
@@ -387,10 +425,19 @@ class WorldStateService:
         if ws is None:
             return []
 
+        # 批量翻译所有 variant 节点
+        node_keys = {
+            v.node
+            for s in ws.sorties
+            for v in s.variants
+            if v.node
+        }
+        node_translations = await cls._batch_translate_nodes(node_keys)
+
         for s in ws.sorties:
             for v in s.variants:
                 if v.node:
-                    v.node = await cls._translate_node(v.node)
+                    v.node = node_translations.get(v.node, v.node)
 
         return ws.sorties
 
@@ -437,10 +484,23 @@ class WorldStateService:
     async def _translate_active_missions(
         cls, missions: list[ActiveMission],
     ) -> list[ActiveMission]:
-        """翻译 ActiveMission 列表（节点 + faction 从 Nodes 表取）。"""
+        """翻译 ActiveMission 列表（节点 + faction 从 Nodes 表取）。
+
+        批量查询 Nodes 表避免 N+1 问题。
+        """
+        if not missions:
+            return []
+
+        node_names = {m.node for m in missions if m.node}
+        if node_names:
+            db_nodes = await Nodes.filter(uniqueName__in=list(node_names)).all()
+            node_map = {n.uniqueName: n for n in db_nodes}
+        else:
+            node_map = {}
+
         for m in missions:
-            node = await cls.get_node(m.node) if m.node else None
-            if node:
+            if m.node and m.node in node_map:
+                node = node_map[m.node]
                 if node.systemName:
                     m.node = f"{node.name}({node.systemName})"
                 else:
@@ -458,7 +518,18 @@ class WorldStateService:
         """转换 VoidStorms → ActiveMission（节点 + faction + mission_type 从 Nodes 表补全）。
 
         镜像 Java: getFissure(VOID_STORMS) 分支。
+        批量查询 Nodes 表避免 N+1 问题。
         """
+        if not void_storms:
+            return []
+
+        node_names = {vs.node for vs in void_storms if vs.node}
+        if node_names:
+            db_nodes = await Nodes.filter(uniqueName__in=list(node_names)).all()
+            node_map = {n.uniqueName: n for n in db_nodes}
+        else:
+            node_map = {}
+
         result: list[ActiveMission] = []
         for vs in void_storms:
             am = ActiveMission()
@@ -467,8 +538,8 @@ class WorldStateService:
             am.modifier = vs.tier  # tier → modifier
             am.void_storms = True
 
-            node = await cls.get_node(vs.node) if vs.node else None
-            if node:
+            if vs.node and vs.node in node_map:
+                node = node_map[vs.node]
                 am.node = f"{node.name}({node.systemName})" if node.systemName else node.name
                 am.faction = node.faction  # 从 Nodes 表补全
                 am.mission_type = node.mission_type  # 从 Nodes 表补全
@@ -516,11 +587,15 @@ class WorldStateService:
         # 批量翻译物品
         item_translations = await cls._batch_translate_items(all_item_paths)
 
+        # 批量翻译节点名
+        node_keys = {inv.node for inv in valid_invasions if inv.node}
+        node_translations = await cls._batch_translate_nodes(node_keys)
+
         # 就地翻译
         for inv in valid_invasions:
             # 翻译节点名 → 覆盖 node 字段
             if inv.node:
-                inv.node = await cls._translate_node(inv.node)
+                inv.node = node_translations.get(inv.node, inv.node)
 
             # 翻译防守方奖励物品名
             if inv.defender_reward and inv.defender_reward.counted_items:
@@ -624,10 +699,19 @@ class WorldStateService:
         if ws is None:
             return []
 
+        # 批量翻译所有 mission 节点
+        node_keys = {
+            m.node
+            for ls in ws.lite_sorties
+            for m in ls.missions
+            if m.node
+        }
+        node_translations = await cls._batch_translate_nodes(node_keys)
+
         for ls in ws.lite_sorties:
             for m in ls.missions:
                 if m.node:
-                    m.node = await cls._translate_node(m.node)
+                    m.node = node_translations.get(m.node, m.node)
 
         return ws.lite_sorties
 
@@ -653,25 +737,25 @@ class WorldStateService:
         if si is None:
             return None
 
-        # 翻译挑战信息（从 NightWave 表查询后覆盖字段）
-        for ac in si.active_challenges:
-            await cls._translate_active_challenge(ac)
-        return si
+        # 批量查询挑战信息避免 N+1（从 NightWave 表查询后覆盖字段）
+        if si.active_challenges:
+            challenge_ids = [ac.challenge for ac in si.active_challenges]
+            db_challenges = await NightWave.filter(
+                uniqueName__in=challenge_ids
+            ).all()
+            nw_map = {nw.uniqueName: nw for nw in db_challenges}
 
-    @classmethod
-    async def _translate_active_challenge(cls, ac: SeasonInfo.ActiveChallenges) -> None:
-        """从 NightWave 表查询并覆盖单条挑战的翻译信息。"""
-        try:
-            nw = await NightWave.get(uniqueName=ac.challenge)
-            ac.name = nw.name
-            ac.description = nw.get_description()
-            ac.standing = nw.standing
-            ac.required = nw.required
-            ac.daily = nw.is_daily_tasks
-            ac.weekly = nw.is_weekly_tasks
-            ac.elite = nw.is_elite_missions
-        except DoesNotExist:
-            pass
+            for ac in si.active_challenges:
+                nw = nw_map.get(ac.challenge)
+                if nw is not None:
+                    ac.name = nw.name
+                    ac.description = nw.get_description()
+                    ac.standing = nw.standing
+                    ac.required = nw.required
+                    ac.daily = nw.is_daily_tasks
+                    ac.weekly = nw.is_weekly_tasks
+                    ac.elite = nw.is_elite_missions
+        return si
 
     # ══════════════════════════════════════════════════════════════════
     # get_duviri_cycle() — 双衍王境 → DuvalierCycle | None
@@ -692,19 +776,29 @@ class WorldStateService:
 
         cycle: DuvalierCycle = ws.duvalier_cycle
 
-        # 翻译 EXC_HARD choices 中的武器名
+        # 批量翻译 EXC_HARD choices 中的武器名（避免 N+1 查询）
         if cycle.choices:
+            # 收集所有需要翻译的武器英文名
+            all_weapon_names: set[str] = set()
             for c in cycle.choices:
                 if c.category == EndlessXpCategory.EXC_HARD:
-                    # 通过 englishName 查找武器中文名
-                    translated: list[str] = []
-                    for s in c.choices:
-                        weapon = await Weapons.filter(englishName=split_camel_case(s)).first()
-                        if weapon:
-                            translated.append(weapon.name or split_camel_case(s))
-                        else:
-                            translated.append(split_camel_case(s))
-                    c.choices = translated
+                    all_weapon_names.update(split_camel_case(s) for s in c.choices)
+
+            # 批量查询 Weapons 表
+            weapon_map: dict[str, str] = {}
+            if all_weapon_names:
+                db_weapons = await Weapons.filter(
+                    englishName__in=list(all_weapon_names)
+                ).all()
+                weapon_map = {w.englishName: w.name for w in db_weapons if w.name}
+
+            # 就地翻译
+            for c in cycle.choices:
+                if c.category == EndlessXpCategory.EXC_HARD:
+                    c.choices = [
+                        weapon_map.get(split_camel_case(s), split_camel_case(s))
+                        for s in c.choices
+                    ]
 
         return cycle
 
@@ -846,16 +940,18 @@ class WorldStateService:
 
         for sm in ws.syndicate_missions:
             if sm.tag is syndicate_tag and sm.jobs:
-                # 翻译 job 类型
+                # 批量翻译 job 类型（避免 N+1 逐条查询）
+                type_keys: set[str] = set()
                 for job in sm.jobs:
-                    if job.type:
-                        translated = await cls._translate_job_type(job.type)
-                        if translated:
-                            job.type = translated
-                    elif job.location_tag:
-                        translated = await cls._translate_job_type(job.location_tag)
-                        if translated:
-                            job.type = translated
+                    if key := (job.type or job.location_tag):
+                        type_keys.add(key)
+                if type_keys:
+                    type_map = await cls._batch_translate_job_types(type_keys)
+                    for job in sm.jobs:
+                        if key := (job.type or job.location_tag):
+                            translated = type_map.get(key)
+                            if translated:
+                                job.type = translated
                 return sm
 
         return None
@@ -865,17 +961,39 @@ class WorldStateService:
         """翻译赏金任务类型（从 StateTranslation 表查询，回退到 Nodes 表）。"""
         if not type_key:
             return None
-        try:
-            from ..util.string_utils import get_last_three_segments
+        from ..util.string_utils import get_last_three_segments
+        with contextlib.suppress(Exception):
             key = get_last_three_segments(type_key)
-            if not key:
-                return None
-            trans = await StateTranslationService.get_state_translation(key)
-            if trans:
-                return trans
-        except Exception:
-            pass
+            if key:
+                trans = await StateTranslationService.get_state_translation(key)
+                if trans:
+                    return trans
         return None
+
+    @classmethod
+    async def _batch_translate_job_types(
+        cls, type_keys: set[str],
+    ) -> dict[str, str]:
+        """批量翻译赏金任务类型（单次查询，消除 N+1）。"""
+        result: dict[str, str] = {}
+        if not type_keys:
+            return result
+        from ..util.string_utils import get_last_three_segments
+        # 构建原始 key → 查询 key 的映射
+        mapping: dict[str, str] = {}
+        query_keys: set[str] = set()
+        for tk in type_keys:
+            if qk := get_last_three_segments(tk):
+                mapping[tk] = qk
+                query_keys.add(qk)
+        if not query_keys:
+            return result
+        # 批量查询 StateTranslation
+        translations = await StateTranslationService.batch_translate_by_suffix(query_keys)
+        for tk, qk in mapping.items():
+            if translated := translations.get(qk):
+                result[tk] = translated
+        return result
 
     # ══════════════════════════════════════════════════════════════════
     # get_known_calendar_seasons() — 1999日历
@@ -910,7 +1028,19 @@ class WorldStateService:
             Arbitration 模型实例，无活跃数据时返回 None。
         """
 
-        return None
+        raw = await fetch_json(WF_ARBITRATION)
+        if not raw:
+            return None
+        now = time.time()
+        active = [
+            a
+            for item in raw
+            if isinstance(item, dict)
+            and (a := Arbitration.model_validate(item))
+            and a.expiry is not None
+            and a.expiry > now
+        ]
+        return min(active, key=lambda a: a.expiry) if active else None
 
     # ══════════════════════════════════════════════════════════════════
     # 星图节点查询（保留原有方法）
