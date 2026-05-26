@@ -31,8 +31,8 @@ from PIL import Image
 from astrbot.api import logger
 
 # paddle 3.x 环境变量安全网（与构造参数互补确保 oneDNN 完全禁用）
-os.environ["FLAGS_use_onednn"] = "0"
-os.environ["FLAGS_use_mkldnn"] = "0"
+os.environ["FLAGS_USE_ONEDNN"] = "0"
+os.environ["FLAGS_USE_MKLDNN"] = "0"
 os.environ.setdefault("KMP_AFFINITY", "disabled")
 os.environ.setdefault("PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK", "True")
 

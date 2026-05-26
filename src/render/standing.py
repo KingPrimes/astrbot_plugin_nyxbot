@@ -23,6 +23,17 @@ STANDING_DIR: Path = Path(__file__).parent / "styles"
 _standing_image_cache: list[Image.Image] = []
 
 
+def _load_image_safe(png_path: Path) -> Image.Image | None:
+    try:
+        img = Image.open(png_path)
+        img.load()
+        if img.mode != "RGBA":
+            img = img.convert("RGBA")
+        return img
+    except Exception:
+        return None
+
+
 def _init_standing_cache() -> None:
     """预加载 styles/ 目录下所有 PNG 到内存缓存。"""
     global _standing_image_cache
@@ -30,15 +41,10 @@ def _init_standing_cache() -> None:
         return
     if not STANDING_DIR.exists():
         return
-    for png_path in sorted(STANDING_DIR.glob("*.png")):
-        try:
-            img = Image.open(png_path)
-            img.load()  # 强制解码，避免延迟加载
-            if img.mode != "RGBA":
-                img = img.convert("RGBA")
-            _standing_image_cache.append(img)
-        except Exception:
-            pass
+    _standing_image_cache.extend(
+        img for png_path in sorted(STANDING_DIR.glob("*.png"))
+        if (img := _load_image_safe(png_path))
+    )
 
 
 def pick_standing_image() -> Image.Image | None:

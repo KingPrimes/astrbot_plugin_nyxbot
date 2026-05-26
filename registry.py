@@ -18,8 +18,9 @@ AstrBot 插件管理器通过匹配 handler_module_path 与主插件模块路径
 from __future__ import annotations
 
 import json
-import os
+from pathlib import Path
 
+from astrbot.api import logger
 from astrbot.api.event import filter
 
 MAIN_MODULE = "data.plugins.astrbot_plugin_nyxbot.main"
@@ -41,21 +42,19 @@ def _load_prefix_from_config() -> str:
     如果配置文件不存在或读取失败，返回默认值空字符串（无前缀）。
     """
     try:
-        # Plugin dir: data/plugins/astrbot_plugin_nyxbot/
-        plugin_dir = os.path.dirname(os.path.abspath(__file__))
-        # AstrBot data dir: data/
-        data_dir = os.path.dirname(os.path.dirname(plugin_dir))
-        # Config dir: data/config/
-        config_dir = os.path.join(data_dir, "config")
-        plugin_name = os.path.basename(plugin_dir)
-        config_path = os.path.join(config_dir, f"{plugin_name}_config.json")
+        plugin_dir = Path(__file__).resolve().parent
+        # Config at data/config/{plugin_name}_config.json
+        config_path = plugin_dir.parent.parent / "config" / f"{plugin_dir.name}_config.json"
 
-        if os.path.exists(config_path):
-            with open(config_path, encoding="utf-8") as f:
-                config = json.load(f)
+        if config_path.exists():
+            config = json.loads(config_path.read_text(encoding="utf-8"))
             return str(config.get("wf_command_prefix", "")).strip()
+    except FileNotFoundError:
+        return ""
+    except json.JSONDecodeError:
+        logger.warning(f"配置文件 JSON 解析失败: {config_path}")
     except Exception:
-        pass
+        logger.exception("读取配置文件时发生未知错误", exc_info=True)
     return ""  # Default: no prefix
 
 
@@ -155,7 +154,6 @@ if command_prefix:
     @_patch_module
     def _wf_group_handler(self):
         """Warframe 助手指令组"""
-        pass
 
     wf = _PatchedRegisteringCommandable(
         filter.command_group(command_prefix)(_wf_group_handler)

@@ -69,14 +69,14 @@ def _build_rows(cycles: AllCycles) -> list[_CycleRow]:
             cycles.cetus.time_left,
         ))
 
-    if cycles.callis:
-        icon = IconEnum.SUN.icon if cycles.callis.is_warm else IconEnum.COLD.icon
+    if cycles.vallis:
+        icon = IconEnum.SUN.icon if cycles.vallis.is_warm else IconEnum.COLD.icon
         rows.append(_CycleRow(
             "福尔图娜（奥布山谷）",
             icon,
-            cycles.callis.is_warm,
-            cycles.callis.state,
-            cycles.callis.time_left,
+            cycles.vallis.is_warm,
+            cycles.vallis.state,
+            cycles.vallis.time_left,
         ))
 
     if cycles.cambion:

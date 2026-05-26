@@ -207,11 +207,10 @@ def _draw_jobs_view(
     # Step 3: 绘制卡片
     x = grid_start_x
     y = _CONTENT_START_Y
-    card_index = 0
 
     for i, job in enumerate(jobs):
         # 换行检查
-        if card_index > 0 and card_index % _CARDS_PER_ROW == 0:
+        if i > 0 and i % _CARDS_PER_ROW == 0:
             x = grid_start_x
             # 上一行最大高度
             prev_max = card_heights[i - 1]
@@ -223,7 +222,6 @@ def _draw_jobs_view(
         cb.draw_image(card_img, x, y)
 
         x += _CARD_W + _CARD_MARGIN_X
-        card_index += 1
 
     # ---- 看板娘 ----
     draw_standing(cb, max_w=_STANDING_MAX_W, max_h=_STANDING_MAX_H)

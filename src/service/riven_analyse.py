@@ -247,10 +247,7 @@ def _compute_low_high(
     if attr_count == 2:
         factor = 0.99
     elif attr_count == 3:
-        if nag:
-            factor = -0.495 if is_neg else 1.2375
-        else:
-            factor = 0.75
+        factor = (-0.495 if is_neg else 1.2375) if nag else 0.75
     elif attr_count == 4:
         factor = -0.75 if is_neg else 0.9375
     else:
@@ -276,10 +273,7 @@ def _attr_diff(
 
     if any(k in name for k in _DISCRIMINATION_KEYWORDS):
         abs_value = abs(attr)
-        if abs_value > 1:
-            abs_value = (abs_value - 1) * 100
-        else:
-            abs_value = 100 - abs_value * 100
+        abs_value = (abs_value - 1) * 100 if abs_value > 1 else 100 - abs_value * 100
         i = abs_value - abs(median)
         return _format_diff(median, abs_value, i)
 
@@ -521,10 +515,7 @@ class RivenAnalyseService:
                 name = _get_attribute_name(raw) + " 效果加倍）"
             elif "暴击几率（" in raw or "重击" in raw:
                 # Java: substring(0, raw.contains("率") ? raw.indexOf("率")+1 : raw.length()) + "(重击时 x2)"
-                if "率" in raw:
-                    base = raw[: raw.index("率") + 1]
-                else:
-                    base = raw
+                base = raw[: raw.index("率") + 1] if "率" in raw else raw
                 attribute_name = base + "(重击时 x2)"
                 name = "暴击几率（重击时 x2）"
             elif "滑行攻击" in raw:

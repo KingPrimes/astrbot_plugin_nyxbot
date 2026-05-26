@@ -122,9 +122,7 @@ class RivenService:
             logger.warning("紫卡武器数据为空，跳过")
             return
 
-        items: list[dict] = []
-        for item in data:
-            items.append({**item, **cls._extract_i18n(item)})
+        items: list[dict] = [{**item, **cls._extract_i18n(item)} for item in data]
 
         total_upserted = await DataSyncService.batch_upsert(
             model_cls=RivenItems,
@@ -171,34 +169,6 @@ class RivenService:
             "icon": localized.get("icon"),
             "thumb": localized.get("thumb"),
         }
-
-    # ══════════════════════════════════════════════════════════════════
-    # 远程 API（原有，保持不变）
-    # ══════════════════════════════════════════════════════════════════
-
-    @classmethod
-    async def get_weapon_list(cls) -> list[dict] | None:
-        """获取紫卡武器列表（远程）。"""
-        ...  # TODO: 由 API 层实现
-
-    @classmethod
-    async def search_auctions(
-        cls,
-        weapon_url_name: str,
-        sort_by: str = "price_asc",
-        page: int = 0,
-    ) -> dict | None:
-        """搜索紫卡拍卖。
-
-        Args:
-            weapon_url_name: 武器 url_name。
-            sort_by: 排序方式。
-            page: 页码。
-
-        Returns:
-            拍卖搜索结果。
-        """
-        ...  # TODO: 由 API 层实现
 
     # ══════════════════════════════════════════════════════════════════
     # 本地数据库查询（原有，保持不变）

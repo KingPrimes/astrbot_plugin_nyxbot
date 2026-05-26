@@ -539,26 +539,30 @@ class MarketClient:
             "sort_by": sort_by,
         }
         # 字符串选项参数 —— None 或 "any" 都省略（对齐 Java "默认 ANY 时省略"）
-        for key, val in (
-            ("positive_stats", positive_stats),
-            ("negative_stats", negative_stats),
-            ("buyout_policy", buyout_policy),
-            ("element", element),
-        ):
-            if val and val != "any":
-                params[key] = val
+        params.update({
+            key: val
+            for key, val in (
+                ("positive_stats", positive_stats),
+                ("negative_stats", negative_stats),
+                ("buyout_policy", buyout_policy),
+                ("element", element),
+            )
+            if val and val != "any"
+        })
         # polarity：始终发送（Java riven URL 必发，包括 "any"）
         if polarity is not None:
             params["polarity"] = polarity
         # 整数参数 —— None 省略
-        for key, val in (
-            ("mastery_rank_min", mastery_rank_min),
-            ("mastery_rank_max", mastery_rank_max),
-            ("damage_min", damage_min),
-            ("damage_max", damage_max),
-        ):
-            if val is not None:
-                params[key] = val
+        params.update({
+            key: val
+            for key, val in (
+                ("mastery_rank_min", mastery_rank_min),
+                ("mastery_rank_max", mastery_rank_max),
+                ("damage_min", damage_min),
+                ("damage_max", damage_max),
+            )
+            if val is not None
+        })
         # 布尔参数 —— None 省略，否则序列化为小写字符串
         if has_ephemera is not None:
             params["has_ephemera"] = "true" if has_ephemera else "false"

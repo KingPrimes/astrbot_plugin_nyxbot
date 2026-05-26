@@ -60,8 +60,7 @@ class StateTranslationService:
         Java 的 String.matches() 等价于 Python 的 re.fullmatch()。
         """
         for enum_val in StateTypeEnum:
-            if enum_val.key:
-                if re.fullmatch(enum_val.key, unique_name):
+            if enum_val.key and re.fullmatch(enum_val.key, unique_name):
                     return enum_val.name
         return default_type.name
 

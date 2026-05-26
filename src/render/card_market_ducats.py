@@ -111,10 +111,7 @@ def render_market_ducats_card(
     current_y += _HEADER_H + 6
 
     # 排名渐变色起点
-    if "金" in title:
-        rank_start_color = ThemeColor.ACCENT_GOLD  # (255, 215, 0)
-    else:
-        rank_start_color = (192, 192, 192)  # 亮银色
+    rank_start_color = ThemeColor.ACCENT_GOLD if "金" in title else (192, 192, 192)  # 亮银色
 
     # --- 数据行 ---
     for i in range(max_rows):

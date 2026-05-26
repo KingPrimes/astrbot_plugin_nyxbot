@@ -36,7 +36,7 @@ class ModifierTypeEnum(Enum):
     SORTIE_MODIFIER_FIRE = "敌人元素强化(火焰)"
     SORTIE_MODIFIER_FREEZE = "敌人元素强化(冰冻)"
     SORTIE_MODIFIER_TOXIN = "敌人元素强化(毒素)"
-    SORTIE_MODIFIER_POISON = "敌人元素强化(毒素)"
+    SORTIE_MODIFIER_POISON = SORTIE_MODIFIER_TOXIN
 
     # === 敌人防御强化 / Enemy Defense Enhancement ===
     SORTIE_MODIFIER_SHIELDS = "敌人护盾强化"

@@ -6,6 +6,7 @@ from astrbot.api.event import AstrMessageEvent
 
 from ...registry import wf
 from ..model.world_state.all_cycles import AllCycles
+from ..render.card_cycle import render_cycle_card
 from ..render.card_renderer import CardRenderer
 from ..service.world_state import WorldStateService
 
@@ -21,7 +22,7 @@ async def wf_cycle(self, event: AstrMessageEvent):
     zariman = await WorldStateService.get_zariman_cycle()
     cambion = await WorldStateService.get_cambion_cycle()
 
-    if not any([earth, cetus, vallis, zariman, cambion]):
+    if not any((earth, cetus, vallis, zariman, cambion)):
         yield event.plain_result("无法获取周期数据")
         return
 
@@ -29,12 +30,11 @@ async def wf_cycle(self, event: AstrMessageEvent):
     all_cycles = AllCycles()
     all_cycles.earth = earth
     all_cycles.cetus = cetus
-    all_cycles.callis = vallis
+    all_cycles.vallis = vallis
     all_cycles.zariman = zariman
     all_cycles.cambion = cambion
 
     renderer = CardRenderer()
-    from ..render.card_cycle import render_cycle_card
     img = render_cycle_card(renderer, all_cycles, "全周期状态")
     img_bytes = CardRenderer.render_to_bytes(img)
     yield event.chain_result([Comp.Image.fromBytes(img_bytes)])

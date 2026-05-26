@@ -61,13 +61,12 @@ def decompress_lzma(
 
     try:
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        with lzma.open(source_path, "rb") as f_in:
-            with open(output_path, "wb") as f_out:
-                while True:
-                    chunk = f_in.read(chunk_size)
-                    if not chunk:
-                        break
-                    f_out.write(chunk)
+        with lzma.open(source_path, "rb") as f_in, open(output_path, "wb") as f_out:
+            while True:
+                chunk = f_in.read(chunk_size)
+                if not chunk:
+                    break
+                f_out.write(chunk)
 
         logger.info(f"LZMA 解压成功: {source_path.name} → {output_path}")
         return True

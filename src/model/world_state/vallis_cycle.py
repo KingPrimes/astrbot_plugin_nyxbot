@@ -37,11 +37,7 @@ class VallisCycle:
         since_last = (now_ms - _L_START_MS) % _LOOP_TIME
         to_next_full = _LOOP_TIME - since_last
 
-        state: str
-        if to_next_full > _COLD_TIME:
-            state = "温暖"
-        else:
-            state = "寒冷"
+        state: str = "温暖" if to_next_full > _COLD_TIME else "寒冷"
 
         to_next_minor: int
         if to_next_full < _COLD_TIME:

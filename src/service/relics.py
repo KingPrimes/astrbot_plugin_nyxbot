@@ -121,9 +121,8 @@ class RelicsService:
         keywords: set[str] = set()
         for item in relics_data:
             for r in item.get("rewards", []):
-                if rn := r.get("rewardName"):
-                    if kw := get_last_three_segments(rn):
-                        keywords.add(kw)
+                if (rn := r.get("rewardName")) and (kw := get_last_three_segments(rn)):
+                    keywords.add(kw)
 
         if not keywords:
             return []
@@ -136,11 +135,9 @@ class RelicsService:
         untranslated_map: dict[str, dict] = {}  # rewardName → item dict 去重
         for item in relics_data:
             for r in item.get("rewards", []):
-                if rn := r.get("rewardName"):
-                    if kw := get_last_three_segments(rn):
-                        if translated := translation_map.get(kw):
-                            r["rewardName"] = translated
-                            continue
+                if (rn := r.get("rewardName")) and (kw := get_last_three_segments(rn)) and (translated := translation_map.get(kw)):
+                    r["rewardName"] = translated
+                    continue
                     # 未找到翻译，收集（去重）
                     # 生成兜底名称：取路径最后一段 → 驼峰拆分 → WF 术语翻译
                     if rn not in untranslated_map:

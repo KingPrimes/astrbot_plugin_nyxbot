@@ -88,10 +88,7 @@ def create_gradient_background(
 
     for y in range(height):
         for x in range(width):
-            if vertical:
-                t = y / max(height - 1, 1)
-            else:
-                t = x / max(width - 1, 1)
+            t = y / max(height - 1, 1) if vertical else x / max(width - 1, 1)
 
             r = int(start_color[0] + (end_color[0] - start_color[0]) * t)
             g = int(start_color[1] + (end_color[1] - start_color[1]) * t)

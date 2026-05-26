@@ -12,6 +12,6 @@ class AllCycles:
 
     earth: EarthCycle | None = None
     cetus: CetusCycle | None = None
-    callis: VallisCycle | None = None
+    vallis: VallisCycle | None = None
     zariman: ZarimanCycle | None = None
     cambion: CambionCycle | None = None

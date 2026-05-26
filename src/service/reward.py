@@ -42,10 +42,11 @@ class RewardService:
             ).only("uniqueName")
         }
 
-        new_pools: list[RewardPool] = []
-        for item in data:
-            if item["uniqueName"] not in existing_pools:
-                new_pools.append(RewardPool(uniqueName=item["uniqueName"]))
+        new_pools: list[RewardPool] = [
+            RewardPool(uniqueName=item["uniqueName"])
+            for item in data
+            if item["uniqueName"] not in existing_pools
+        ]
 
         new_pool_count = 0
         if new_pools:

@@ -130,9 +130,8 @@ class Weapons(Model):
         # 转换为每个部分首字母大写并保留分隔符：HELLO_WORLD → Hello_World
         e_name = to_title_case(raw)
         # 处理 MK1- 前缀特殊逻辑
-        if self.name and self.name.upper() == "MK1-":
-            if e_name and e_name != self.description.strip() and e_name.upper() != "MK1-":
-                return f"Mk1-{e_name}"
+        if self.name and self.name.upper() == "MK1-" and e_name and e_name != self.description.strip() and e_name.upper() != "MK1-":
+            return f"Mk1-{e_name}"
         if e_name and self.description and e_name == self.description.strip():
             return ""
         return e_name

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
+from pathlib import Path
 from typing import cast
 
 from astrbot.api import AstrBotConfig, logger
@@ -104,7 +106,7 @@ class NyxBotPlugin(Star):
             set_init_complete()
             logger.info("NyxBot 初始化完成")
         except Exception as e:
-            logger.error(f"NyxBot 初始化失败: {e}", exc_info=True)
+            logger.exception(f"NyxBot 初始化失败: {e}")
             set_init_complete()
             # 初始化失败，自动从 AstrBot 中停用当前插件
             self._schedule_self_disable()
@@ -115,7 +117,7 @@ class NyxBotPlugin(Star):
         使用 asyncio.create_task 避免在当前的 _do_initialize 协程中直接调用
         turn_off_plugin（它内部会调用 terminate()，可能造成死锁）。
         """
-        plugin_name = "astrbot_plugin_nyxbot"
+        plugin_name = Path(__file__).resolve().parent.name
         star_manager = getattr(self.context, "_star_manager", None)
         if star_manager is None:
             logger.error(f"无法获取 StarManager，跳过停用插件 {plugin_name}")
@@ -138,10 +140,8 @@ class NyxBotPlugin(Star):
         # 等待后台初始化任务完成
         if self._init_task and not self._init_task.done():
             self._init_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._init_task
-            except asyncio.CancelledError:
-                pass
 
         # 停止 WorldState 后台刷新
         await WorldStateService.stop_cache()

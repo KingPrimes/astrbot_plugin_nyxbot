@@ -5,6 +5,7 @@ import astrbot.api.message_components as Comp
 from astrbot.api.event import AstrMessageEvent
 
 from ...registry import wf
+from ..render.card_daily_deals import render_daily_deals_card
 from ..render.card_renderer import CardRenderer
 from ..service.world_state import WorldStateService
 
@@ -19,7 +20,6 @@ async def wf_daily_deals(self, event: AstrMessageEvent):
         return
 
     renderer = CardRenderer()
-    from ..render.card_daily_deals import render_daily_deals_card
     img = render_daily_deals_card(renderer, deals)
     img_bytes = CardRenderer.render_to_bytes(img)
     yield event.chain_result([Comp.Image.fromBytes(img_bytes)])

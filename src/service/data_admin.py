@@ -41,9 +41,7 @@ class DataAdminService:
 
         qs = model_cls.all()
         if q and search_fields:
-            field_conditions = []
-            for field_name in search_fields:
-                field_conditions.append(Q(**{f"{field_name}__contains": q}))
+            field_conditions = [Q(**{f"{field_name}__contains": q}) for field_name in search_fields]
             if field_conditions:
                 q_or = field_conditions[0]
                 for fc in field_conditions[1:]:

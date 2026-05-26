@@ -63,9 +63,7 @@ class MarketSyncService:
             logger.warning("物品数据为空，跳过")
             return
 
-        items: list[dict] = []
-        for item in data:
-            items.append({**item, **cls._extract_i18n(item)})
+        items: list[dict] = [{**item, **cls._extract_i18n(item)} for item in data]
 
         total_upserted = await DataSyncService.batch_upsert(
             model_cls=OrdersItems,
@@ -117,16 +115,14 @@ class MarketSyncService:
 
         if lich_resp:
             lich_data = lich_resp.get("data", [])
-            for item in lich_data:
-                all_data.append({**item, **cls._extract_i18n(item)})
+            all_data.extend({**item, **cls._extract_i18n(item)} for item in lich_data)
             logger.info(f"赤毒幻纹: {len(lich_data)} 条")
         else:
             logger.warning("赤毒幻纹数据为空")
 
         if sister_resp:
             sister_data = sister_resp.get("data", [])
-            for item in sister_data:
-                all_data.append({**item, **cls._extract_i18n(item)})
+            all_data.extend({**item, **cls._extract_i18n(item)} for item in sister_data)
             logger.info(f"信条幻纹: {len(sister_data)} 条")
         else:
             logger.warning("信条幻纹数据为空")
@@ -176,16 +172,14 @@ class MarketSyncService:
 
         if lich_resp:
             lich_data = lich_resp.get("data", [])
-            for item in lich_data:
-                all_data.append({**item, **cls._extract_i18n(item)})
+            all_data.extend({**item, **cls._extract_i18n(item)} for item in lich_data)
             logger.info(f"赤毒武器: {len(lich_data)} 条")
         else:
             logger.warning("赤毒武器数据为空")
 
         if sister_resp:
             sister_data = sister_resp.get("data", [])
-            for item in sister_data:
-                all_data.append({**item, **cls._extract_i18n(item)})
+            all_data.extend({**item, **cls._extract_i18n(item)} for item in sister_data)
             logger.info(f"信条武器: {len(sister_data)} 条")
         else:
             logger.warning("信条武器数据为空")

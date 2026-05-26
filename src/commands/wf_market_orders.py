@@ -65,10 +65,7 @@ def _resolve_bool(param: str, true_values: tuple[str, ...], false_values: tuple[
     for v in true_values:
         if v in upper:
             return True
-    for v in false_values:
-        if v in upper:
-            return False
-    return True  # 有值但无法匹配时默认为 True（用户明确传了该参数）
+    return all(v not in upper for v in false_values)
 
 
 @wf.command(name="WM", alias=["市场", "wm", "market"])

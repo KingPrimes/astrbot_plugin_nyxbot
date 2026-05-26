@@ -5,6 +5,7 @@ import astrbot.api.message_components as Comp
 from astrbot.api.event import AstrMessageEvent
 
 from ...registry import wf
+from ..render.card_duviri import render_duviri_card
 from ..render.card_renderer import CardRenderer
 from ..service.world_state import WorldStateService
 
@@ -17,8 +18,6 @@ async def wf_duviri(self, event: AstrMessageEvent):
     if not duviri:
         yield event.plain_result("无法获取双衍王境数据")
         return
-
-    from ..render.card_duviri import render_duviri_card
 
     renderer = CardRenderer()
     img = render_duviri_card(renderer, duviri)

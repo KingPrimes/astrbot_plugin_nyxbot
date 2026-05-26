@@ -49,9 +49,8 @@ class WeaponsService:
         name = item.get("name", "")
 
         # 处理 MK1- 前缀（Java Weapons.contEnglishName() L145-149）
-        if name and name.upper() == "MK1-":
-            if e_name and e_name != desc and e_name.upper() != "MK1-":
-                return f"Mk1-{e_name}"
+        if name and name.upper() == "MK1-" and e_name and e_name != desc and e_name.upper() != "MK1-":
+            return f"Mk1-{e_name}"
 
         # 如果提取到的英文名与 description 相同，说明提取失败（Java L150-152）
         if e_name and e_name == desc:

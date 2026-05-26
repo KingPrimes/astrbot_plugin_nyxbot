@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import time
 from pathlib import Path
 from typing import Any
@@ -107,10 +108,8 @@ class WorldStateService:
                     logger.info("WorldState 缓存文件已过期，重新拉取")
             except Exception as e:
                 logger.warning(f"WorldState 缓存文件读取失败: {e}，删除损坏缓存并重新拉取")
-                try:
+                with contextlib.suppress(OSError):
                     cache_path.unlink(missing_ok=True)
-                except OSError:
-                    pass
 
         await cls._fetch_with_retry()
         cls._refresh_task = asyncio.create_task(cls._refresh_loop())
@@ -123,10 +122,8 @@ class WorldStateService:
         """
         if cls._refresh_task and not cls._refresh_task.done():
             cls._refresh_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await cls._refresh_task
-            except asyncio.CancelledError:
-                pass
             cls._refresh_task = None
         logger.info("WorldState 缓存已停止")
 
@@ -658,18 +655,23 @@ class WorldStateService:
 
         # 翻译挑战信息（从 NightWave 表查询后覆盖字段）
         for ac in si.active_challenges:
-            try:
-                nw = await NightWave.get(uniqueName=ac.challenge)
-                ac.name = nw.name
-                ac.description = nw.get_description()
-                ac.standing = nw.standing
-                ac.required = nw.required
-                ac.daily = nw.is_daily_tasks
-                ac.weekly = nw.is_weekly_tasks
-                ac.elite = nw.is_elite_missions
-            except DoesNotExist:
-                pass
+            await cls._translate_active_challenge(ac)
         return si
+
+    @classmethod
+    async def _translate_active_challenge(cls, ac: SeasonInfo.ActiveChallenges) -> None:
+        """从 NightWave 表查询并覆盖单条挑战的翻译信息。"""
+        try:
+            nw = await NightWave.get(uniqueName=ac.challenge)
+            ac.name = nw.name
+            ac.description = nw.get_description()
+            ac.standing = nw.standing
+            ac.required = nw.required
+            ac.daily = nw.is_daily_tasks
+            ac.weekly = nw.is_weekly_tasks
+            ac.elite = nw.is_elite_missions
+        except DoesNotExist:
+            pass
 
     # ══════════════════════════════════════════════════════════════════
     # get_duviri_cycle() — 双衍王境 → DuvalierCycle | None
