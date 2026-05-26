@@ -31,34 +31,12 @@ _KNOWN_SUFFIXES: dict[str, int] = {
 }
 
 
-def decompress_lzma(
-    source: str | Path,
-    output: str | Path,
-    chunk_size: int = _DEFAULT_CHUNK_SIZE,
+def _decompress_sync(
+    source_path: Path,
+    output_path: Path,
+    chunk_size: int,
 ) -> bool:
-    """解压 LZMA-Alone / XZ 压缩文件到指定的完整输出路径。
-
-    采用流式分块读写，避免大文件撑爆内存。底层使用 Python 标准库
-
-    Args:
-        source: 源压缩文件路径（.lzma / .xz）。
-        output: 解压后的目标文件完整路径。
-        chunk_size: 分块大小（字节），默认 1MB。
-
-    Returns:
-        bool: 解压成功返回 True，失败返回 False。
-    """
-    source_path = Path(source)
-    output_path = Path(output)
-
-    if not source_path.exists():
-        logger.error(f"解压失败: 源文件不存在 - {source_path}")
-        return False
-
-    if not source_path.is_file():
-        logger.error(f"解压失败: 源路径不是文件 - {source_path}")
-        return False
-
+    """同步解压实现，在 run_in_executor 中运行。"""
     try:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with lzma.open(source_path, "rb") as f_in, open(output_path, "wb") as f_out:
@@ -67,10 +45,8 @@ def decompress_lzma(
                 if not chunk:
                     break
                 f_out.write(chunk)
-
         logger.info(f"LZMA 解压成功: {source_path.name} → {output_path}")
         return True
-
     except lzma.LZMAError as e:
         logger.error(f"LZMA 解压失败: 无效的压缩数据 - {source_path} - {e}")
         return False
@@ -82,7 +58,44 @@ def decompress_lzma(
         return False
 
 
-def decompress_lzma_auto(
+async def decompress_lzma(
+    source: str | Path,
+    output: str | Path,
+    chunk_size: int = _DEFAULT_CHUNK_SIZE,
+) -> bool:
+    """解压 LZMA-Alone / XZ 压缩文件到指定的完整输出路径。
+
+    采用流式分块读写，避免大文件撑爆内存。底层使用 Python 标准库。
+    解压 I/O 通过 loop.run_in_executor 放入线程池，避免阻塞事件循环。
+
+    Args:
+        source: 源压缩文件路径（.lzma / .xz）。
+        output: 解压后的目标文件完整路径。
+        chunk_size: 分块大小（字节），默认 1MB。
+
+    Returns:
+        bool: 解压成功返回 True，失败返回 False。
+    """
+    import asyncio as _asyncio
+
+    source_path = Path(source)
+    output_path = Path(output)
+
+    if not source_path.exists():
+        logger.error(f"解压失败: 源文件不存在 - {source_path}")
+        return False
+
+    if not source_path.is_file():
+        logger.error(f"解压失败: 源路径不是文件 - {source_path}")
+        return False
+
+    loop = _asyncio.get_running_loop()
+    return await loop.run_in_executor(
+        None, _decompress_sync, source_path, output_path, chunk_size,
+    )
+
+
+async def decompress_lzma_auto(
     source: str | Path,
     output_dir: str | Path,
 ) -> Path | None:
@@ -125,5 +138,5 @@ def decompress_lzma_auto(
 
     output_path = output_dir_path / output_name
 
-    success = decompress_lzma(source_path, output_path)
+    success = await decompress_lzma(source_path, output_path)
     return output_path if success else None

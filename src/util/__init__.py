@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from .cache_utils import (
     async_cached,
     cached,

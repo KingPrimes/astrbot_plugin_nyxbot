@@ -4,6 +4,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Callable
 from typing import Any, TypeVar, cast
 
@@ -27,6 +28,9 @@ market_search_cache: TTLCache[str, Any] = cast(TTLCache[str, Any], TTLCache(maxs
 
 # 通用缓存（可自定义 TTL）
 _general_caches: dict[str, TTLCache[str, Any]] = {}
+
+# Per-key 异步锁，防止缓存击穿（thundering herd）
+_cache_locks: dict[str, asyncio.Lock] = {}
 
 
 def get_cache(name: str, maxsize: int = 100, ttl: int = 300) -> TTLCache[str, Any]:
@@ -66,6 +70,12 @@ def cached(key: str, fetch_func: Callable[[], T], cache: TTLCache[str, Any]) -> 
 async def async_cached(key: str, fetch_func: Callable[[], Any], cache: TTLCache[str, Any]) -> Any:
     """异步版本的缓存装饰器模式。
 
+    使用 per-key asyncio.Lock 防止缓存过期时多个并发协程
+    同时执行 fetch_func() 造成"缓存惊群效应"(thundering herd)。
+
+    缓存填充后即清理 _cache_locks 中的对应锁，避免字典无限增长。
+    锁将在缓存条目过期后按需重建。
+
     Args:
         key: 缓存键。
         fetch_func: 异步数据获取函数。
@@ -76,6 +86,16 @@ async def async_cached(key: str, fetch_func: Callable[[], Any], cache: TTLCache[
     """
     if key in cache:
         return cache[key]
-    value = await fetch_func()
-    cache[key] = value
-    return value
+    lock = _cache_locks.get(key)
+    if lock is None:
+        lock = _cache_locks[key] = asyncio.Lock()
+    async with lock:
+        # 双重检查：等待锁期间其他协程可能已填充缓存
+        if key in cache:
+            return cache[key]
+        value = await fetch_func()
+        if value is not None:
+            cache[key] = value
+            # 缓存已填充，锁不再需要 — 避免 _cache_locks 无限增长
+            _cache_locks.pop(key, None)
+        return value

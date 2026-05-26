@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import asyncio
+import random
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -39,24 +40,29 @@ class HttpMethod(str, Enum):
 # 默认超时设置（秒）
 DEFAULT_TIMEOUT = aiohttp.ClientTimeout(total=30)
 
-# 共享的 ClientSession 单例
+# 共享的 ClientSession 单例 + 线程安全锁
 _session: aiohttp.ClientSession | None = None
+_session_lock: asyncio.Lock = asyncio.Lock()
 
 
 async def get_session() -> aiohttp.ClientSession:
     """获取全局共享的 ClientSession 实例。
 
     复用 ClientSession 以利用连接池，提升性能。
+    使用 asyncio.Lock 防止并发创建导致的连接泄漏。
     """
     global _session
     if _session is None or _session.closed:
-        _session = aiohttp.ClientSession(
-            timeout=DEFAULT_TIMEOUT,
-            headers={
-                "User-Agent": "NyxBot-AstrBot/1.0",
-                "Accept": "application/json",
-            },
-        )
+        async with _session_lock:
+            if _session is None or _session.closed:
+                _session = aiohttp.ClientSession(
+                    timeout=DEFAULT_TIMEOUT,
+                    headers={
+                        "User-Agent": "NyxBot-AstrBot/1.0",
+                        "Accept": "application/json",
+                    },
+                    connector=aiohttp.TCPConnector(limit=20, limit_per_host=5),
+                )
     return _session
 
 
@@ -66,6 +72,45 @@ async def close_session() -> None:
     if _session and not _session.closed:
         await _session.close()
     _session = None
+
+
+async def _fetch(
+    url: str,
+    response_handler: Any,
+    params: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
+    timeout: aiohttp.ClientTimeout = DEFAULT_TIMEOUT,
+) -> Any | None:
+    """内部通用 GET 请求 — 统一会话获取、状态码检查、异常处理。
+
+    Args:
+        url: 请求 URL。
+        response_handler: 异步回调，接收 aiohttp.ClientResponse 并返回解析结果。
+        params: 查询参数。
+        headers: 额外请求头。
+        timeout: 超时设置。
+
+    Returns:
+        response_handler 的返回值，失败返回 None。
+    """
+    session = await get_session()
+    try:
+        async with session.get(
+            url, params=params, headers=headers, timeout=timeout,
+        ) as resp:
+            if resp.status < 200 or resp.status >= 300:
+                logger.warning(f"HTTP {resp.status} 请求失败: {url}")
+                return None
+            return await response_handler(resp)
+    except asyncio.TimeoutError:
+        logger.error(f"请求超时: {url}")
+        return None
+    except aiohttp.ClientError as e:
+        logger.error(f"HTTP 请求错误: {url} - {e}")
+        return None
+    except Exception as e:
+        logger.error(f"未知错误: {url} - {e}")
+        return None
 
 
 async def fetch_json(
@@ -87,27 +132,10 @@ async def fetch_json(
     Returns:
         解析后的 JSON 数据，失败返回 None。
     """
-    session = await get_session()
-    try:
-        async with session.get(
-            url,
-            params=params,
-            headers=headers,
-            timeout=timeout,
-        ) as resp:
-            if resp.status < 200 or resp.status >= 300:
-                logger.warning(f"HTTP {resp.status} 请求失败: {url}")
-                return None
-            return await resp.json(content_type=content_type)
-    except asyncio.TimeoutError:
-        logger.error(f"请求超时: {url}")
-        return None
-    except aiohttp.ClientError as e:
-        logger.error(f"HTTP 请求错误: {url} - {e}")
-        return None
-    except Exception as e:
-        logger.error(f"未知错误: {url} - {e}")
-        return None
+    return await _fetch(
+        url, lambda resp: resp.json(content_type=content_type),
+        params, headers, timeout,
+    )
 
 
 async def fetch_text(
@@ -127,22 +155,7 @@ async def fetch_text(
     Returns:
         响应文本，失败返回 None。
     """
-    session = await get_session()
-    try:
-        async with session.get(url, params=params, headers=headers, timeout=timeout) as resp:
-            if resp.status < 200 or resp.status >= 300:
-                logger.warning(f"HTTP {resp.status} 请求失败: {url}")
-                return None
-            return await resp.text()
-    except asyncio.TimeoutError:
-        logger.error(f"请求超时: {url}")
-        return None
-    except aiohttp.ClientError as e:
-        logger.error(f"HTTP 请求错误: {url} - {e}")
-        return None
-    except Exception as e:
-        logger.error(f"请求失败: {url} - {e}")
-        return None
+    return await _fetch(url, lambda resp: resp.text(), params, headers, timeout)
 
 
 # 默认重试日志模板
@@ -208,7 +221,9 @@ async def fetch_json_with_retry(
                     url=url, attempt=attempt,
                     max_retries=max_retries, retry_delay=retry_delay,
                 ))
-            await asyncio.sleep(retry_delay)
+            delay = retry_delay * (2 ** (attempt - 1))
+            delay += random.uniform(0, delay * 0.5)  # jitter
+            await asyncio.sleep(delay)
 
     err_tpl = templates.get(RetryLogLevel.ERROR)
     if err_tpl:
@@ -226,7 +241,7 @@ async def download_file(
     extra_headers: dict[str, str] | None = None,
     output: str | Path = "download.tmp",
     timeout: aiohttp.ClientTimeout = DEFAULT_TIMEOUT,
-    chunk_size: int = 8192,
+    chunk_size: int = 65536,
     show_progress: bool = True,
 ) -> bool:
     """通过 HTTP 请求下载文件并保存到本地。
@@ -241,7 +256,7 @@ async def download_file(
         extra_headers: 额外请求头，会合并到默认头之后。
         output: 输出文件路径，默认 "download.tmp"。
         timeout: 超时设置。
-        chunk_size: 流式读取块大小（字节），默认 8192 (8KB)。
+        chunk_size: 流式读取块大小（字节），默认 65536 (64KB)。
         show_progress: 是否输出下载进度日志，默认 True。
 
     Returns:
@@ -257,8 +272,8 @@ async def download_file(
 
     session = await get_session()
     output_path = Path(output)
-    # 确保目标目录存在
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    # 确保目标目录存在 — 异步化避免阻塞事件循环
+    await asyncio.to_thread(output_path.parent.mkdir, parents=True, exist_ok=True)
 
     # 构造请求参数
     kwargs: dict[str, Any] = {
@@ -278,14 +293,15 @@ async def download_file(
                 )
                 return False
 
-            # 流式读取并写入文件
+            # 流式读取并异步写入文件，避免同步 I/O 阻塞事件循环
             total_read = 0
+            loop = asyncio.get_running_loop()
             with open(output_path, "wb") as f:
                 while True:
                     chunk = await resp.content.read(chunk_size)
                     if not chunk:
                         break
-                    f.write(chunk)
+                    await loop.run_in_executor(None, f.write, chunk)
                     total_read += len(chunk)
                     if show_progress and total_read % (1024 * 1024) < chunk_size:
                         logger.info(

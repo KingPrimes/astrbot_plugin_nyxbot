@@ -28,6 +28,15 @@ def parse_wf_timestamp(timestamp_str: str) -> datetime | None:
         return None
 
 
+def _decompose_delta(total_seconds: int) -> tuple[int, int, int, int]:
+    """将总秒数分解为 (天, 小时, 分钟, 秒)。"""
+    days = total_seconds // 86400
+    hours = (total_seconds % 86400) // 3600
+    minutes = (total_seconds % 3600) // 60
+    seconds = total_seconds % 60
+    return days, hours, minutes, seconds
+
+
 def format_time_remaining(expiry: datetime, now: datetime | None = None) -> str:
     """计算并格式化剩余时间。
 
@@ -47,8 +56,7 @@ def format_time_remaining(expiry: datetime, now: datetime | None = None) -> str:
         return "已过期"
 
     total_seconds = int(remaining.total_seconds())
-    hours = total_seconds // 3600
-    minutes = (total_seconds % 3600) // 60
+    _, hours, minutes, _ = _decompose_delta(total_seconds)
 
     if hours > 0:
         return f"{hours}小时{minutes}分钟"
@@ -75,9 +83,7 @@ def format_time_remaining_short(expiry: datetime, now: datetime | None = None) -
         return "已过期"
 
     total_seconds = int(remaining.total_seconds())
-    hours = total_seconds // 3600
-    minutes = (total_seconds % 3600) // 60
-    seconds = total_seconds % 60
+    _, hours, minutes, seconds = _decompose_delta(total_seconds)
 
     if hours > 0:
         return f"{hours}h {minutes}m"
@@ -118,10 +124,7 @@ def time_delta_to_string(delta_ms: int) -> str:
         return "已过期"
 
     total_seconds = delta_ms // 1000
-    days = total_seconds // 86400
-    hours = (total_seconds % 86400) // 3600
-    minutes = (total_seconds % 3600) // 60
-    seconds = total_seconds % 60
+    days, hours, minutes, seconds = _decompose_delta(total_seconds)
 
     parts: list[str] = []
     if days > 0:
