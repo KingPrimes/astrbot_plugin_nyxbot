@@ -18,7 +18,6 @@ if TYPE_CHECKING:
     from PIL import Image
 
     from ..model.world_state import SteelPathOffering
-    from .card_renderer import CardRenderer
 
 
 # ---------------------------------------------------------------------------

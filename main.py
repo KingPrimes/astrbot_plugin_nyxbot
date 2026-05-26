@@ -9,6 +9,7 @@ from astrbot.api import AstrBotConfig, logger
 from astrbot.api.star import Context, Star
 
 from .src.init.engine import close_engine, get_engine, set_init_complete
+from .src.ocr.ocr_service import OcrService
 from .src.service import (
     AliasService,
     MarketSyncService,
@@ -36,7 +37,6 @@ class NyxBotPlugin(Star):
         super().__init__(context)
         self._config = config
         self._init_task: asyncio.Task | None = None
-        #self._ws_task: WarframeStatusTask | None = None
 
     async def initialize(self):
         """Plugin initialization / 插件初始化（非阻塞）
@@ -58,6 +58,10 @@ class NyxBotPlugin(Star):
         try:
             # 初始化数据库（TortoiseORM 连接 + 建表）
             await get_engine()
+
+            # 初始化 OCR 引擎（PaddleOCR 模型下载 + 加载，一次性完成）
+            await OcrService().initialize()
+
             # StateTranslation 必须最先执行（导出文件下载依赖）
             if not await StateTranslationService.sync_data():
                 set_init_complete()

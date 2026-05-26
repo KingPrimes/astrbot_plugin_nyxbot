@@ -16,35 +16,6 @@ from ..model.riven_tion import RivenTion
 from ..model.riven_tion_alias import RivenTionAlias
 
 
-class RivenAttributeCalculator:
-    """紫卡属性计算器（参考 Java RivenAnalyseTrendCompute）。"""
-
-    @staticmethod
-    def calculate_disposition(base_value: float, riven_disposition: float) -> float:
-        """计算紫卡倾向系数。
-
-        Args:
-            base_value: 基础属性值。
-            riven_disposition: 紫卡倾向。
-
-        Returns:
-            调整后的属性值。
-        """
-        ...  # TODO: 待实现具体算法
-
-    @staticmethod
-    def estimate_price(riven_data: dict) -> float:
-        """估算紫卡价格。
-
-        Args:
-            riven_data: 紫卡数据字典，包含属性、倾向等信息。
-
-        Returns:
-            估算价格（白金）。
-        """
-        ...  # TODO: 待实现具体算法
-
-
 class RivenService:
     """紫卡分析服务。"""
 

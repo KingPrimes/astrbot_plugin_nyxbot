@@ -18,7 +18,7 @@ from .nodes import NodesService
 from .notification import NotificationService
 from .relics import RelicsService
 from .reward import RewardService
-from .riven import RivenAttributeCalculator, RivenService
+from .riven import RivenService
 from .sentinels import SentinelsService
 from .state_translation import StateTranslationService
 from .subscription import SubscriptionService
@@ -39,7 +39,6 @@ __all__ = [
     "MarketRivenService",
     "MarketSyncService",
     "RivenService",
-    "RivenAttributeCalculator",
     "NotificationService",
     "SubscriptionService",
     "BaseChangeDetector",

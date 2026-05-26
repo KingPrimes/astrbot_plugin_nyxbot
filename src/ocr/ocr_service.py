@@ -1,10 +1,28 @@
 """OCR Service / PaddleOCR 文字识别服务
 
-使用 PaddleOCR PP-OCRv5 进行 CPU 推理，仅启用文字识别（det+rec）。
+已适配 paddleocr 3.x API（PP-OCRv5 系列）。相对 2.x 的差异：
+
+* 移除 ``use_angle_cls`` / ``show_log`` / ``use_gpu`` / ``det_model_dir`` 等旧参数；
+  改用 ``use_doc_orientation_classify`` / ``use_doc_unwarping``
+  / ``use_textline_orientation`` / ``device``。
+* 推理入口改为 ``PaddleOCR.predict(img)``，返回的每个 ``OCRResult`` 把识别结果拆到
+  ``rec_texts`` / ``rec_scores`` / ``rec_polys`` 三个数组中。
+* paddle 3.x 的 PIR + oneDNN 后端在 Windows 上存在 PIR 属性转换错误
+  ``ConvertPirAttribute2RuntimeAttribute not support``。修复方式：
+  ``enable_mkldnn=False`` + ``engine_config`` 中 ``enable_new_ir: False``
+  彻底绕过 PIR → oneDNN 路径。
+* 默认使用 PP-OCRv5 **移动端**模型 (mobile_det / mobile_rec)，CPU 推理
+  速度快于服务端模型 (server_det / server_rec)，紫卡截图精度足够。
+* 模型自动下载至 paddle 默认缓存目录 ``~/.paddlex/official_models/``。
+
+调用方契约 (``recognize`` 返回 ``[{text, confidence, box}]``,
+``recognize_text_only`` 返回 ``list[str]``) 不变。
 """
 from __future__ import annotations
 
 import asyncio
+import os
+import subprocess
 from typing import Any
 
 import numpy as np
@@ -12,11 +30,29 @@ from PIL import Image
 
 from astrbot.api import logger
 
+# paddle 3.x 环境变量安全网（与构造参数互补确保 oneDNN 完全禁用）
+os.environ["FLAGS_use_onednn"] = "0"
+os.environ["FLAGS_use_mkldnn"] = "0"
+os.environ.setdefault("KMP_AFFINITY", "disabled")
+os.environ.setdefault("PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK", "True")
+
+
+def _system_has_gpu() -> bool:
+    """检测系统是否存在 NVIDIA GPU（不依赖 paddle）。"""
+    try:
+        result = subprocess.run(
+            ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
+            capture_output=True, text=True, timeout=10,
+        )
+        return result.returncode == 0 and bool(result.stdout.strip())
+    except Exception:
+        return False
+
 
 class OcrService:
-    """PaddleOCR 文字识别服务（CPU 推理，仅文字识别）。
+    """PaddleOCR 文字识别服务（优先 GPU，回退 CPU）。
 
-    单例模式，延迟初始化 OCR 引擎。
+    单例模式，由 main.py 在插件启动时显式初始化。
     """
 
     _instance: OcrService | None = None
@@ -29,27 +65,74 @@ class OcrService:
         return cls._instance
 
     async def initialize(self) -> None:
-        """延迟初始化 OCR 引擎。
-
-        首次调用时下载并加载 PP-OCRv5 模型。
-        """
+        """延迟初始化 OCR 引擎（paddleocr 3.x）。"""
         if self._initialized:
             return
 
         try:
+            import paddle
             from paddleocr import PaddleOCR
 
-            # CPU 推理，仅启用文字识别（det+rec），禁用无用模块
+            # GPU 检测
+            # paddlepaddle 3.x 在 Windows 上 pip 安装仅支持 CPU 推理；
+            # GPU 推理需在 Linux (Docker/WSL) 环境中使用 paddlepaddle-gpu。
+            cuda_compiled = paddle.device.is_compiled_with_cuda()
+            if cuda_compiled:
+                gpu_count = paddle.device.cuda.device_count()
+                if gpu_count > 0:
+                    device = "gpu"
+                    logger.info(
+                        "检测到 CUDA GPU (共 %d 张)，使用 GPU 推理", gpu_count,
+                    )
+                else:
+                    device = "cpu"
+                    logger.warning(
+                        "paddlepaddle-gpu 已安装但未检测到可用 GPU 设备，"
+                        "回退 CPU 推理"
+                    )
+            elif _system_has_gpu():
+                device = "cpu"
+                logger.warning(
+                    "系统检测到 NVIDIA GPU，但 paddlepaddle 3.x 在 Windows 上"
+                    "仅支持 CPU 推理。GPU 推理需在 Linux (Docker/WSL) 环境中运行，"
+                    "详见 https://www.paddleocr.ai/latest/version3.x/deployment/"
+                    "high_performance_inference.html"
+                )
+            else:
+                device = "cpu"
+                logger.info("未检测到系统 GPU，使用 CPU 推理")
+
+            # 仅启用文字识别（det+rec），禁用文档方向/弯曲/行方向判定
+            # 使用 PP-OCRv5 移动端模型，CPU 推理速度远快于服务端模型；
+            # 紫卡截图文字清晰规整，移动端模型精度完全足够。
+            # 模型自动下载到 ~/.paddlex/official_models/（paddle 默认缓存）
+            #
+            # enable_mkldnn=False + enable_new_ir=False 是绕过 paddle 3.x
+            # Windows oneDNN PIR 属性转换错误的关键修复：
+            # ConvertPirAttribute2RuntimeAttribute not support
+            # [pir::ArrayAttribute<pir::DoubleAttribute>]
             self._ocr = PaddleOCR(
-                use_angle_cls=False,   # 无需方向分类
-                lang="ch",             # 中英文模型
-                use_gpu=False,         # CPU 推理
-                show_log=False,        # 静默模式
-                det_model_dir=None,    # 使用默认模型（自动下载 PP-OCRv5）
-                rec_model_dir=None,
+                lang="ch",
+                use_doc_orientation_classify=False,
+                use_doc_unwarping=False,
+                use_textline_orientation=False,
+                device=device,
+                enable_mkldnn=False,
+                text_detection_model_name="PP-OCRv5_mobile_det",
+                text_recognition_model_name="PP-OCRv5_mobile_rec",
+                engine_config={
+                    "paddle_static": {
+                        "run_mode": "paddle",
+                        "enable_new_ir": False,
+                        "cpu_threads": 10,
+                    },
+                },
             )
             self._initialized = True
-            logger.info("PaddleOCR 引擎初始化完成（CPU 推理）")
+            logger.info(
+                "PaddleOCR 引擎初始化完成（%s 推理 / paddleocr 3.x）",
+                "GPU" if device == "gpu" else "CPU",
+            )
         except Exception as e:
             logger.error(f"PaddleOCR 初始化失败: {e}")
             raise
@@ -68,26 +151,38 @@ class OcrService:
             - confidence: 置信度
             - box: 文本框坐标 [[x1,y1],[x2,y2],[x3,y3],[x4,y4]]
         """
-        if not self._initialized:
-            await self.initialize()
+        if self._ocr is None:
+            raise RuntimeError("OcrService 未初始化，请先调用 initialize()")
 
-        # 确保输入为 numpy array
+        # paddleocr 3.x 支持 ndarray / 路径，统一转 ndarray
         if isinstance(image, Image.Image):
-            img_array = np.array(image.convert("RGB"))
+            img_input: Any = np.array(image.convert("RGB"))
         else:
-            img_array = image  # str path
+            img_input = image
 
         # OCR 推理是 CPU 密集型操作，在 asyncio.to_thread 中执行
-        result = await asyncio.to_thread(self._ocr.ocr, img_array, cls=False)
+        results = await asyncio.to_thread(self._ocr.predict, img_input)
 
-        # 解析结果
+        # paddleocr 3.x: 返回 list[OCRResult]，每个 OCRResult 是 dict-like
+        # 携带 rec_texts / rec_scores / rec_polys
         texts: list[dict[str, Any]] = []
-        if result and result[0]:
-            for line in result[0]:
-                box, (text, confidence) = line
+        if not results:
+            return texts
+
+        for page in results:
+            rec_texts = page.get("rec_texts") or []
+            rec_scores = page.get("rec_scores") or []
+            rec_polys = page.get("rec_polys") or []
+            for i, txt in enumerate(rec_texts):
+                conf = float(rec_scores[i]) if i < len(rec_scores) else 0.0
+                poly = rec_polys[i] if i < len(rec_polys) else None
+                if poly is not None and hasattr(poly, "tolist"):
+                    box = poly.tolist()
+                else:
+                    box = poly
                 texts.append({
-                    "text": text,
-                    "confidence": float(confidence),
+                    "text": txt,
+                    "confidence": conf,
                     "box": box,
                 })
 

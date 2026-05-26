@@ -19,7 +19,7 @@ dependencies = [
     "cachetools>=5.5.0",
     # Scheduling
     "apscheduler>=3.11.0",
-    # OCR (PaddleOCR / PP-OCRv5, CPU inference)
+    # OCR (PaddleOCR / PP-OCRv5)
     "paddlepaddle>=3.0.0",
     "paddleocr>=2.9.0",
     # Utility
