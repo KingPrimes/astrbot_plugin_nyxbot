@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import asyncio
-from enum import Enum
+from enum import StrEnum, unique
 from typing import Any
 
 from astrbot.api import logger
@@ -518,8 +518,8 @@ class MarketClient:
                         url=WF_MARKET_RIVEN_WEAPONS,
                         headers=cls.headers,
                         log_templates={
-                            RetryLogLevel.WARNING: "获取 赤毒武器 数据失败（第 {attempt}/{max_retries} 次），{retry_delay} 秒后重试...",
-                            RetryLogLevel.ERROR: "获取 赤毒武器 数据失败，已重试 {max_retries} 次，放弃",
+                            RetryLogLevel.WARNING: "获取 紫卡武器 数据失败（第 {attempt}/{max_retries} 次），{retry_delay} 秒后重试...",
+                            RetryLogLevel.ERROR: "获取 紫卡武器 数据失败，已重试 {max_retries} 次，放弃",
                         },
                     )
 
@@ -621,7 +621,8 @@ class MarketClient:
             extra_headers=_AUCTION_EXTRA_HEADERS,
         )
 
-class Platform(Enum):
+@unique
+class Platform(StrEnum):
     """Warframe.Market 平台标识。"""
 
     pc = "pc"

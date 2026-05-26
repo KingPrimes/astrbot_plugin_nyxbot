@@ -4,7 +4,6 @@ from __future__ import annotations
 import asyncio
 from typing import cast
 
-import astrbot.api.message_components as Comp
 from astrbot.api.event import AstrMessageEvent
 
 from ...registry import wf
@@ -52,12 +51,7 @@ async def wf_cycle(self, event: AstrMessageEvent):
         cambion=cambion,
     )
 
-    renderer = CardRenderer()
-    loop = asyncio.get_running_loop()
-    img_bytes = await loop.run_in_executor(
-        None,
-        lambda: CardRenderer.render_to_bytes(
-            render_cycle_card(renderer, all_cycles, "全周期状态")
-        ),
+    result = await CardRenderer.render_card_to_chain_result(
+        render_cycle_card, all_cycles, "全周期状态"
     )
-    yield event.chain_result([Comp.Image.fromBytes(img_bytes)])
+    yield event.chain_result(result)

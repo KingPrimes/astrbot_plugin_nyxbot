@@ -1,9 +1,6 @@
 """wf_relics - /遗物 - 查询遗物数据（按名称或奖励物品搜索）"""
 from __future__ import annotations
 
-import asyncio
-
-import astrbot.api.message_components as Comp
 from astrbot.api.event import AstrMessageEvent
 
 from ...registry import wf
@@ -34,10 +31,5 @@ async def wf_relics(self, event: AstrMessageEvent, name: str = ""):
         )
         return
 
-    renderer = CardRenderer()
-    loop = asyncio.get_running_loop()
-    img_bytes = await loop.run_in_executor(
-        None,
-        lambda: CardRenderer.render_to_bytes(render_relic_card(renderer, relics)),
-    )
-    yield event.chain_result([Comp.Image.fromBytes(img_bytes)])
+    result = await CardRenderer.render_card_to_chain_result(render_relic_card, relics)
+    yield event.chain_result(result)

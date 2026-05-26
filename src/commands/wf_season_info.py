@@ -1,9 +1,6 @@
 """wf_nightwave - /nightwave or /电波 - 查看午夜电波"""
 from __future__ import annotations
 
-import asyncio
-
-import astrbot.api.message_components as Comp
 from astrbot.api.event import AstrMessageEvent
 
 from ...registry import wf
@@ -21,10 +18,7 @@ async def wf_season_info(self, event: AstrMessageEvent):
         yield event.plain_result("无法获取午夜电波数据")
         return
 
-    renderer = CardRenderer()
-    loop = asyncio.get_running_loop()
-    img_bytes = await loop.run_in_executor(
-        None,
-        lambda: CardRenderer.render_to_bytes(render_season_info_card(renderer, nw)),
+    result = await CardRenderer.render_card_to_chain_result(
+        render_season_info_card, nw
     )
-    yield event.chain_result([Comp.Image.fromBytes(img_bytes)])
+    yield event.chain_result(result)

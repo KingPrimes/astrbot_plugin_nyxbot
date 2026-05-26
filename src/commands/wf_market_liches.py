@@ -5,10 +5,8 @@
 """
 from __future__ import annotations
 
-import asyncio
 from collections.abc import AsyncGenerator
 
-import astrbot.api.message_components as Comp
 from astrbot.api import logger
 from astrbot.api.event import AstrMessageEvent, MessageEventResult
 
@@ -42,8 +40,6 @@ async def _handle_lich_sister(
         yield event.plain_result(f"未找到匹配的{title_suffix}武器: {keyword}")
         return
 
-    renderer = CardRenderer()
-    loop = asyncio.get_running_loop()
     if isinstance(result, tuple):
         if result[1] is None:
             # possible_items
@@ -51,24 +47,18 @@ async def _handle_lich_sister(
             if not isinstance(items, list) or not items:
                 yield event.plain_result(f"未找到匹配的{title_suffix}武器: {keyword}")
                 return
-            img_bytes = await loop.run_in_executor(
-                None,
-                lambda: renderer.render_to_bytes(
-                    render_market_orders_possible_items_card(renderer, items)
-                ),
+            chain = await CardRenderer.render_card_to_chain_result(
+                render_market_orders_possible_items_card, items
             )
         else:
-            img_bytes = await loop.run_in_executor(
-                None,
-                lambda: renderer.render_to_bytes(
-                    render_market_lich_sister_card(renderer, result[1], title_suffix)
-                ),
+            chain = await CardRenderer.render_card_to_chain_result(
+                render_market_lich_sister_card, result[1], title_suffix
             )
     else:
         yield event.plain_result(f"未找到匹配的{title_suffix}武器: {keyword}")
         return
 
-    yield event.chain_result([Comp.Image.fromBytes(img_bytes)])
+    yield event.chain_result(chain)
 
 
 @wf.command("CD",alias=["cd","赤毒"])

@@ -1,9 +1,6 @@
 """wf_void_trader - /void or /奸商 - 查看虚空商人"""
 from __future__ import annotations
 
-import asyncio
-
-import astrbot.api.message_components as Comp
 from astrbot.api.event import AstrMessageEvent
 
 from ...registry import wf
@@ -23,9 +20,7 @@ async def wf_void_trader(self, event: AstrMessageEvent):
         yield event.plain_result("虚空商人未找到数据")
         return
 
-    loop = asyncio.get_running_loop()
-    img_bytes = await loop.run_in_executor(
-        None,
-        lambda: CardRenderer.render_to_bytes(render_void_trader_card(vt)),
+    result = await CardRenderer.render_card_to_chain_result(
+        render_void_trader_card, vt
     )
-    yield event.chain_result([Comp.Image.fromBytes(img_bytes)])
+    yield event.chain_result(result)

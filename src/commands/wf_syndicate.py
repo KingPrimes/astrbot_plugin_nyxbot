@@ -7,9 +7,6 @@
 """
 from __future__ import annotations
 
-import asyncio
-
-import astrbot.api.message_components as Comp
 from astrbot.api.event import AstrMessageEvent
 
 from ...registry import wf
@@ -27,13 +24,8 @@ async def _render_syndicate(event: AstrMessageEvent, syndicate: SyndicateEnum, n
         yield event.plain_result(f"当前没有{name}赏金数据")
         return
 
-    renderer = CardRenderer()
-    loop = asyncio.get_running_loop()
-    img_bytes = await loop.run_in_executor(
-        None,
-        lambda: CardRenderer.render_to_bytes(render_syndicate_card(renderer, sm)),
-    )
-    yield event.chain_result([Comp.Image.fromBytes(img_bytes)])
+    result = await CardRenderer.render_card_to_chain_result(render_syndicate_card, sm)
+    yield event.chain_result(result)
 
 
 @wf.command("希图斯",alias=["地球赏金"])

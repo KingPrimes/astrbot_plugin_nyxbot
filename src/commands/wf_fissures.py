@@ -7,9 +7,6 @@
 """
 from __future__ import annotations
 
-import asyncio
-
-import astrbot.api.message_components as Comp
 from astrbot.api.event import AstrMessageEvent
 
 from ...registry import wf
@@ -27,13 +24,10 @@ async def _render_fissures(event: AstrMessageEvent, fissure_type: FissureTypeEnu
         yield event.plain_result(f"当前没有活跃的{label}")
         return
 
-    renderer = CardRenderer()
-    loop = asyncio.get_running_loop()
-    img_bytes = await loop.run_in_executor(
-        None,
-        lambda: CardRenderer.render_to_bytes(draw_fissure_card(renderer, fissures)),
+    result = await CardRenderer.render_card_to_chain_result(
+        draw_fissure_card, fissures
     )
-    yield event.chain_result([Comp.Image.fromBytes(img_bytes)])
+    yield event.chain_result(result)
 
 
 @wf.command("裂隙",alias=["裂缝"])

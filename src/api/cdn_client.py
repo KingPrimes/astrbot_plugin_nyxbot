@@ -4,6 +4,8 @@
 """
 from __future__ import annotations
 
+import asyncio
+
 from cachetools import TTLCache
 
 from astrbot.api import logger
@@ -16,6 +18,7 @@ from ..util import (
 
 GITHUB_TAGS_URL = "https://api.github.com/repos/KingPrimes/DataSource/tags"
 _tag_cache: TTLCache = TTLCache(maxsize=1, ttl=120)
+_tag_lock: asyncio.Lock = asyncio.Lock()
 
 
 class CdnClient:
@@ -26,22 +29,26 @@ class CdnClient:
 
     @classmethod
     async def _get_latest_tag(cls) -> str:
-        """获取 DataSource 仓库的最新 tag，带 2 分钟缓存。"""
+        """获取 DataSource 仓库的最新 tag，带 2 分钟缓存 + 防惊群锁。"""
         cache_key = "latest_tag"
         if cache_key in _tag_cache:
             return _tag_cache[cache_key]
-        data = await fetch_json_with_retry(
-            GITHUB_TAGS_URL,
-            log_templates={
-                RetryLogLevel.WARNING: "获取最新版本号失败（第 {attempt}/{max_retries} 次），{retry_delay} 秒后重试...",
-                RetryLogLevel.ERROR: "获取最新版本号失败，已重试 {max_retries} 次，将使用无版本号的 CDN 地址",
-            },
-        )
-        tag: str = data[0]["name"] if data else ""
-        _tag_cache[cache_key] = tag
-        if tag:
-            logger.info(f"获取到 DataSource 最新版本: {tag}")
-        return tag
+        async with _tag_lock:
+            # 双重检查：等待锁期间其他协程可能已填充缓存
+            if cache_key in _tag_cache:
+                return _tag_cache[cache_key]
+            data = await fetch_json_with_retry(
+                GITHUB_TAGS_URL,
+                log_templates={
+                    RetryLogLevel.WARNING: "获取最新版本号失败（第 {attempt}/{max_retries} 次），{retry_delay} 秒后重试...",
+                    RetryLogLevel.ERROR: "获取最新版本号失败，已重试 {max_retries} 次，将使用无版本号的 CDN 地址",
+                },
+            )
+            tag: str = data[0]["name"] if data else ""
+            _tag_cache[cache_key] = tag
+            if tag:
+                logger.info(f"获取到 DataSource 最新版本: {tag}")
+            return tag
 
     @classmethod
     async def _base_url(cls) -> str:

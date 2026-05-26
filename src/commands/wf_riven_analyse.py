@@ -11,7 +11,7 @@
 """
 from __future__ import annotations
 
-import asyncio
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -94,7 +94,6 @@ async def _do_analyse(ev: AstrMessageEvent, img_comp: Comp.Image) -> None:
 
     session_waiter 内必须用 ``await ev.send(...)``，不能 ``yield``。
     """
-    import time
     total_t0 = time.perf_counter()
 
     await ev.send(ev.plain_result("正在分析紫卡，请稍候…"))
@@ -120,19 +119,14 @@ async def _do_analyse(ev: AstrMessageEvent, img_comp: Comp.Image) -> None:
 
     # 渲染多卡片并发送
     render_t0 = time.perf_counter()
-    renderer = CardRenderer()
-    loop = asyncio.get_running_loop()
-    img_bytes = await loop.run_in_executor(
-        None,
-        lambda: CardRenderer.render_to_bytes(
-            render_riven_analyse_card(renderer, results)
-        ),
+    chain = await CardRenderer.render_card_to_chain_result(
+        render_riven_analyse_card, results
     )
     logger.debug(
         "卡片渲染耗时 %.2fs (%d 张卡片)",
         time.perf_counter() - render_t0, len(results),
     )
-    await ev.send(ev.chain_result([Comp.Image.fromBytes(img_bytes)]))
+    await ev.send(ev.chain_result(chain))
     logger.debug(
         "紫卡分析指令总耗时 %.2fs (含图片转换+OCR+解析+计算+渲染)",
         time.perf_counter() - total_t0,

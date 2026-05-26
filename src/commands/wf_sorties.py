@@ -1,9 +1,6 @@
 """wf_sorties - /sorties or /突击 - 查看今日突击"""
 from __future__ import annotations
 
-import asyncio
-
-import astrbot.api.message_components as Comp
 from astrbot.api.event import AstrMessageEvent
 
 from ...registry import wf
@@ -23,10 +20,7 @@ async def wf_sorties(self, event: AstrMessageEvent):
 
     sortie_data = sorties[0]
 
-    renderer = CardRenderer()
-    loop = asyncio.get_running_loop()
-    img_bytes = await loop.run_in_executor(
-        None,
-        lambda: CardRenderer.render_to_bytes(render_sortie_card(renderer, sortie_data)),
+    result = await CardRenderer.render_card_to_chain_result(
+        render_sortie_card, sortie_data
     )
-    yield event.chain_result([Comp.Image.fromBytes(img_bytes)])
+    yield event.chain_result(result)

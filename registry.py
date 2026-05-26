@@ -50,8 +50,6 @@ def _load_prefix_from_config() -> str:
         if config_path.exists():
             config = orjson.loads(config_path.read_text(encoding="utf-8-sig"))
             return str(config.get("wf_command_prefix", "")).strip()
-    except FileNotFoundError:
-        return ""
     except orjson.JSONDecodeError:
         logger.warning(f"配置文件 JSON 解析失败: {config_path}")
     except Exception:

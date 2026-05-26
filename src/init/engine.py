@@ -54,6 +54,7 @@ _MODEL_MODULE = __name__.rsplit(".", 2)[0] + ".model"
 _MODELS_MODULES = [_MODEL_MODULE]
 
 _tortoise_initialized: bool = False
+_engine_lock: asyncio.Lock = asyncio.Lock()
 
 
 async def get_engine():
@@ -72,36 +73,38 @@ async def get_engine():
     _db_path: str = str(Path(get_public_data_path()) / "nyxbot.db")
     logger.debug(f"数据库路径: {_db_path}")
     if not _tortoise_initialized:
-        # 根据配置开关控制 Tortoise ORM 的 SQL 日志输出
-        if get_db_debug():
-            logging.getLogger("tortoise.db_client").setLevel(logging.DEBUG)
-            logging.getLogger("tortoise").setLevel(logging.DEBUG)
-            logger.info("数据库调试模式已启用")
-        else:
-            logging.getLogger("tortoise.db_client").setLevel(logging.INFO)
-            logging.getLogger("tortoise").setLevel(logging.INFO)
+        async with _engine_lock:
+            if not _tortoise_initialized:
+                # 根据配置开关控制 Tortoise ORM 的 SQL 日志输出
+                if get_db_debug():
+                    logging.getLogger("tortoise.db_client").setLevel(logging.DEBUG)
+                    logging.getLogger("tortoise").setLevel(logging.DEBUG)
+                    logger.info("数据库调试模式已启用")
+                else:
+                    logging.getLogger("tortoise.db_client").setLevel(logging.INFO)
+                    logging.getLogger("tortoise").setLevel(logging.INFO)
 
-        db_url = f"sqlite://{_db_path}"
-        await Tortoise.init(
-            db_url=db_url,
-            modules={"models": _MODELS_MODULES},
-        )
-        await Tortoise.generate_schemas()
-
-        # 将 TortoiseContext 设为全局回退，使跨 asyncio task 均可访问
-        # 若其他插件已设置全局回退，则跳过（NyxBot 的 contextvars 仍会在子 task 中传播）
-        ctx = get_current_context()
-        if ctx is not None:
-            try:
-                set_global_context(ctx)
-                logger.debug("TortoiseContext 已设为全局回退（跨 task 可用）")
-            except ConfigurationError:
-                logger.warning(
-                    "无法设置全局 TortoiseContext 回退（已被其他插件占用），"
-                    "NyxBot 数据库操作仅在当前 asyncio task 树中可用"
+                db_url = f"sqlite://{_db_path}"
+                await Tortoise.init(
+                    db_url=db_url,
+                    modules={"models": _MODELS_MODULES},
                 )
+                await Tortoise.generate_schemas()
 
-        _tortoise_initialized = True
+                # 将 TortoiseContext 设为全局回退，使跨 asyncio task 均可访问
+                # 若其他插件已设置全局回退，则跳过（NyxBot 的 contextvars 仍会在子 task 中传播）
+                ctx = get_current_context()
+                if ctx is not None:
+                    try:
+                        set_global_context(ctx)
+                        logger.debug("TortoiseContext 已设为全局回退（跨 task 可用）")
+                    except ConfigurationError:
+                        logger.warning(
+                            "无法设置全局 TortoiseContext 回退（已被其他插件占用），"
+                            "NyxBot 数据库操作仅在当前 asyncio task 树中可用"
+                        )
+
+                _tortoise_initialized = True
 
     return Tortoise.get_connection("default")
 

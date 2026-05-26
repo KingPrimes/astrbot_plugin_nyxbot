@@ -1,9 +1,6 @@
 """wf_invasions - /invasions or /入侵 - 查看当前入侵"""
 from __future__ import annotations
 
-import asyncio
-
-import astrbot.api.message_components as Comp
 from astrbot.api.event import AstrMessageEvent
 
 from ...registry import wf
@@ -21,10 +18,7 @@ async def wf_invasions(self, event: AstrMessageEvent):
         yield event.plain_result("当前没有活跃的入侵")
         return
 
-    renderer = CardRenderer()
-    loop = asyncio.get_running_loop()
-    img_bytes = await loop.run_in_executor(
-        None,
-        lambda: CardRenderer.render_to_bytes(draw_invasion_card(renderer, invasions)),
+    result = await CardRenderer.render_card_to_chain_result(
+        draw_invasion_card, invasions
     )
-    yield event.chain_result([Comp.Image.fromBytes(img_bytes)])
+    yield event.chain_result(result)

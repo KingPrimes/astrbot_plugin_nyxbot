@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import asyncio
 import os
-import subprocess
 from typing import Any
 
 import numpy as np
@@ -37,14 +36,16 @@ os.environ.setdefault("KMP_AFFINITY", "disabled")
 os.environ.setdefault("PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK", "True")
 
 
-def _system_has_gpu() -> bool:
+async def _system_has_gpu() -> bool:
     """检测系统是否存在 NVIDIA GPU（不依赖 paddle）。"""
     try:
-        result = subprocess.run(
-            ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
-            capture_output=True, text=True, timeout=10,
+        proc = await asyncio.create_subprocess_exec(
+            "nvidia-smi", "--query-gpu=name", "--format=csv,noheader",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
-        return result.returncode == 0 and bool(result.stdout.strip())
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=10)
+        return proc.returncode == 0 and bool(stdout.decode().strip())
     except Exception:
         return False
 
@@ -90,7 +91,7 @@ class OcrService:
                         "paddlepaddle-gpu 已安装但未检测到可用 GPU 设备，"
                         "回退 CPU 推理"
                     )
-            elif _system_has_gpu():
+            elif await _system_has_gpu():
                 device = "cpu"
                 logger.warning(
                     "系统检测到 NVIDIA GPU，但 paddlepaddle 3.x 在 Windows 上"

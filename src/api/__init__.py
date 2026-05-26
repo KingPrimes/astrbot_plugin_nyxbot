@@ -1,4 +1,6 @@
 """API package / API 包"""
+from __future__ import annotations
+
 from .api import (
     WF_MARKET_BASE_URL,
     WF_MARKET_ITEMS,

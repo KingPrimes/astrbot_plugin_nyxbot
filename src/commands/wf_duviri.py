@@ -1,9 +1,6 @@
 """wf_duviri - /duviri or /双衍 - 查看双衍王境周期"""
 from __future__ import annotations
 
-import asyncio
-
-import astrbot.api.message_components as Comp
 from astrbot.api.event import AstrMessageEvent
 
 from ...registry import wf
@@ -21,10 +18,5 @@ async def wf_duviri(self, event: AstrMessageEvent):
         yield event.plain_result("无法获取双衍王境数据")
         return
 
-    renderer = CardRenderer()
-    loop = asyncio.get_running_loop()
-    img_bytes = await loop.run_in_executor(
-        None,
-        lambda: CardRenderer.render_to_bytes(render_duviri_card(renderer, duviri)),
-    )
-    yield event.chain_result([Comp.Image.fromBytes(img_bytes)])
+    result = await CardRenderer.render_card_to_chain_result(render_duviri_card, duviri)
+    yield event.chain_result(result)

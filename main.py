@@ -29,8 +29,6 @@ from .src.service import (
 )
 from .src.web_api.registry import register_web_apis
 
-#from .src.task.warframe_status import WarframeStatusTask
-
 
 class NyxBotPlugin(Star):
     """NyxBot Warframe assistant plugin / NyxBot Warframe 助手插件"""
@@ -39,6 +37,7 @@ class NyxBotPlugin(Star):
         super().__init__(context)
         self._config = config
         self._init_task: asyncio.Task | None = None
+        self._disable_task: asyncio.Task | None = None
 
     async def initialize(self):
         """Plugin initialization / 插件初始化（非阻塞）
@@ -125,7 +124,9 @@ class NyxBotPlugin(Star):
         if star_manager is None:
             logger.error(f"无法获取 StarManager，跳过停用插件 {plugin_name}")
             return
-        asyncio.create_task(self._disable_plugin_async(star_manager, plugin_name))
+        self._disable_task = asyncio.create_task(
+            self._disable_plugin_async(star_manager, plugin_name)
+        )
 
     async def _disable_plugin_async(self, star_manager, plugin_name: str):
         """异步停用插件并提示用户。"""
@@ -140,11 +141,17 @@ class NyxBotPlugin(Star):
 
     async def terminate(self):
         """Plugin termination / 插件销毁"""
-        # 等待后台初始化任务完成
+        # 取消后台初始化任务（若还在运行）
         if self._init_task and not self._init_task.done():
             self._init_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await self._init_task
+
+        # 取消自停用任务（使用独立属性避免自我等待死锁）
+        if self._disable_task and not self._disable_task.done():
+            self._disable_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._disable_task
 
         # 停止 WorldState 后台刷新
         await WorldStateService.stop_cache()

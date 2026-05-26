@@ -58,7 +58,7 @@ async def _dc_export_lzma() -> bool:
         return False
 
     lzma_path = str(Path(ExportDir) / f"index_{Key}.txt.lzma")
-    result = decompress_lzma_auto(lzma_path, ExportDir)
+    result = await decompress_lzma_auto(lzma_path, ExportDir)
 
     if result is not None:
         ExportIndexPath = str(result)

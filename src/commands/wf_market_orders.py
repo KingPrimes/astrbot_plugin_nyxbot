@@ -11,9 +11,6 @@
 """
 from __future__ import annotations
 
-import asyncio
-
-import astrbot.api.message_components as Comp
 from astrbot.api import logger
 from astrbot.api.event import AstrMessageEvent
 
@@ -115,29 +112,20 @@ async def wf_market_orders(self, event: AstrMessageEvent, keyword: str = "", is_
         yield event.plain_result("查询市场订单失败，请检查名称是否正确或稍后重试")
         return
 
-    loop = asyncio.get_running_loop()
     if result.possible_items:
-        possible_items = result.possible_items
+        possible_items = result.possible_items[:15]
         if not possible_items:
             yield event.plain_result(f"未找到匹配的物品: {kw}")
             return
-        renderer = CardRenderer()
-        img_bytes = await loop.run_in_executor(
-            None,
-            lambda: renderer.render_to_bytes(
-                render_market_orders_possible_items_card(renderer, possible_items)
-            ),
+        chain = await CardRenderer.render_card_to_chain_result(
+            render_market_orders_possible_items_card, possible_items
         )
     elif result.result is not None:
-        renderer = CardRenderer()
-        img_bytes = await loop.run_in_executor(
-            None,
-            lambda: renderer.render_to_bytes(
-                render_market_orders_card(renderer, result.result)
-            ),
+        chain = await CardRenderer.render_card_to_chain_result(
+            render_market_orders_card, result.result
         )
     else:
         yield event.plain_result(f"未找到匹配的物品: {kw}")
         return
 
-    yield event.chain_result([Comp.Image.fromBytes(img_bytes)])
+    yield event.chain_result(chain)
