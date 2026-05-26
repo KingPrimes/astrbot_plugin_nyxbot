@@ -1,6 +1,8 @@
 """wf_daily_deals - /deals or /每日特惠 - 查看达尔沃每日特惠"""
 from __future__ import annotations
 
+import asyncio
+
 import astrbot.api.message_components as Comp
 from astrbot.api.event import AstrMessageEvent
 
@@ -20,6 +22,11 @@ async def wf_daily_deals(self, event: AstrMessageEvent):
         return
 
     renderer = CardRenderer()
-    img = render_daily_deals_card(renderer, deals)
-    img_bytes = CardRenderer.render_to_bytes(img)
+    loop = asyncio.get_running_loop()
+    img_bytes = await loop.run_in_executor(
+        None,
+        lambda: CardRenderer.render_to_bytes(
+            render_daily_deals_card(renderer, deals)
+        ),
+    )
     yield event.chain_result([Comp.Image.fromBytes(img_bytes)])

@@ -1,6 +1,8 @@
 """wf_steel_path - /steel or /钢铁 - 查看钢铁之路"""
 from __future__ import annotations
 
+import asyncio
+
 import astrbot.api.message_components as Comp
 from astrbot.api.event import AstrMessageEvent
 
@@ -21,6 +23,9 @@ async def wf_steel_path(self, event: AstrMessageEvent):
         yield event.plain_result("无法获取钢铁之路数据")
         return
 
-    img = render_steel_path_card(sp)
-    img_bytes = CardRenderer.render_to_bytes(img)
+    loop = asyncio.get_running_loop()
+    img_bytes = await loop.run_in_executor(
+        None,
+        lambda: CardRenderer.render_to_bytes(render_steel_path_card(sp)),
+    )
     yield event.chain_result([Comp.Image.fromBytes(img_bytes)])

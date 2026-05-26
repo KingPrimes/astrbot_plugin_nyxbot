@@ -1,6 +1,8 @@
 """wf_alerts - /alerts or /警报 - 查看当前警报"""
 from __future__ import annotations
 
+import asyncio
+
 import astrbot.api.message_components as Comp
 from astrbot.api import logger
 from astrbot.api.event import AstrMessageEvent
@@ -21,6 +23,9 @@ async def wf_alerts(self, event: AstrMessageEvent):
         return
 
     renderer = CardRenderer()
-    img = render_alert_card(renderer, alerts)
-    img_bytes = CardRenderer.render_to_bytes(img)
+    loop = asyncio.get_running_loop()
+    img_bytes = await loop.run_in_executor(
+        None,
+        lambda: CardRenderer.render_to_bytes(render_alert_card(renderer, alerts)),
+    )
     yield event.chain_result([Comp.Image.fromBytes(img_bytes)])

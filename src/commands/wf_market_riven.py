@@ -12,6 +12,8 @@
 """
 from __future__ import annotations
 
+import asyncio
+
 import astrbot.api.message_components as Comp
 from astrbot.api import logger
 from astrbot.api.event import AstrMessageEvent
@@ -65,6 +67,9 @@ async def wf_market_riven(
         return
 
     renderer = CardRenderer()
-    img = render_market_riven_card(renderer, result)
-    img_bytes = renderer.render_to_bytes(img)
+    loop = asyncio.get_running_loop()
+    img_bytes = await loop.run_in_executor(
+        None,
+        lambda: renderer.render_to_bytes(render_market_riven_card(renderer, result)),
+    )
     yield event.chain_result([Comp.Image.fromBytes(img_bytes)])

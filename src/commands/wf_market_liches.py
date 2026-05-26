@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncGenerator
 
 import astrbot.api.message_components as Comp
@@ -42,6 +43,7 @@ async def _handle_lich_sister(
         return
 
     renderer = CardRenderer()
+    loop = asyncio.get_running_loop()
     if isinstance(result, tuple):
         if result[1] is None:
             # possible_items
@@ -49,14 +51,23 @@ async def _handle_lich_sister(
             if not isinstance(items, list) or not items:
                 yield event.plain_result(f"未找到匹配的{title_suffix}武器: {keyword}")
                 return
-            img = render_market_orders_possible_items_card(renderer, items)
+            img_bytes = await loop.run_in_executor(
+                None,
+                lambda: renderer.render_to_bytes(
+                    render_market_orders_possible_items_card(renderer, items)
+                ),
+            )
         else:
-            img = render_market_lich_sister_card(renderer, result[1], title_suffix)
+            img_bytes = await loop.run_in_executor(
+                None,
+                lambda: renderer.render_to_bytes(
+                    render_market_lich_sister_card(renderer, result[1], title_suffix)
+                ),
+            )
     else:
         yield event.plain_result(f"未找到匹配的{title_suffix}武器: {keyword}")
         return
 
-    img_bytes = renderer.render_to_bytes(img)
     yield event.chain_result([Comp.Image.fromBytes(img_bytes)])
 
 

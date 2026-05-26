@@ -122,11 +122,12 @@ async def _do_analyse(ev: AstrMessageEvent, img_comp: Comp.Image) -> None:
     render_t0 = time.perf_counter()
     renderer = CardRenderer()
     loop = asyncio.get_running_loop()
-    img = await loop.run_in_executor(
+    img_bytes = await loop.run_in_executor(
         None,
-        lambda: render_riven_analyse_card(renderer, results),
+        lambda: CardRenderer.render_to_bytes(
+            render_riven_analyse_card(renderer, results)
+        ),
     )
-    img_bytes = CardRenderer.render_to_bytes(img)
     logger.debug(
         "卡片渲染耗时 %.2fs (%d 张卡片)",
         time.perf_counter() - render_t0, len(results),

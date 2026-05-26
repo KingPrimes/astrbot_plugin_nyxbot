@@ -213,3 +213,4 @@ tests/
 AGENTS.md
 CLAUDE.md
 .playwright
+/reviews

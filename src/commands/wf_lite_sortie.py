@@ -1,6 +1,8 @@
 """wf_lite_sortie - /执刑官猎杀 - 查看执刑官猎杀任务"""
 from __future__ import annotations
 
+import asyncio
+
 import astrbot.api.message_components as Comp
 from astrbot.api.event import AstrMessageEvent
 
@@ -22,6 +24,11 @@ async def wf_lite_sortie(self, event: AstrMessageEvent):
     lite_sortie_data = lite_sorties[0]
 
     renderer = CardRenderer()
-    img = render_lite_sortie_card(renderer, lite_sortie_data)
-    img_bytes = CardRenderer.render_to_bytes(img)
+    loop = asyncio.get_running_loop()
+    img_bytes = await loop.run_in_executor(
+        None,
+        lambda: CardRenderer.render_to_bytes(
+            render_lite_sortie_card(renderer, lite_sortie_data)
+        ),
+    )
     yield event.chain_result([Comp.Image.fromBytes(img_bytes)])
