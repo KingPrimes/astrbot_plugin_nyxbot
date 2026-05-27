@@ -8,6 +8,7 @@ registers their handlers via the patched decorators in registry.py.
 """
 from __future__ import annotations
 
+
 def register_all() -> None:
     """Import all command modules to trigger handler registration.
 
@@ -26,10 +27,9 @@ def register_all() -> None:
         wf_invasions,  # noqa: F401
         wf_lite_sortie,  # noqa: F401
         wf_market_dump,  # noqa: F401
-        wf_market_liches,  # noqa: F401
+        wf_market_lich_sister,  # noqa: F401
         wf_market_orders,  # noqa: F401
         wf_market_riven,  # noqa: F401
-        wf_market_sisters,  # noqa: F401
         wf_relics,  # noqa: F401
         wf_riven_analyse,  # noqa: F401
         wf_riven_market,  # noqa: F401

@@ -1,7 +1,8 @@
-"""wf_market_liches - 赤毒巫妖拍卖指令
+"""wf_market_liches - 赤毒巫妖 & 信条姐妹拍卖指令
 
 指令:
   /CD  or  /赤毒  or  /cd  → 查询 Market 赤毒巫妖拍卖
+  /XT  or  /信条  or  /xt  → 查询 Market 信条姐妹拍卖
 """
 from __future__ import annotations
 
@@ -65,4 +66,11 @@ async def _handle_lich_sister(
 async def wf_market_liches(self, event: AstrMessageEvent, keyword: str = "") -> AsyncGenerator[MessageEventResult, None]:
     await init_ready()
     async for r in _handle_lich_sister(event, keyword, "lich", "赤毒"):
+        yield r
+
+
+@wf.command("XT",alias=["xt","信条"])
+async def wf_market_sisters(self, event: AstrMessageEvent, keyword: str = "") -> AsyncGenerator[MessageEventResult, None]:
+    await init_ready()
+    async for r in _handle_lich_sister(event, keyword, "sister", "信条"):
         yield r

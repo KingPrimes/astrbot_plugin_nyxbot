@@ -96,7 +96,7 @@ AstrBot 的 Warframe 助手插件，提供世界状态查询、市场交易、�
   wf_alerts / wf_arbitration / wf_calendar_seasons / wf_cycle / wf_daily_deals
   wf_duviri / wf_fissures / wf_help / wf_invasions / wf_lite_sortie
   wf_market_dump / wf_market_liches / wf_market_orders / wf_market_riven
-  wf_market_sisters / wf_relics / wf_riven_analyse / wf_riven_market
+  wf_relics / wf_riven_analyse / wf_riven_market
   wf_season_info / wf_sorties / wf_steel_path / wf_syndicate / wf_void_trader
 
 服务层 (src/service/ — 22 个服务模块)
