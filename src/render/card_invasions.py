@@ -99,12 +99,12 @@ def _draw_one_invasion_card(
     split_x = card_x + int(_CARD_W * progress)
     # 进攻侧（左，红色）
     attacker_strip_w = split_x - card_x
-    if attacker_strip_w > 0:
+    if attacker_strip_w > _CARD_RADIUS:
         cb.set_color(_ATTACKER_COLOR)
         cb.fill_rect(card_x + _CARD_RADIUS, card_y + 2, attacker_strip_w - _CARD_RADIUS, _ACCENT_STRIP_H)
     # 防守侧（右，绿色）
     defender_strip_w = card_x + _CARD_W - split_x
-    if defender_strip_w > 0:
+    if defender_strip_w > _CARD_RADIUS:
         cb.set_color(_DEFENDER_COLOR)
         cb.fill_rect(split_x, card_y + 2, defender_strip_w - _CARD_RADIUS, _ACCENT_STRIP_H)
 

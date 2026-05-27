@@ -41,10 +41,12 @@ async def wf_market_riven(
 
     if not keyword:
         yield event.plain_result(
-            "请输入武器名称！用法：\n"
-            "  /WR 武器名\n"
-            "  /WR 武器名 暴击率,暴击伤害 无\n"
-            "  /WR 武器名-暴击率,暴击伤害-无"
+            """\
+            请输入武器名称！用法：
+            /WR 武器名
+            /WR 武器名 暴击率,暴击伤害 无
+            /WR 武器名-暴击率,暴击伤害-无\
+            """,
         )
         return
 

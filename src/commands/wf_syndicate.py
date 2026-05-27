@@ -19,7 +19,6 @@ from ..wenum.world_state.syndicate import SyndicateEnum
 async def _render_syndicate(event: AstrMessageEvent, syndicate: SyndicateEnum, name: str):
     """通用：获取并渲染指定集团的赏金任务卡片。"""
     sm = await WorldStateService.get_syndicate_mission(syndicate)
-
     if sm is None:
         yield event.plain_result(f"当前没有{name}赏金数据")
         return
