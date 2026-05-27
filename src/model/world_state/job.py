@@ -21,7 +21,7 @@ class Job(BaseModelWithAlias):
     type: str | None = Field(default=None, alias="jobType")
     desc: str | None = Field(default=None, alias="desc")
     rewards: str | None = Field(default=None, alias="rewards")
-    reward_pool: dict | None = Field(default=None, alias="rewardPool")  # RewardPool 引用，暂用 dict
+    reward_pool: dict | None = Field(default=None)  # RewardPool 引用，暂用 dict
     mastery_req: int | None = Field(default=None, alias="masteryReq")
     min_level: int | None = Field(default=None, alias="minEnemyLevel")
     max_level: int | None = Field(default=None, alias="maxEnemyLevel")

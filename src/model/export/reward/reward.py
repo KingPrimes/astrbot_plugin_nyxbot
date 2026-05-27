@@ -52,6 +52,6 @@ class Reward(Model):
 
     def get_item(self) -> str:
         """获取物品名称，替换 |COUNT| 占位符"""
-        if self.itemCount and self.itemCount > 1:
-            return self.item.replace("|COUNT|", str(self.itemCount))
+        if "|COUNT|" in self.item:
+            return self.item.replace("|COUNT|", str(self.itemCount or 1))
         return self.item

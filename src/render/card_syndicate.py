@@ -33,7 +33,7 @@ _CONTENT_X, _CONTENT_W = LayoutConstants.get_content_bounds(_CANVAS_W)
 # 卡片网格
 _CARDS_PER_ROW = 2
 _CARD_W = 550
-_CARD_MIN_H = 280
+_CARD_MIN_H = 330
 _CARD_MARGIN_X = 40          # 卡片间水平间距
 _CARD_MARGIN_Y = 30           # 行间垂直间距
 _CARD_RADIUS = 15
@@ -60,7 +60,15 @@ _MR_COLOR = (230, 126, 34)          # #E67E22
 _XP_COLOR = (39, 174, 96)           # #27AE60
 
 # 卡片背景色
-_CARD_BG_COLOR = (22, 33, 62)       # ThemeColor.BG_CARD
+_CARD_BG_COLOR = ThemeColor.BG_CARD_ALT  # (30, 45, 80)
+
+# 赏金奖励稀有度颜色 — 高对比度亮色，确保在暗色卡片背景上清晰可辨
+_RARITY_COLORS: dict[str, tuple[int, int, int]] = {
+    "COMMON":    (200, 165, 100),        # 亮古铜色
+    "UNCOMMON":  (200, 200, 210),        # 亮银色
+    "RARE":      ThemeColor.ACCENT_GOLD,  # 金色 (255, 215, 0)
+    "LEGENDARY": (255, 130, 160),        # 亮珊瑚粉
+}
 
 
 # ---------------------------------------------------------------------------
@@ -111,7 +119,6 @@ def _draw_nodes_view(
 
     title_font = FontManager.get_text_font(40)
     body_font = FontManager.get_text_font(28)
-    FontManager.get_text_font(20)
 
     cb = ImageCombiner(_CANVAS_W, canvas_h, ThemeColor.BG_DARK)
 
@@ -168,10 +175,9 @@ def _draw_jobs_view(
 
     # ---- 字体 ----
     title_font = FontManager.get_text_font(40)
-    card_title_font = FontManager.get_text_font(22)
-    card_body_font = FontManager.get_text_font(18)
-    card_bold_font = FontManager.get_text_font(20)
-    FontManager.get_text_font(20)
+    card_title_font = FontManager.get_text_font(28)
+    card_body_font = FontManager.get_text_font(22)
+    card_bold_font = FontManager.get_text_font(24)
 
     # ---- 主画布 ----
     cb = ImageCombiner(_CANVAS_W, canvas_h, ThemeColor.BG_DARK)
@@ -244,7 +250,7 @@ def _draw_job_card(
 
     inner_x = _CARD_PAD
     inner_w = _CARD_W - 2 * _CARD_PAD
-    y = 30
+    y = 36
 
     # 1. 任务类型 + 特殊标识
     type_text = job.type or "未知任务"
@@ -254,21 +260,21 @@ def _draw_job_card(
         type_text += " [无尽]"
     cb.set_color(ThemeColor.ACCENT_BLUE).set_font(title_font)
     cb.add_centered_text(type_text, y)
-    y += 40
+    y += 48
 
     # 2. 敌人等级
     if job.min_level is not None and job.max_level is not None:
         level_text = f"敌人等级: Lv.{job.min_level} - Lv.{job.max_level}"
         cb.set_color(ThemeColor.TEXT_PRIMARY).set_font(body_font)
         cb.add_text(level_text, inner_x, y)
-        y += 30
+        y += 36
 
     # 3. 段位要求（如果存在）
     if job.mastery_req is not None and job.mastery_req > 0:
         mr_text = f"段位要求: MR {job.mastery_req}"
         cb.set_color(_MR_COLOR).set_font(body_font)
         cb.add_text(mr_text, inner_x, y)
-        y += 30
+        y += 36
 
     # 4. 任务描述（自动换行）
     if job.desc:
@@ -276,28 +282,28 @@ def _draw_job_card(
         cb.set_color(ThemeColor.TEXT_SECONDARY).set_font(body_font)
         for line in lines:
             cb.add_text(line, inner_x, y)
-            y += 25
-        y += 10
+            y += 30
+        y += 12
 
     # 5. 奖励列表
     rewards = _extract_rewards(job)
     if rewards:
         cb.set_color(ThemeColor.ACCENT_GOLD).set_font(bold_font)
         cb.add_text("奖励:", inner_x, y)
-        y += 30
+        y += 36
 
-        for reward_item, reward_count, rarity in rewards:
+        for reward_item, rarity in rewards:
             rarity_color = _get_rarity_color(rarity)
-            reward_text = f"  • {reward_item} x{reward_count}"
+            reward_text = f"  • {reward_item}"
             cb.set_color(rarity_color).set_font(body_font)
             cb.add_text(reward_text, inner_x, y)
-            y += 25
+            y += 30
 
     # 6. 声望奖励（底部固定位置）
     if job.xp_amounts:
         total_xp = sum(job.xp_amounts)
         cb.set_color(_XP_COLOR).set_font(bold_font)
-        cb.add_text(f"声望奖励: {total_xp}", inner_x, card_h - 30)
+        cb.add_text(f"声望奖励: {total_xp}", inner_x, card_h - 36)
 
     return cb.to_image()
 
@@ -308,39 +314,38 @@ def _draw_job_card(
 
 def _calc_job_card_height(job: Job) -> int:
     """计算单个 Job 卡片所需高度 — 镜像 Java calculateJobCardHeight()。"""
-    h = 30   # 顶部内边距
-    h += 40  # 任务类型
-    h += 30  # 敌人等级
+    h = 36   # 顶部内边距
+    h += 48  # 任务类型
+    h += 36  # 敌人等级
 
     # 段位要求
     if job.mastery_req is not None and job.mastery_req > 0:
-        h += 30
+        h += 36
 
     # 任务描述（动态行数）
     if job.desc:
-        # 用临时 draw + 18px 字体估算行数
         temp_img = Image.new("RGBA", (1, 1))
         temp_draw = ImageDraw.Draw(temp_img)
-        body_font = FontManager.get_text_font(18)
+        body_font = FontManager.get_text_font(22)
         lines = wrap_text(temp_draw, job.desc, _CARD_CONTENT_W, body_font)
-        h += len(lines) * 25 + 10
+        h += len(lines) * 30 + 12
 
     # 奖励标题
     rewards = _extract_rewards(job)
     if rewards:
-        h += 30  # "奖励:" 标题
-        h += len(rewards) * 25
+        h += 36  # "奖励:" 标题
+        h += len(rewards) * 30
 
     # 声望
-    h += 40
+    h += 48
 
     # 内边距
-    h += 30
+    h += 36
 
     return max(h, _CARD_MIN_H)
 
 
-def _extract_rewards(job: Job) -> list[tuple[str, int, str]]:
+def _extract_rewards(job: Job) -> list[tuple[str, str]]:
     """从 Job.reward_pool 提取奖励列表。
 
     reward_pool 是 dict，格式: {"rewards": [{"item": "...", "itemCount": N, "rarity": "RARE"}, ...]}
@@ -355,18 +360,13 @@ def _extract_rewards(job: Job) -> list[tuple[str, int, str]]:
     if not rewards_data or not isinstance(rewards_data, list):
         return []
 
-    result: list[tuple[str, int, str]] = []
+    result: list[tuple[str, str]] = []
     for r in rewards_data:
         if not isinstance(r, dict):
             continue
         name = str(r.get("item", r.get("ItemType", "未知物品")))
-        count = r.get("itemCount", r.get("ItemCount", 1))
         rarity = str(r.get("rarity", r.get("Rarity", "COMMON")))
-        try:
-            count = int(count)
-        except (TypeError, ValueError):
-            count = 1
-        result.append((name, count, rarity))
+        result.append((name, rarity))
 
     return result
 
@@ -382,13 +382,6 @@ def _get_job_border_color(job: Job) -> tuple[int, int, int]:
 
 def _get_rarity_color(rarity: str) -> tuple[int, int, int]:
     """根据稀有度字符串获取颜色 — 镜像 Java getRarityColor()。"""
-    rarity_upper = rarity.upper().strip()
-    if rarity_upper == "COMMON":
-        return ThemeColor.VOID_T2    # #75562B
-    if rarity_upper == "UNCOMMON":
-        return ThemeColor.VOID_T3    # #9F9E9E
-    if rarity_upper == "RARE":
-        return ThemeColor.VOID_T4    # #C1BE39
-    if rarity_upper == "LEGENDARY":
-        return ThemeColor.VOID_T5    # #872A2C
-    return ThemeColor.TEXT_PRIMARY
+    if not rarity:
+        return ThemeColor.TEXT_PRIMARY
+    return _RARITY_COLORS.get(rarity.upper().strip(), ThemeColor.TEXT_PRIMARY)

@@ -12,7 +12,7 @@ import contextlib
 import random
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import orjson
 from tortoise.exceptions import DoesNotExist
@@ -24,6 +24,7 @@ from ..init import init_ready
 from ..model.arbitration import Arbitration
 from ..model.export.night_wave import NightWave
 from ..model.export.nodes import Nodes
+from ..model.export.reward.reward_pool import RewardPool
 from ..model.export.weapons import Weapons
 from ..model.world_state import (
     ActiveMission,
@@ -940,11 +941,16 @@ class WorldStateService:
 
         for sm in ws.syndicate_missions:
             if sm.tag is syndicate_tag and sm.jobs:
-                # 批量翻译 job 类型（避免 N+1 逐条查询）
+                # 批量收集 type_keys 与 reward_keys（融合为一次遍历）
                 type_keys: set[str] = set()
+                reward_keys: set[str] = set()
                 for job in sm.jobs:
                     if key := (job.type or job.location_tag):
                         type_keys.add(key)
+                    if job.rewards:
+                        reward_keys.add(job.rewards)
+
+                # 批量翻译 job 类型
                 if type_keys:
                     type_map = await cls._batch_translate_job_types(type_keys)
                     for job in sm.jobs:
@@ -952,6 +958,15 @@ class WorldStateService:
                             translated = type_map.get(key)
                             if translated:
                                 job.type = translated
+
+                # 批量查询奖励池数据并翻译物品名
+                if reward_keys:
+                    pool_map = await cls._batch_lookup_reward_pools(reward_keys)
+                    await cls._batch_translate_reward_items(pool_map)
+                    for job in sm.jobs:
+                        if job.rewards and (rp := pool_map.get(job.rewards)):
+                            job.reward_pool = rp
+
                 return sm
 
         return None
@@ -961,7 +976,6 @@ class WorldStateService:
         """翻译赏金任务类型（从 StateTranslation 表查询，回退到 Nodes 表）。"""
         if not type_key:
             return None
-        from ..util.string_utils import get_last_three_segments
         with contextlib.suppress(Exception):
             key = get_last_three_segments(type_key)
             if key:
@@ -978,7 +992,6 @@ class WorldStateService:
         result: dict[str, str] = {}
         if not type_keys:
             return result
-        from ..util.string_utils import get_last_three_segments
         # 构建原始 key → 查询 key 的映射
         mapping: dict[str, str] = {}
         query_keys: set[str] = set()
@@ -994,6 +1007,64 @@ class WorldStateService:
             if translated := translations.get(qk):
                 result[tk] = translated
         return result
+
+    @classmethod
+    async def _batch_lookup_reward_pools(
+        cls, reward_keys: set[str],
+    ) -> dict[str, dict]:
+        """批量查询 RewardPool 表，构建 renderer 所需的 reward_pool dict。"""
+        if not reward_keys:
+            return {}
+
+        pools = await RewardPool.filter(
+            uniqueName__in=list(reward_keys)
+        ).prefetch_related("rewards")
+
+        return {
+            pool.uniqueName: {
+                "rewards": [
+                    {
+                        "item": r.get_item(),
+                        "itemCount": r.itemCount if r.itemCount is not None else 1,
+                        "rarity": r.rarity or "COMMON",
+                    }
+                    for r in pool.rewards
+                ],
+            }
+            for pool in pools
+        }
+
+    @classmethod
+    async def _batch_translate_reward_items(
+        cls, pool_map: dict[str, dict],
+    ) -> None:
+        """原地翻译 reward_pool dict 中 item 的 /Lotus/ 路径。"""
+        if not pool_map:
+            return
+
+        lotus_map: dict[str, str] = {}
+        for pool_data in pool_map.values():
+            for entry in pool_data.get("rewards", []):
+                item = entry.get("item", "")
+                if item.startswith("/Lotus/"):
+                    seg = get_last_three_segments(item)
+                    if seg:
+                        lotus_map[item] = seg
+
+        if not lotus_map:
+            return
+
+        translations = await StateTranslationService.batch_translate_by_suffix(
+            set(lotus_map.values())
+        )
+
+        for pool_data in pool_map.values():
+            for entry in pool_data.get("rewards", []):
+                item = entry.get("item", "")
+                if item.startswith("/Lotus/"):
+                    seg = lotus_map.get(item)
+                    if seg and seg in translations:
+                        entry["item"] = translations[seg]
 
     # ══════════════════════════════════════════════════════════════════
     # get_known_calendar_seasons() — 1999日历
@@ -1040,7 +1111,7 @@ class WorldStateService:
             and a.expiry is not None
             and a.expiry > now
         ]
-        return min(active, key=lambda a: a.expiry) if active else None
+        return min(active, key=lambda a: cast(float, a.expiry)) if active else None
 
     # ══════════════════════════════════════════════════════════════════
     # 星图节点查询（保留原有方法）
