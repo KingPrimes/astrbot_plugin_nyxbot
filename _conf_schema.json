@@ -40,5 +40,11 @@
     "type": "bool",
     "hint": "启用后将输出 Tortoise ORM 的 SQL 查询日志，用于调试数据库操作。默认关闭。",
     "default": false
+  },
+  "qq_markdown_enabled": {
+    "description": "QQ 官方机器人优先使用 Markdown 消息格式",
+    "type": "bool",
+    "hint": "开启后，QQ 官方平台文本消息将以 Markdown 格式发送（加粗、链接等排版更美观）",
+    "default": false
   }
 }

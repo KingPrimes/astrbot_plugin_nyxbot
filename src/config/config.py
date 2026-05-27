@@ -146,6 +146,11 @@ class PluginConfig:
         """数据库调试模式开关，开启后输出 Tortoise ORM SQL 日志。"""
         return bool(self.get("db_debug", False))
 
+    @property
+    def qq_markdown_enabled(self) -> bool:
+        """QQ 官方机器人优先使用 Markdown 消息格式。"""
+        return bool(self.get("qq_markdown_enabled", True))
+
     # --- Representation / 表示 ---
 
     def __repr__(self) -> str:
@@ -194,3 +199,8 @@ def get_wf_command_prefix() -> str:
 def get_db_debug() -> bool:
     """获取数据库调试模式开关。"""
     return _get_default_config().db_debug
+
+
+def get_qq_markdown_enabled() -> bool:
+    """获取 QQ 官方机器人 Markdown 消息格式开关。"""
+    return _get_default_config().qq_markdown_enabled

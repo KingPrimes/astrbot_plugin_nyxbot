@@ -8,8 +8,10 @@ from pathlib import Path
 from typing import cast
 
 from astrbot.api import AstrBotConfig, logger
+from astrbot.api.event import AstrMessageEvent, filter
 from astrbot.api.star import Context, Star
 
+from .src.config.config import get_qq_markdown_enabled
 from .src.init.engine import close_engine, get_engine, set_init_complete
 from .src.ocr.ocr_service import OcrService
 from .src.service import (
@@ -138,6 +140,15 @@ class NyxBotPlugin(Star):
             )
         except Exception as e:
             logger.error(f"自动停用插件 {plugin_name} 失败: {e}", exc_info=True)
+
+    @filter.on_decorating_result()
+    async def _decorate_markdown(self, event: AstrMessageEvent) -> None:
+        """全局 Markdown 控制：配置关闭时强制纯文本。"""
+        if get_qq_markdown_enabled():
+            return
+        result = event.get_result()
+        if result is not None:
+            result.use_markdown(False)
 
     async def terminate(self):
         """Plugin termination / 插件销毁"""
