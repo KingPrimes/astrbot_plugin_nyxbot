@@ -126,10 +126,15 @@ class ArbitrationService:
                     f"仲裁数据使用本地缓存，共 {len(cached)} 条（当前模式不联网刷新）"
                 )
             elif fresh:
+                remaining = max(
+                    _STARTUP_REFRESH_DELAY, _REMOTE_REFRESH_INTERVAL - age
+                )
                 logger.info(
                     f"仲裁数据使用本地缓存，共 {len(cached)} 条"
-                    f"（缓存 {_format_age(age)}前刷新，跳过远程拉取）"
+                    f"（缓存 {_format_age(age)}前刷新，"
+                    f"{_format_age(remaining)}后后台刷新）"
                 )
+                cls._schedule_background_refresh(remaining)
             else:
                 logger.info(
                     f"仲裁数据使用本地缓存，共 {len(cached)} 条；"
@@ -177,15 +182,25 @@ class ArbitrationService:
             return None
 
     @classmethod
-    def _schedule_background_refresh(cls) -> None:
-        """延迟后台刷新一次远程快照（失败只告警，不影响运行）。"""
+    def _schedule_background_refresh(
+        cls, delay: float = _STARTUP_REFRESH_DELAY
+    ) -> None:
+        """延迟后台刷新；成功后再排下一次，保证长期运行时缓存不会一直陈旧。
+
+        原实现只在启动时排一次，进程连续运行超过 ``_REMOTE_REFRESH_INTERVAL``
+        后就再也不刷新了（本地文件重解析只能前滚窗口，拿不到新排期）。
+        """
         if cls._refresh_task and not cls._refresh_task.done():
             return
 
         async def _later() -> None:
-            await asyncio.sleep(_STARTUP_REFRESH_DELAY)
+            await asyncio.sleep(delay)
+            ok = False
             with contextlib.suppress(Exception):
-                await cls.reload()
+                ok = await cls.reload()
+            cls._refresh_task = None
+            if ok:
+                cls._schedule_background_refresh(_REMOTE_REFRESH_INTERVAL)
 
         cls._refresh_task = asyncio.create_task(_later())
 

@@ -9,6 +9,8 @@ from typing import TypeVar
 
 from tortoise.models import Model as TortoiseModel
 
+from astrbot.api import logger
+
 from ..init.engine import get_engine
 
 _T = TypeVar("_T", bound=TortoiseModel)
@@ -56,6 +58,7 @@ class DataSyncService:
         *,
         update_fields: list[str] | None = None,
         use_transaction: bool = True,
+        prune: bool = False,
     ) -> tuple[int, int]:
         """简单去重 upsert（单 key 去重 + 可选脏检测更新）。
 
@@ -67,6 +70,9 @@ class DataSyncService:
             update_fields: 如果提供，对已有记录做脏检测+更新；
                            如果为 None，仅插入不更新（保持原有行为）。
             use_transaction: 是否用显式事务包裹。默认 True。
+            prune: 是否删除本次数据里不存在的旧行。适用于「整份快照」型数据源
+                   （如 alias/nodes），增量导入时被上游删掉的条目不会自动消失。
+                   为安全起见，本次数据为空时不做删除。
 
         Returns:
             (new_count, updated_count) — 本次新增数量和更新数量。
@@ -119,6 +125,20 @@ class DataSyncService:
                         chunk = to_update[i : i + update_chunk]
                         await model_cls.bulk_update(chunk, fields=update_fields)
                     updated_count = len(to_update)
+
+            # Prune: 删除本次快照里已不存在的旧行（仅整份快照型数据源）
+            # 注意不能拿 existing_map 做差集——它只包含本次 keys 命中的行
+            if prune and keys:
+                db_keys = set(
+                    await model_cls.all().values_list(key_field, flat=True)
+                )
+                stale = db_keys - set(keys)
+                if stale:
+                    stale_list = list(stale)
+                    for i in range(0, len(stale_list), _BATCH_SIZE):
+                        chunk = stale_list[i : i + _BATCH_SIZE]
+                        await model_cls.filter(**{f"{key_field}__in": chunk}).delete()
+                    logger.info(f"{model_cls.__name__} 清理 {len(stale_list)} 条已消失的记录")
 
             return new_count, updated_count
 

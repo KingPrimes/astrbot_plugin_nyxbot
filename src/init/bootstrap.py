@@ -21,6 +21,7 @@ from tortoise import Tortoise
 
 from astrbot.api import logger
 
+from ..api.cdn_client import CdnClient
 from ..config import (
     DATA_INIT_MODE_ALWAYS,
     DATA_INIT_MODE_NEVER,
@@ -208,17 +209,23 @@ async def _import_all(plan: UpdatePlan) -> bool:
                 logger.error(f"数据同步失败：{name} — 返回 False")
                 failed.append(name)
 
-    # 阶段 3：依赖翻译/奖励数据的表，串行执行（仅全量）
+    # 阶段 3：依赖翻译/奖励数据的表，串行执行
+    serial: list[tuple[str, SyncFunc]] = []
     if plan.full:
-        serial: list[tuple[str, SyncFunc]] = [
+        serial += [
             ("遗物", RelicsService.sync_data),
             ("守护（stub）", SentinelsService.sync_data),
             ("MOD（stub）", UpgradesService.sync_data),
             ("战甲（stub）", WarframesService.sync_data),
         ]
-        for name, func in serial:
-            if not await _run_stage(name, func):
-                failed.append(name)
+    elif plan.needs("state_translation.json"):
+        # 遗物奖励名在导入时按翻译表固化成中文（RelicsService._translate_relic_rewards），
+        # 翻译更新后必须重跑，否则库里还是旧名字
+        serial.append(("遗物", RelicsService.sync_data))
+
+    for name, func in serial:
+        if not await _run_stage(name, func):
+            failed.append(name)
 
     logger.info(f"数据初始化完成，耗时 {time.monotonic() - started:.1f}s")
     if failed:
@@ -256,7 +263,7 @@ async def bootstrap_data(mode: str | None = None) -> bool:
     # always：忽略一切判断，强制全量
     if current == DATA_INIT_MODE_ALWAYS:
         logger.info("数据初始化模式 always：忽略非空判断，强制全量导入")
-        plan = UpdatePlan(tag=(await plan_update()).tag, changed=None)
+        plan = UpdatePlan(tag=await CdnClient.get_latest_tag(), changed=None)
         if await _import_all(plan):
             write_state(plan.tag)
         return await _report_result()
@@ -264,7 +271,7 @@ async def bootstrap_data(mode: str | None = None) -> bool:
     # 核心表缺数据：必须全量补齐，但仍记录当前版本，避免下次重复全量
     if empty:
         logger.info(f"核心表缺数据：{', '.join(empty)}，开始全量导入")
-        plan = UpdatePlan(tag=(await plan_update()).tag, changed=None)
+        plan = UpdatePlan(tag=await CdnClient.get_latest_tag(), changed=None)
         if await _import_all(plan):
             write_state(plan.tag)
         return await _report_result()

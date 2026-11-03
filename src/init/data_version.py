@@ -34,6 +34,9 @@ STATE_FILE_NAME = "data_source_version.json"
 COMPARE_URL = "https://api.github.com/repos/KingPrimes/DataSource/compare/{old}...{new}"
 DATASET_PREFIX = "warframe/"
 
+_COMPARE_FILE_LIMIT = 300
+"""GitHub compare 接口单次返回的文件数上限；达到即视为被截断。"""
+
 
 @dataclass(frozen=True)
 class UpdatePlan:
@@ -102,8 +105,12 @@ def write_state(tag: str) -> None:
 async def compare_tags(old_tag: str, new_tag: str) -> set[str] | None:
     """用 GitHub compare 接口列出两个 tag 之间变化的文件。
 
+    GitHub 的 compare 接口最多返回约 300 个文件；达到上限说明列表被截断，
+    此时无法确定完整的变化集合，返回 ``None`` 让调用方退化为全量，
+    否则会漏掉未列出的数据集并写错版本标记。
+
     Returns:
-        变化的文件路径集合；无法获取时返回 ``None``（调用方退化为全量）。
+        变化的文件路径集合；无法获取或结果被截断时返回 ``None``。
     """
     url = COMPARE_URL.format(old=old_tag, new=new_tag)
     data = await fetch_json_with_retry(
@@ -115,6 +122,11 @@ async def compare_tags(old_tag: str, new_tag: str) -> set[str] | None:
         return None
     files = data.get("files")
     if not isinstance(files, list):
+        return None
+    if len(files) >= _COMPARE_FILE_LIMIT:
+        logger.warning(
+            f"compare 返回 {len(files)} 个文件，疑似被截断，退化为全量导入"
+        )
         return None
     changed = {
         str(item.get("filename"))

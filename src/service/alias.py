@@ -102,6 +102,7 @@ class AliasService:
             data=data,
             key_field="cn",
             build_instance=lambda item: Alias(cn=item["cn"], en=item["en"]),
+            prune=True,  # 整份快照：上游删掉的别名本地也要删
         )
         total = await Alias.all().count()
         logger.info(f"别名数据初始化完成，共 {total} 条记录（本次新增 {new_count} 条）")
