@@ -45,9 +45,14 @@ class MarketOrdersService:
     def _normalize_keyword(keyword: str) -> str:
         """标准化关键词 — 镜像 Java MarketCommonUtils.normalizeInput()
 
-        小写化 + 去空格 + "总图"→"蓝图"。
+        小写化 + 连续空白归一 + "总图"→"蓝图"。
+
+        这里**不能去掉空格**：名字本身就带空格（``Ember Prime 一套``），
+        去掉后 ``name = ?`` 的精确匹配永远命中不了，只能一路退化到模糊/正则。
+        去空格的比较由 ``_execute_space_normalized_*`` 在 SQL 里
+        ``REPLACE(name, ' ', '')`` 完成。
         """
-        return keyword.strip().lower().replace(" ", "").replace("总图", "蓝图")
+        return " ".join(keyword.lower().split()).replace("总图", "蓝图")
 
     @classmethod
     async def _match_orders_item_by_exact_name(
@@ -57,18 +62,29 @@ class MarketOrdersService:
         return await OrdersItems.filter(name__iexact=keyword).first()
 
     @classmethod
-    async def _execute_space_normalized_query(
-        cls, keyword: str, limit: int = 0
+    async def _execute_space_normalized_like(
+        cls, like_pattern: str, limit: int = 0
     ) -> list[OrdersItems]:
-        """空格归一化原生 SQL 查询 — 镜像 Java REPLACE(NAME, ' ', '')
+        """按给定 LIKE 模式做空格归一化查询 — 镜像 Java REPLACE(NAME, ' ', '')
 
-        去除 DB 列和关键词中的空格后再进行 LIKE 比较，
-        优先返回 slug 以 'set' 结尾的套装物品（镜像 Java SLUG regexp '(.*set)?'）。
+        通配符由调用方负责：包含匹配传 ``%keyword%``，前缀锚定匹配传
+        ``prefix%end%``。
+
+        注意不要在这里统一再套一层 ``%...%``：那会把锚定模式退化成
+        「首尾字符出现在名字任意位置」，``braton`` 就会命中
+        ``Ember Prime 一套``。
+
+        Args:
+            like_pattern: 已带通配符的 LIKE 模式（大小写不敏感）。
+            limit: 返回条数上限，0 表示不限。
+
+        Returns:
+            命中的物品列表，套装（slug 以 set 结尾）排在前面。
         """
         sql = (
             "SELECT * FROM ordersitems "
             "WHERE UPPER(REPLACE(name, ' ', '')) "
-            "LIKE UPPER(REPLACE('%' || ? || '%', ' ', '')) "
+            "LIKE UPPER(REPLACE(?, ' ', '')) "
             "ORDER BY CASE WHEN slug LIKE '%set' THEN 0 ELSE 1 END"
         )
         if limit > 0:
@@ -76,12 +92,19 @@ class MarketOrdersService:
 
         try:
             conn = Tortoise.get_connection("default")
-            rows = await conn.execute_query_dict(sql, [keyword])
+            rows = await conn.execute_query_dict(sql, [like_pattern])
         except Exception:
             logger.warning("空格归一化查询失败，回退到空结果")
             return []
 
         return [OrdersItems(**row) for row in rows]
+
+    @classmethod
+    async def _execute_space_normalized_query(
+        cls, keyword: str, limit: int = 0
+    ) -> list[OrdersItems]:
+        """空格归一化包含查询 — ``name LIKE %keyword%``。"""
+        return await cls._execute_space_normalized_like(f"%{keyword}%", limit)
 
     @classmethod
     async def _replace_aliases_in_keyword(cls, keyword: str) -> str:
@@ -125,28 +148,56 @@ class MarketOrdersService:
     ) -> OrdersItems | None:
         """首尾 LIKE 匹配 — 镜像 Java tryRegexNameMatch() + findByNameRegex()
 
-        例如 keyword="embp" → LIKE 模式 "emb%p%" → 可匹配 "Ember Prime"
+        模式与 Java 一致，都是**前缀锚定**的 ``^header.*?end.*?``：
+        ``embp`` → ``e%p%p%`` 命中 "Ember Prime 一套"；
+        ``volt`` → ``vol%t%`` 命中 "Volt Prime 一套"。
+
+        命中后再校验前缀重合度，避免「首尾字符对上、中间无关」的误命中：
+        ``braton``（库里没有该物品）不会因为以 b 开头、含 n 就落成
+        ``Banshee Prime 一套``，而是继续走候选列表。
         """
-        if len(keyword) < 2:
+        # 名字里的空格在 SQL 里已经被 REPLACE 掉，模式也按无空格构造
+        compact = keyword.replace(" ", "")
+        if len(compact) < 2:
             return None
 
-        end = keyword[-1]
+        end = compact[-1]
+        patterns: list[str] = []
+        if "p" in compact and end != "p":
+            patterns.append(f"{compact[0]}%p%{end}%")
 
-        if "p" in keyword and not keyword.endswith("p"):
-            like_pattern = f"{keyword[0]}%{end}%"
-            items = await cls._execute_space_normalized_query(like_pattern, limit=1)
-            if items:
-                return items[0]
-
-        max_prefix_len = min(4, len(keyword) - 1)
+        # 前缀长度 4 → 1 逐级放宽
+        max_prefix_len = min(4, len(compact) - 1)
         for prefix_len in range(max_prefix_len, 0, -1):
-            header = keyword[:prefix_len]
-            like_pattern = f"{header}%{end}%"
-            items = await cls._execute_space_normalized_query(like_pattern, limit=1)
-            if items:
-                return items[0]
+            patterns.append(f"{compact[:prefix_len]}%{end}%")
+
+        for pattern in patterns:
+            items = await cls._execute_space_normalized_like(pattern, limit=15)
+            for item in items:
+                if cls._has_matching_prefix(compact, item.name or ""):
+                    return item
 
         return None
+
+    @staticmethod
+    def _has_matching_prefix(keyword: str, name: str) -> bool:
+        """关键词与候选名至少要重合 3 个起始字符。
+
+        前缀长度 1~2 的 LIKE 模式几乎能命中任何同首字母的物品，``braton``
+        （库里没有该物品）就是这样落成 ``Banshee Prime 一套`` 的。要求 3 个
+        字符后，``embp``→``Ember Prime``、``volt``→``Volt Prime`` 仍正常，
+        而只共享首字母的误命中会被拒掉、转为候选列表。
+
+        关键词不足 4 个字符时不设限，保留 ``bp``、``nyx`` 这类短缩写能力。
+
+        Args:
+            keyword: 已去空格的关键词。
+            name: 候选物品名（可能含空格）。
+        """
+        if len(keyword) < 4:
+            return True
+        target = name.lower().replace(" ", "")
+        return target.startswith(keyword[:3])
 
     @classmethod
     async def _find_possible_order_item_names(
