@@ -10,6 +10,7 @@ import random
 from enum import Enum
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 import aiohttp
 
@@ -46,12 +47,33 @@ _session: aiohttp.ClientSession | None = None
 _session_lock: asyncio.Lock | None = None
 
 
+def _redact_proxy(url: str) -> str:
+    """去掉代理 URL 中的用户名与密码，避免凭据写进日志。"""
+    if not url:
+        return url
+    try:
+        parts = urlsplit(url)
+        if not (parts.username or parts.password):
+            return url
+        host = parts.hostname or ""
+        if parts.port:
+            host = f"{host}:{parts.port}"
+        return urlunsplit(
+            (parts.scheme, f"***@{host}", parts.path, parts.query, parts.fragment)
+        )
+    except ValueError:
+        return "***"
+
+
 def _log_proxy_state() -> None:
     """创建会话时打印一次代理状态，便于排查「请求为什么走/没走代理」。"""
     proxy = os.environ.get("https_proxy") or os.environ.get("http_proxy") or ""
     if proxy:
         no_proxy = os.environ.get("no_proxy", "")
-        logger.info(f"HTTP 会话使用 AstrBot 代理: {proxy}（no_proxy: {no_proxy or '未设置'}）")
+        logger.info(
+            f"HTTP 会话使用 AstrBot 代理: {_redact_proxy(proxy)}"
+            f"（no_proxy: {no_proxy or '未设置'}）"
+        )
     else:
         logger.info("HTTP 会话未使用代理（AstrBot 未配置 http_proxy），走直连")
 

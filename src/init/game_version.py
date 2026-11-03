@@ -95,15 +95,23 @@ async def on_build_label(label: str) -> None:
 
 
 async def _run_stage(name: str, func: Callable[[], Awaitable[object]]) -> bool:
-    """执行单个同步阶段，异常只记录不中断。"""
+    """执行单个同步阶段，异常只记录不中断。
+
+    部分 ``sync_data()`` 用返回值表达失败（导出文件下载失败返回 ``False``），
+    必须检查返回值，否则失败会被当成成功并写入新的 BuildLabel，导致永不重试。
+    """
     try:
-        await func()
-        return True
+        result = await func()
     except asyncio.CancelledError:
         raise
     except Exception as exc:
         logger.error(f"游戏版本更新后同步失败：{name} — {exc}", exc_info=True)
         return False
+
+    if result is False:
+        logger.error(f"游戏版本更新后同步失败：{name} — 返回 False")
+        return False
+    return True
 
 
 async def _refresh_export_data(label: str) -> None:

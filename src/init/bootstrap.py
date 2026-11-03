@@ -107,22 +107,33 @@ async def missing_core_tables() -> list[str]:
 
 
 async def _run_stage(name: str, func: SyncFunc) -> bool:
-    """执行单个同步阶段，异常只记录不中断。"""
+    """执行单个同步阶段，异常只记录不中断。
+
+    注意：部分 ``sync_data()`` 用返回值表达失败（如导出文件下载失败返回 ``False``），
+    所以这里必须检查返回值，否则失败会被当成成功，进而写入版本标记导致永不重试。
+    """
     try:
-        await func()
-        return True
+        result = await func()
     except asyncio.CancelledError:
         raise
     except Exception as exc:
         logger.error(f"数据同步失败：{name} — {exc}", exc_info=True)
         return False
 
+    if result is False:
+        logger.error(f"数据同步失败：{name} — 返回 False")
+        return False
+    return True
 
-async def _import_all(plan: UpdatePlan) -> None:
+
+async def _import_all(plan: UpdatePlan) -> bool:
     """按更新计划执行数据导入。
 
     ``plan.full`` 为真时全量导入；否则只跑 ``plan.needs()`` 命中的数据集。
     非 DataSource 来源（warframe.market API、官方导出文件）只在全量时执行。
+
+    Returns:
+        True 表示所有执行的阶段都成功；False 表示有阶段失败（调用方不应写入版本标记）。
     """
     from ..service import (
         AliasService,
@@ -144,12 +155,14 @@ async def _import_all(plan: UpdatePlan) -> None:
     scope = "全量" if plan.full else "增量"
     logger.info(f"开始数据初始化（{scope}）...")
 
+    failed: list[str] = []
+
     # 阶段 1：状态翻译（顺带下载官方导出文件）
     if plan.needs("state_translation.json"):
-        translated = await _run_stage(
+        if not await _run_stage(
             "状态翻译 / 导出文件", StateTranslationService.sync_data
-        )
-        if not translated:
+        ):
+            failed.append("状态翻译")
             logger.warning("导出文件不可用，依赖导出文件的数据可能为空")
     else:
         logger.debug("状态翻译数据未变化，跳过")
@@ -190,6 +203,10 @@ async def _import_all(plan: UpdatePlan) -> None:
         for (name, _), result in zip(parallel, results, strict=True):
             if isinstance(result, BaseException):
                 logger.error(f"数据同步失败：{name} — {result}")
+                failed.append(name)
+            elif result is False:
+                logger.error(f"数据同步失败：{name} — 返回 False")
+                failed.append(name)
 
     # 阶段 3：依赖翻译/奖励数据的表，串行执行（仅全量）
     if plan.full:
@@ -200,9 +217,16 @@ async def _import_all(plan: UpdatePlan) -> None:
             ("战甲（stub）", WarframesService.sync_data),
         ]
         for name, func in serial:
-            await _run_stage(name, func)
+            if not await _run_stage(name, func):
+                failed.append(name)
 
     logger.info(f"数据初始化完成，耗时 {time.monotonic() - started:.1f}s")
+    if failed:
+        logger.warning(
+            f"以下阶段未成功：{', '.join(failed)}；本次不记录版本标记，下次启动会重试"
+        )
+        return False
+    return True
 
 
 async def bootstrap_data(mode: str | None = None) -> bool:
@@ -233,16 +257,16 @@ async def bootstrap_data(mode: str | None = None) -> bool:
     if current == DATA_INIT_MODE_ALWAYS:
         logger.info("数据初始化模式 always：忽略非空判断，强制全量导入")
         plan = UpdatePlan(tag=(await plan_update()).tag, changed=None)
-        await _import_all(plan)
-        write_state(plan.tag)
+        if await _import_all(plan):
+            write_state(plan.tag)
         return await _report_result()
 
     # 核心表缺数据：必须全量补齐，但仍记录当前版本，避免下次重复全量
     if empty:
         logger.info(f"核心表缺数据：{', '.join(empty)}，开始全量导入")
         plan = UpdatePlan(tag=(await plan_update()).tag, changed=None)
-        await _import_all(plan)
-        write_state(plan.tag)
+        if await _import_all(plan):
+            write_state(plan.tag)
         return await _report_result()
 
     # 数据齐备：只看 DataSource 版本差异，按变化数据集增量导入
@@ -259,8 +283,8 @@ async def bootstrap_data(mode: str | None = None) -> bool:
         if not plan.full
         else "DataSource 需要全量同步"
     )
-    await _import_all(plan)
-    write_state(plan.tag)
+    if await _import_all(plan):
+        write_state(plan.tag)
     return await _report_result()
 
 

@@ -341,10 +341,16 @@ class ArbitrationService:
 
     @classmethod
     async def get_arbitration(cls) -> Arbitration | None:
-        """返回当前正在进行的仲裁（最近到期的一条）。"""
+        """返回当前正在进行的仲裁（最近到期的一条）。
+
+        必须同时满足 ``activation <= now < expiry``：只看 ``expiry > now`` 会把
+        排期空档期里「还没开始」的下一场当成当前仲裁。
+        """
         entries = await cls._load()
         now = int(time.time())
-        active = [entry for entry in entries if entry.expiry > now]
+        active = [
+            entry for entry in entries if entry.activation <= now < entry.expiry
+        ]
         return min(active, key=lambda entry: entry.expiry) if active else None
 
     @classmethod

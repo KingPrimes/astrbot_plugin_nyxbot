@@ -10,6 +10,7 @@ KnownCalendarSeasons Model / 1999 日历季节模型
 from __future__ import annotations
 
 from enum import Enum
+from typing import ClassVar
 
 from pydantic import Field
 
@@ -70,7 +71,8 @@ class KnownCalendarSeasons(BastWorldState):
     """
 
     # 平年每月天数（Java processDays 用固定 365 天，不处理闰年）
-    MONTH_LENGTHS: tuple[int, ...] = (31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+    # ClassVar 才不会变成 Pydantic 字段，否则会被写进缓存 JSON
+    MONTH_LENGTHS: ClassVar[tuple[int, ...]] = (31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
 
     class Events(BaseModelWithAlias):
         """日历事件 / Calendar Event
