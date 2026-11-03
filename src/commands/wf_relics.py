@@ -8,19 +8,23 @@ from ..init import init_ready
 from ..render.card_relics import render_relic_card
 from ..render.card_renderer import CardRenderer
 from ..service.relics import RelicsService
+from ..util.command_args import command_args
 
 
 @wf.command(name="遗物", alias=["核桃"])
-async def wf_relics(self, event: AstrMessageEvent, name: str = ""):
+async def wf_relics(self, event: AstrMessageEvent):
     """查询遗物数据 — 支持按遗物名称或奖励物品搜索。
 
     用法: /遗物 <搜索词>  或  /核桃 <搜索词>
     示例:
       /遗物              → 显示所有遗物
-      /遗物 丽斯         → 搜索名称含"丽斯"的遗物
+      /遗物 中纪 A1      → 搜索遗物名/奖励含 "中纪 A1" 的记录
       /遗物 Frost Prime  → 搜索奖励含"Frost Prime"的遗物
     """
     await init_ready()
+
+    # 遗物名/奖励名可能含空格（"中纪 A1"、"Frost Prime"），取整段原文
+    name = command_args(event, "遗物", "核桃")
 
     relics = await RelicsService.find_by_name_or_reward(name)
 

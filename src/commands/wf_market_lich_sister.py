@@ -17,6 +17,7 @@ from ..render.card_market_lich_sister import render_market_lich_sister_card
 from ..render.card_market_orders import render_market_orders_possible_items_card
 from ..render.card_renderer import CardRenderer
 from ..service.market import MarketService
+from ..util.command_args import command_args
 
 
 async def _handle_lich_sister(
@@ -63,14 +64,17 @@ async def _handle_lich_sister(
 
 
 @wf.command("CD",alias=["cd","赤毒"])
-async def wf_market_liches(self, event: AstrMessageEvent, keyword: str = "") -> AsyncGenerator[MessageEventResult, None]:
+async def wf_market_liches(self, event: AstrMessageEvent) -> AsyncGenerator[MessageEventResult, None]:
     await init_ready()
+    # 武器名可能含空格（"Kuva Bramma"），取整段原文
+    keyword = command_args(event, "CD", "cd", "赤毒")
     async for r in _handle_lich_sister(event, keyword, "lich", "赤毒"):
         yield r
 
 
 @wf.command("XT",alias=["xt","信条"])
-async def wf_market_sisters(self, event: AstrMessageEvent, keyword: str = "") -> AsyncGenerator[MessageEventResult, None]:
+async def wf_market_sisters(self, event: AstrMessageEvent) -> AsyncGenerator[MessageEventResult, None]:
     await init_ready()
+    keyword = command_args(event, "XT", "xt", "信条")
     async for r in _handle_lich_sister(event, keyword, "sister", "信条"):
         yield r
