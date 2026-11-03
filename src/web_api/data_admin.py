@@ -11,6 +11,7 @@ from astrbot.api import logger
 from astrbot.api.star import Context
 
 from ..model.alias import Alias
+from ..model.arbitration_tier import ArbitrationTier
 from ..model.ephemeras import Ephemeras
 from ..model.export.night_wave import NightWave
 from ..model.export.nodes import Nodes
@@ -34,6 +35,7 @@ from ..model.riven_tion_alias import RivenTionAlias
 from ..model.state_translation import StateTranslation
 from ..service import (
     AliasService,
+    ArbitrationService,
     MarketSyncService,
     NightWaveService,
     NodesService,
@@ -118,6 +120,12 @@ def register_data_apis(context: Context) -> None:
     # ── 原有模型 ──
     _register_model("alias", Alias, search_fields=["cn", "en"], sync_func=AliasService.sync_data)
     _register_model("nodes", Nodes, search_fields=["name", "uniqueName"], sync_func=NodesService.sync_data)
+    _register_model(
+        "arbitration_tier",
+        ArbitrationTier,
+        search_fields=["key", "tier"],
+        sync_func=ArbitrationService.sync_tiers,
+    )
 
     # ── Notification ──
     _register_model(

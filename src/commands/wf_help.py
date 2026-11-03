@@ -24,6 +24,9 @@ async def wf_help(self, event: AstrMessageEvent):
             | `{prefix}奸商` | 查看虚空商人 |
             | `{prefix}钢铁` | 查看钢铁之路 |
             | `{prefix}仲裁` | 查看仲裁任务 |
+            | `{prefix}仲裁表` | 查看有价值的未来仲裁 |
+            | `{prefix}更新仲裁` | 重拉仲裁时间表（管理员） |
+            | `{prefix}更新分级` | 重拉仲裁节点分级（管理员） |
             | `{prefix}1999` | 查看1999日历 |
             | `{prefix}WM` | 查询Warframe.Market订单 |
             | `{prefix}金垃圾` | 查看杜卡德金币 |

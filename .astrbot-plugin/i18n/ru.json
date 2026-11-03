@@ -24,6 +24,7 @@
       "models": {
         "alias": "Псевдонимы",
         "nodes": "Узлы",
+        "arbitration_tier": "Ранги арбитража",
         "state_translation": "Переводы состояний",
         "night_wave": "Ночная Волна",
         "relics": "Реликвии",

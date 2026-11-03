@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from .alias import AliasService
+from .arbitration import ArbitrationService
 from .data_admin import DataAdminService
 from .data_sync import DataSyncService
 from .detector import (
@@ -31,6 +32,7 @@ from .world_state import WorldStateService
 
 __all__ = [
     "DataAdminService",
+    "ArbitrationService",
     "DataSyncService",
     "WorldStateService",
     "AliasService",

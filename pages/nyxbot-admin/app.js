@@ -101,6 +101,7 @@ const toast = $("#toast");
 const MODEL_CATEGORY_KEYS = {
   "alias": "basic",
   "nodes": "basic",
+  "arbitration_tier": "basic",
   "state_translation": "translation",
   "night_wave": "game_content",
   "relics": "game_content",
