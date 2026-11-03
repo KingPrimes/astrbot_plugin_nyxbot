@@ -14,6 +14,7 @@ from astrbot.api.star import Context, Star
 from .src.config.config import get_data_init_mode, get_qq_markdown_enabled
 from .src.init.bootstrap import allows_network, bootstrap_data, is_offline_mode
 from .src.init.engine import close_engine, get_engine, set_init_complete
+from .src.init.game_version import shutdown as game_version_shutdown
 from .src.ocr.ocr_service import OcrService
 from .src.service import (
     ArbitrationService,
@@ -145,6 +146,9 @@ class NyxBotPlugin(Star):
 
         # 停止 WorldState 后台刷新
         await WorldStateService.stop_cache()
+
+        # 取消游戏版本更新触发的导出刷新（必须在关库之前）
+        await game_version_shutdown()
 
         # 停止仲裁后台预热
         await ArbitrationService.stop()

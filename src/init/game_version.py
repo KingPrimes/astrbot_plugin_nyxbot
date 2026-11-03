@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import time
 from collections.abc import Awaitable, Callable
@@ -60,6 +61,22 @@ def write_build_label(label: str) -> None:
         )
     except OSError as exc:
         logger.warning(f"写入游戏版本状态失败: {exc}")
+
+
+async def shutdown() -> None:
+    """取消尚未完成的导出刷新任务（插件卸载/重载时调用）。
+
+    不取消的话，旧任务会在插件卸载后继续跑：既可能和新实例抢同一个数据库连接，
+    也可能在进程退出前把文件写到一半。
+    """
+    global _task
+    task = _task
+    _task = None
+    if task and not task.done():
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+        logger.info("游戏版本刷新任务已取消")
 
 
 async def on_build_label(label: str) -> None:

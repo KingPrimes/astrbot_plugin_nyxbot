@@ -19,6 +19,7 @@ DataSource 仓库（``KingPrimes/DataSource``）以 tag 发布数据包，``warf
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 from dataclasses import dataclass, field
@@ -36,6 +37,12 @@ DATASET_PREFIX = "warframe/"
 
 _COMPARE_FILE_LIMIT = 300
 """GitHub compare 接口单次返回的文件数上限；达到即视为被截断。"""
+
+_TAG_TIMEOUT = 8.0
+"""查询远端 tag 的超时（秒）。GitHub 不可达时不该把启动卡住几十秒。"""
+
+_TAG_CHECK_INTERVAL = 3600.0
+"""两次远端版本检查的最小间隔（秒）。避免每次启动都打一次 GitHub API。"""
 
 
 @dataclass(frozen=True)
@@ -89,15 +96,30 @@ def read_state() -> dict:
 
 
 def write_state(tag: str) -> None:
-    """记录已应用的 tag。"""
+    """记录已应用的 tag，并标记本次检查时间。"""
     if not tag:
         return
-    payload = {"tag": tag, "updated_at": int(time.time())}
+    now = int(time.time())
+    _save_state({"tag": tag, "updated_at": now, "checked_at": now})
+
+
+def mark_checked() -> None:
+    """只更新「上次检查时间」（版本未变时用，避免重复查询 GitHub）。"""
+    state = read_state()
+    tag = str(state.get("tag") or "")
+    if not tag:
+        return
+    now = int(time.time())
+    _save_state(
+        {"tag": tag, "updated_at": state.get("updated_at") or now, "checked_at": now}
+    )
+
+
+def _save_state(payload: dict) -> None:
     try:
         _state_path().write_text(
             json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
         )
-        logger.info(f"DataSource 版本状态已更新: {tag}")
     except OSError as exc:
         logger.warning(f"写入 DataSource 版本状态失败: {exc}")
 
@@ -140,15 +162,33 @@ async def plan_update() -> UpdatePlan:
     """计算本次启动需要导入哪些数据集。
 
     规则：
+    - 一小时内已检查过版本 → 直接跳过，不请求 GitHub；
     - 无本地状态（首次运行）→ 全量；
     - 远端 tag 与本地一致 → 无需导入；
     - 不一致 → 只导入变化的文件；
-    - 取不到远端 tag（离线/限流）→ 若有本地状态则跳过，否则全量。
+    - 取不到远端 tag（离线/限流/超时）→ 若有本地状态则跳过，否则全量。
     """
     state = read_state()
     applied = str(state.get("tag") or "")
+    checked_at = float(state.get("checked_at") or 0)
 
-    latest = await CdnClient.get_latest_tag()
+    if applied and time.time() - checked_at < _TAG_CHECK_INTERVAL:
+        logger.debug(
+            f"DataSource 版本 {applied} 在 {_TAG_CHECK_INTERVAL / 3600:.0f} 小时内检查过，"
+            "跳过远端查询"
+        )
+        return UpdatePlan(tag=applied, changed=set())
+
+    try:
+        latest = await asyncio.wait_for(
+            CdnClient.get_latest_tag(), timeout=_TAG_TIMEOUT
+        )
+    except (TimeoutError, asyncio.TimeoutError):
+        logger.warning(
+            f"查询 DataSource 版本超时（{_TAG_TIMEOUT:.0f}s），沿用本地数据"
+        )
+        latest = ""
+
     if not latest:
         if applied:
             logger.warning(
@@ -159,6 +199,7 @@ async def plan_update() -> UpdatePlan:
         return UpdatePlan(tag="", changed=None)
 
     if applied == latest:
+        mark_checked()
         return UpdatePlan(tag=latest, changed=set())
 
     if not applied:
