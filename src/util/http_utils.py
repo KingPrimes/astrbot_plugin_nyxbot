@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import random
 from enum import Enum
 from pathlib import Path
@@ -45,6 +46,16 @@ _session: aiohttp.ClientSession | None = None
 _session_lock: asyncio.Lock | None = None
 
 
+def _log_proxy_state() -> None:
+    """创建会话时打印一次代理状态，便于排查「请求为什么走/没走代理」。"""
+    proxy = os.environ.get("https_proxy") or os.environ.get("http_proxy") or ""
+    if proxy:
+        no_proxy = os.environ.get("no_proxy", "")
+        logger.info(f"HTTP 会话使用 AstrBot 代理: {proxy}（no_proxy: {no_proxy or '未设置'}）")
+    else:
+        logger.info("HTTP 会话未使用代理（AstrBot 未配置 http_proxy），走直连")
+
+
 async def get_session() -> aiohttp.ClientSession:
     """获取全局共享的 ClientSession 实例。
 
@@ -64,7 +75,13 @@ async def get_session() -> aiohttp.ClientSession:
                         "Accept": "application/json",
                     },
                     connector=aiohttp.TCPConnector(limit=20, limit_per_host=5),
+                    # 跟随 AstrBot 的代理配置：框架在 core_lifecycle 里把
+                    # cmd_config.json 的 http_proxy/no_proxy 写进同名环境变量，
+                    # trust_env 让 aiohttp 每次请求时按它们解析代理
+                    # （no_proxy 命中的地址自动直连，含 localhost）。
+                    trust_env=True,
                 )
+                _log_proxy_state()
     return _session
 
 
