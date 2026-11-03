@@ -10,18 +10,18 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import random
+import re
 import time
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import orjson
 from tortoise.exceptions import DoesNotExist
 
 from astrbot.api import logger
 
-from ..api.api import WF_ARBITRATION, WF_WORLD_STATE
+from ..api.api import WF_WORLD_STATE
 from ..init import init_ready
-from ..model.arbitration import Arbitration
 from ..model.export.night_wave import NightWave
 from ..model.export.nodes import Nodes
 from ..model.export.reward.reward_pool import RewardPool
@@ -53,6 +53,13 @@ from ..util import fetch_json
 from ..util.data_path import get_public_data_path
 from ..util.string_utils import get_last_three_segments, split_camel_case
 from ..wenum.fissure_type import FissureTypeEnum
+
+_MARKUP_RE = re.compile(r"<[^<>]*>")
+
+
+def _strip_markup(text: str) -> str:
+    """去掉物品名里的 ``<...>`` 标记 — 镜像 Java deleteBetweenAndMarkers。"""
+    return _MARKUP_RE.sub("", text).strip()
 
 
 class WorldStateService:
@@ -109,6 +116,7 @@ class WorldStateService:
                     logger.info(
                         f"WorldState 从缓存文件加载成功，min_expiry={cached['min_expiry']}"
                     )
+                    await cls._notify_build_label(ws)
                     cls._refresh_task = asyncio.create_task(cls._refresh_loop())
                     return
                 else:
@@ -163,6 +171,7 @@ class WorldStateService:
                     cls._save_to_file(ws)
                     cls._failed = False
                     logger.info(f"WorldState API 拉取成功 (第 {attempt} 次)")
+                    await cls._notify_build_label(ws)
                     return True
             except Exception as e:
                 logger.warning(
@@ -232,8 +241,22 @@ class WorldStateService:
                     cls._cache["ws"] = new_ws
                     cls._save_to_file(new_ws)
                     logger.debug("WorldState 后台刷新成功")
+                    await cls._notify_build_label(new_ws)
             except Exception as e:
                 logger.warning(f"WorldState 后台刷新失败: {e}")
+
+    @classmethod
+    async def _notify_build_label(cls, ws: WorldState) -> None:
+        """把 BuildLabel 交给游戏版本跟踪：变化时触发导出数据刷新。"""
+        label = getattr(ws, "build_label", None)
+        if not label:
+            return
+        try:
+            from ..init.game_version import on_build_label
+
+            await on_build_label(label)
+        except Exception as exc:  # 版本检测失败不能影响世界状态
+            logger.debug(f"游戏版本检测失败: {exc}")
 
     @classmethod
     async def _get_cached(cls) -> WorldState | None:
@@ -1072,46 +1095,56 @@ class WorldStateService:
 
     @classmethod
     async def get_known_calendar_seasons(cls) -> list[KnownCalendarSeasons]:
-        """获取1999日历季节数据。
+        """获取1999日历季节数据（day-of-year 拆月 + 事件翻译）。
 
-        镜像 Java: getKnownCalendarSeasons()
+        镜像 Java: getKnownCalendarSeasons() → processSeason()
 
         Returns:
-            KnownCalendarSeasons 模型列表。
+            KnownCalendarSeasons 模型列表，``month_days`` 已按月分组。
         """
         ws = await cls._get_cached()
         if ws is None:
             return []
-        return ws.known_calendar_seasons
 
-    # ══════════════════════════════════════════════════════════════════
-    # get_arbitration() — 仲裁
-    # ══════════════════════════════════════════════════════════════════
+        calendars = ws.known_calendar_seasons
+        for calendar in calendars:
+            calendar.process_days()
+        await cls._translate_calendar_events(calendars)
+        return calendars
 
     @classmethod
-    async def get_arbitration(cls) -> Arbitration | None:
-        """获取当前仲裁数据 — 镜像 Java ArbitrationCache.getArbitration()。
+    async def _translate_calendar_events(
+        cls,
+        calendars: list[KnownCalendarSeasons],
+    ) -> None:
+        """翻译日历事件里的 challenge/reward/upgrade 路径。
 
-        从仲裁预测 API 获取数据，筛选当前活跃的仲裁任务（expiry > now），
-        取剩余时间最小的一个返回。
-
-        Returns:
-            Arbitration 模型实例，无活跃数据时返回 None。
+        镜像 Java processEvent()：按 uniqueName 后缀查 StateTranslation，
+        查不到就保留原始路径（与 Java 的 ifPresent 行为一致）。
         """
+        paths: set[str] = set()
+        for calendar in calendars:
+            for day in calendar.days:
+                for evt in day.events:
+                    for value in (evt.challenge, evt.reward, evt.upgrade):
+                        if value and value.startswith("/"):
+                            paths.add(value)
+        if not paths:
+            return
 
-        raw = await fetch_json(WF_ARBITRATION)
-        if not raw:
-            return None
-        now = time.time()
-        active = [
-            a
-            for item in raw
-            if isinstance(item, dict)
-            and (a := Arbitration.model_validate(item))
-            and a.expiry is not None
-            and a.expiry > now
-        ]
-        return min(active, key=lambda a: cast(float, a.expiry)) if active else None
+        translations = await cls._batch_translate_items(paths)
+        if not translations:
+            return
+
+        for calendar in calendars:
+            for day in calendar.days:
+                for evt in day.events:
+                    if evt.challenge in translations:
+                        evt.challenge = translations[evt.challenge]
+                    if evt.reward in translations:
+                        evt.reward = _strip_markup(translations[evt.reward])
+                    if evt.upgrade in translations:
+                        evt.upgrade = translations[evt.upgrade]
 
     # ══════════════════════════════════════════════════════════════════
     # 星图节点查询（保留原有方法）
