@@ -19,7 +19,11 @@ from .src.service import (
     ArbitrationService,
     WorldStateService,
 )
+from .src.util.log_filter import install_reload_noise_filter
 from .src.web_api.registry import register_web_apis
+
+# 尽早安装日志降噪：抑制框架在插件重载时逐条打印的 Removed handler/module
+install_reload_noise_filter()
 
 
 class NyxBotPlugin(Star):
