@@ -4,19 +4,19 @@
   - 居中标题 + 双层装饰边框
   - 季节信息行（当前季节/年份迭代/版本）
   - 每月区域：月份标题 + 每日事件列表（类型着色）
-  - 看板娘立绘 + 底部署名
+  - 看板娘立绘（跟随日历数据里的季节：春/夏/秋/冬，季节为空用默认）+ 底部署名
 """
 from __future__ import annotations
 
-import math
 from typing import TYPE_CHECKING
 
 from PIL import ImageFont
 
+from ..util.string_utils import path_tail
 from .draw_constant import LayoutConstants, ThemeColor
 from .font_manager import FontManager
 from .image_combiner import ImageCombiner
-from .standing import draw_standing
+from .standing import draw_standing, standing_index_for_season
 from .text_utils import wrap_text
 
 if TYPE_CHECKING:
@@ -37,10 +37,12 @@ _MONTHS_PER_ROW = 2
 _MONTH_W = 650
 _MONTH_GAP = 50
 _MONTH_HEADER_H = 50
+_MONTH_BODY_OFFSET = 10   # 月份标题与首日之间留白（高度计算与绘制同口径）
 _MONTH_FOOTER_H = 20
 _DAY_H = 28
 _EVENT_H = 26
 _EVENT_MAX_W = 580
+_COL_GAP_Y = 30           # 同列月份卡之间的纵向间距
 
 _MIN_HEIGHT = 800
 
@@ -53,11 +55,30 @@ _FOOTER_OFFSET = 55
 _STANDING_MAX_W = 310
 _STANDING_MAX_H = 420
 
-# 事件类型颜色 — 镜像 Java
+# 事件类型颜色 — 对齐 Go draw/known_calendar_seasons.go
 _EVENT_CHALLENGE_COLOR = (255, 107, 107)   # 红色系 - 任务
 _EVENT_REWARD_COLOR = (76, 175, 80)         # 绿色系 - 奖励
-_EVENT_UPGRADE_COLOR = (85, 72, 32)         # 橙色系 - 加成
+_EVENT_UPGRADE_COLOR = (184, 134, 11)       # 金色系 - 加成（原 (85,72,32) 在深色底上几乎不可读）
 _SEASON_COLOR = (46, 134, 171)              # #2E86AB - 季节信息
+
+# 月份 → 季节色（对齐 Go calendarSeasonColor）
+_SEASON_COLORS = {
+    "winter": (0x34, 0x98, 0xDB),
+    "spring": (0xE9, 0x1E, 0x8C),
+    "summer": (0xFF, 0x98, 0x00),
+    "autumn": (0xC0, 0x39, 0x2B),
+}
+
+
+def _season_color(month: int) -> tuple[int, int, int]:
+    """月份 → 季节色（12/1-3 冬、4-6 春、7-9 夏、其余秋）。"""
+    if month == 12 or month <= 3:
+        return _SEASON_COLORS["winter"]
+    if month <= 6:
+        return _SEASON_COLORS["spring"]
+    if month <= 9:
+        return _SEASON_COLORS["summer"]
+    return _SEASON_COLORS["autumn"]
 
 
 # ---------------------------------------------------------------------------
@@ -69,6 +90,9 @@ def render_calendar_seasons_card(
     calendars: list[KnownCalendarSeasons],
 ) -> Image.Image:
     """绘制1999日历季节信息卡片 — 镜像 Java drawKnownCalendarSeasonsImage()。
+
+    布局为两列「列平衡」：每张月份卡放进当前较矮的一列，避免行网格在月份数为
+    奇数时留下大片空白（对齐 Go 的 colEndY 逻辑）。
 
     Args:
         renderer: CardRenderer 实例。
@@ -86,32 +110,44 @@ def render_calendar_seasons_card(
     month_days_raw = calendar.month_days or {}
     month_keys = sorted(month_days_raw.keys(), key=lambda k: int(k))
 
-    # ---- 计算每行最大高度 ----
-    rows = math.ceil(len(month_keys) / _MONTHS_PER_ROW)
-    row_heights: list[int] = []
-    for row in range(rows):
-        max_h = 0
-        for col in range(_MONTHS_PER_ROW):
-            idx = row * _MONTHS_PER_ROW + col
-            if idx >= len(month_keys):
-                break
-            days = month_days_raw[month_keys[idx]]
-            if isinstance(days, list):
-                mh = _calc_month_height(days)
-                max_h = max(max_h, mh)
-        row_heights.append(max(_MONTH_HEADER_H + _DAY_H + _MONTH_FOOTER_H, max_h))
-
-    total_grid_h = sum(row_heights) + (rows - 1) * 30  # 30px 行间距
-
-    canvas_h = max(_GRID_START_Y + total_grid_h + _STANDING_MAX_H + _FOOTER_OFFSET, _MIN_HEIGHT)
-
     # ---- 字体 ----
     title_font = FontManager.get_text_font(44)
     info_font = FontManager.get_text_font(28)
     month_title_font = FontManager.get_text_font(26)
     day_font = FontManager.get_text_font(22)
     event_font = FontManager.get_text_font(20)
-    FontManager.get_text_font(20)
+
+    # ---- 先建一块临时画布用于量文字（换行宽度与绘制同口径）----
+    probe = ImageCombiner(_CANVAS_W, _MIN_HEIGHT, ThemeColor.BG_DARK)
+    heights = {
+        int(mk): _calc_month_height(probe.draw, month_days_raw[mk], event_font)
+        for mk in month_keys
+        if isinstance(month_days_raw[mk], list)
+    }
+
+    # ---- 列平衡排布 ----
+    grid_total_w = _MONTHS_PER_ROW * _MONTH_W + (_MONTHS_PER_ROW - 1) * _MONTH_GAP
+    grid_start_x = _CONTENT_X + (_CONTENT_W - grid_total_w) // 2
+    col_x = [grid_start_x + i * (_MONTH_W + _MONTH_GAP) for i in range(_MONTHS_PER_ROW)]
+    col_y = [_GRID_START_Y] * _MONTHS_PER_ROW
+
+    placements: list[tuple[int, int, int, int]] = []  # (month, x, y, h)
+    for mk in month_keys:
+        month = int(mk)
+        h = heights.get(month)
+        if h is None:
+            continue
+        col = 0 if col_y[0] <= col_y[1] else 1
+        placements.append((month, col_x[col], col_y[col], h))
+        col_y[col] += h + _COL_GAP_Y
+
+    total_grid_h = (
+        max(col_y) - _COL_GAP_Y - _GRID_START_Y if placements else 0
+    )
+    canvas_h = max(
+        _GRID_START_Y + total_grid_h + _STANDING_MAX_H + _FOOTER_OFFSET,
+        _MIN_HEIGHT,
+    )
 
     # ---- 画布 ----
     cb = ImageCombiner(_CANVAS_W, canvas_h, ThemeColor.BG_DARK)
@@ -127,27 +163,27 @@ def render_calendar_seasons_card(
     # ---- 季节基本信息 ----
     _draw_calendar_info(cb, calendar, info_font)
 
-    # ---- 月份网格 ----
-    grid_total_w = _MONTHS_PER_ROW * _MONTH_W + (_MONTHS_PER_ROW - 1) * _MONTH_GAP
-    grid_start_x = _CONTENT_X + (_CONTENT_W - grid_total_w) // 2
+    # ---- 月份卡片 ----
+    for month, x, y, h in placements:
+        _draw_month_section(
+            cb,
+            month,
+            month_days_raw[month],
+            x,
+            y,
+            h,
+            month_title_font,
+            day_font,
+            event_font,
+        )
 
-    current_y = _GRID_START_Y
-    for row in range(rows):
-        for col in range(_MONTHS_PER_ROW):
-            idx = row * _MONTHS_PER_ROW + col
-            if idx >= len(month_keys):
-                break
-            month_key = month_keys[idx]
-            days = month_days_raw[month_key]
-            month_x = grid_start_x + col * (_MONTH_W + _MONTH_GAP)
-            if isinstance(days, list):
-                _draw_month_section(cb, int(month_key), days, month_x, current_y,
-                                   row_heights[row], month_title_font, day_font, event_font)
-
-        current_y += row_heights[row] + 30
-
-    # ---- 看板娘 ----
-    draw_standing(cb, max_w=_STANDING_MAX_W, max_h=_STANDING_MAX_H)
+    # ---- 看板娘（按日历数据里的季节换装，季节为空则用默认立绘）----
+    draw_standing(
+        cb,
+        max_w=_STANDING_MAX_W,
+        max_h=_STANDING_MAX_H,
+        index=standing_index_for_season(calendar.season),
+    )
 
     # ---- 底部署名 ----
     cb.draw_card_footer(canvas_h)
@@ -176,15 +212,23 @@ def _draw_calendar_info(
     cb.add_text(version_text, _CONTENT_X + 900, _INFO_START_Y)
 
 
-def _calc_month_height(days: list) -> int:
-    """计算单个月份区域所需高度。"""
-    h = _MONTH_HEADER_H
-    for day in days:
-        if not isinstance(day, dict):
+def _calc_month_height(draw, days: list, event_font) -> int:
+    """计算单个月份卡所需高度。
+
+    必须与 ``_draw_month_section`` 同口径：事件文本按 ``wrap_text`` 的实际行数计入，
+    否则长文本（尤其未翻译的 ``/Lotus/...`` 路径）换行后会撑破卡片、压到下一张上。
+    """
+    h = _MONTH_HEADER_H + _MONTH_BODY_OFFSET
+    for day in days or []:
+        h += _DAY_H
+        events = getattr(day, "events", None) or []
+        if not events:
+            h += _EVENT_H
             continue
-        events = day.get("events", []) or []
-        num_events = max(len(events), 1)
-        h += _DAY_H + num_events * (_EVENT_H + 4)
+        for evt in events:
+            _, text = _format_event(evt)
+            lines = wrap_text(draw, text, _EVENT_MAX_W, event_font) if text else []
+            h += max(len(lines), 1) * _EVENT_H
     h += _MONTH_FOOTER_H
     return max(h, _MONTH_HEADER_H + _DAY_H + _MONTH_FOOTER_H)
 
@@ -201,24 +245,28 @@ def _draw_month_section(
     event_font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
 ) -> None:
     """绘制单个月份区域（背景框 + 标题 + 每日事件）。"""
-    # 背景框
+    accent = _season_color(month)
+
+    # 背景框 + 顶部季节色装饰条（对齐 Go drawMonthCard）
     cb.set_color(ThemeColor.BG_CARD)
     cb.draw_rounded_rect(start_x, start_y, _MONTH_W, section_h, radius=15)
+    cb.set_color(accent)
+    cb.draw_rounded_rect(
+        start_x + 15, start_y + 2, _MONTH_W - 30, 5, radius=2
+    )
     cb.set_color(ThemeColor.DIVIDER)
     cb.draw_rounded_rect(start_x, start_y, _MONTH_W, section_h, radius=15, outline=ThemeColor.DIVIDER, stroke_width=2)
 
-    # 月份标题
-    cb.set_color(_SEASON_COLOR).set_font(title_font)
+    # 月份标题（按季节着色）
+    cb.set_color(accent).set_font(title_font)
     cb.add_text(f"{month}月", start_x + 20, start_y + 32)
 
     # 每日事件
-    current_y = start_y + _MONTH_HEADER_H + 10
-    for day in days:
-        if not isinstance(day, dict):
-            continue
-        day_num = day.get("day", "?")
-        month_num = day.get("month", month)
-        events = day.get("events", []) or []
+    current_y = start_y + _MONTH_HEADER_H + _MONTH_BODY_OFFSET
+    for day in days or []:
+        day_num = day.day if day.day is not None else "?"
+        month_num = day.month if day.month is not None else month
+        events = day.events or []
 
         # 日期标注
         cb.set_color(ThemeColor.TEXT_PRIMARY).set_font(day_font)
@@ -228,10 +276,7 @@ def _draw_month_section(
         # 事件列表
         if events:
             for evt in events:
-                if not isinstance(evt, dict):
-                    continue
-                evt_type = evt.get("type", "")
-                color, text = _format_event(evt, evt_type)
+                color, text = _format_event(evt)
                 if text:
                     # 自动换行
                     lines = wrap_text(cb.draw, text, _EVENT_MAX_W, event_font)
@@ -245,18 +290,23 @@ def _draw_month_section(
             current_y += _EVENT_H
 
 
-def _format_event(evt: dict, evt_type: str) -> tuple[tuple[int, int, int], str]:
-    """根据事件类型格式化事件文本和颜色。"""
-    if evt_type == "CET_CHALLENGE":
-        info = evt.get("challengeInfo", {}) or {}
-        challenge_name = info.get("challenge", evt.get("challenge", ""))
-        return _EVENT_CHALLENGE_COLOR, f"[任务] {challenge_name}" if challenge_name else ""
-    elif evt_type == "CET_REWARD":
-        reward = evt.get("reward", "")
+def _format_event(evt) -> tuple[tuple[int, int, int], str]:
+    """根据事件类型格式化事件文本和颜色。
+
+    事件类型是枚举（成员名 ``CET_CHALLENGE``，值「任务」），
+    API 也可能直接给成员名，所以两种写法都认。
+    未翻译的路径取尾段（对齐 Go ``PathTail``），避免整条 ``/Lotus/...`` 画进卡片。
+    """
+    evt_type = getattr(evt, "type", None)
+    type_key = getattr(evt_type, "name", None) or str(evt_type or "")
+
+    if type_key in ("CET_CHALLENGE", "任务"):
+        name = path_tail(evt.challenge or "")
+        return _EVENT_CHALLENGE_COLOR, f"[任务] {name}" if name else ""
+    if type_key in ("CET_REWARD", "奖励"):
+        reward = path_tail(evt.reward or "")
         return _EVENT_REWARD_COLOR, f"[奖励] {reward}" if reward else ""
-    elif evt_type == "CET_UPGRADE":
-        info = evt.get("upgradeInfo", {}) or {}
-        upgrade = info.get("upgrade", evt.get("upgrade", ""))
+    if type_key in ("CET_UPGRADE", "加成"):
+        upgrade = path_tail(evt.upgrade or "")
         return _EVENT_UPGRADE_COLOR, f"[加成] {upgrade}" if upgrade else ""
-    else:
-        return ThemeColor.TEXT_MUTED, str(evt)
+    return ThemeColor.TEXT_MUTED, ""
