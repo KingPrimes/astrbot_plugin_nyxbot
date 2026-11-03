@@ -11,6 +11,7 @@ from astrbot.api import logger
 from astrbot.api.star import Context
 
 from ..model.alias import Alias
+from ..model.arbitration_tier import ArbitrationTier
 from ..model.ephemeras import Ephemeras
 from ..model.export.night_wave import NightWave
 from ..model.export.nodes import Nodes
@@ -34,6 +35,7 @@ from ..model.riven_tion_alias import RivenTionAlias
 from ..model.state_translation import StateTranslation
 from ..service import (
     AliasService,
+    ArbitrationService,
     MarketSyncService,
     NightWaveService,
     NodesService,
@@ -118,6 +120,12 @@ def register_data_apis(context: Context) -> None:
     # ── 原有模型 ──
     _register_model("alias", Alias, search_fields=["cn", "en"], sync_func=AliasService.sync_data)
     _register_model("nodes", Nodes, search_fields=["name", "uniqueName"], sync_func=NodesService.sync_data)
+    _register_model(
+        "arbitration_tier",
+        ArbitrationTier,
+        search_fields=["key", "tier"],
+        sync_func=ArbitrationService.sync_tiers,
+    )
 
     # ── Notification ──
     _register_model(
@@ -337,8 +345,26 @@ def register_data_apis(context: Context) -> None:
             return jsonify({"error": f"Model {model} has no sync function"}), 400
 
         try:
-            await sync_func()
-            return jsonify({"success": True, "message": f"模型 {model} 数据同步完成"})
+            result = await sync_func()
+            # 部分同步函数用返回值表达失败（False）或返回 0 条（数据源不可用），
+            # 例如 ArbitrationService.sync_tiers 拉不到 CDN 时返回 0 而不抛异常。
+            if result is False or (
+                isinstance(result, int)
+                and not isinstance(result, bool)
+                and result <= 0
+            ):
+                logger.warning(f"同步 {model} 未获得数据（返回值 {result!r}）")
+                return jsonify(
+                    {"error": f"模型 {model} 同步未获得数据，数据源可能不可用"}
+                ), 502
+            detail = (
+                f"，共 {result} 条"
+                if isinstance(result, int) and not isinstance(result, bool)
+                else ""
+            )
+            return jsonify(
+                {"success": True, "message": f"模型 {model} 数据同步完成{detail}"}
+            )
         except Exception as e:
             logger.error(f"同步 {model} 数据失败: {e}")
             return jsonify({"error": str(e)}), 500

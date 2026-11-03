@@ -10,6 +10,7 @@ KnownCalendarSeasons Model / 1999 日历季节模型
 from __future__ import annotations
 
 from enum import Enum
+from typing import ClassVar
 
 from pydantic import Field
 
@@ -69,6 +70,10 @@ class KnownCalendarSeasons(BastWorldState):
     对应 Java: KnownCalendarSeasons extends BastWorldState
     """
 
+    # 平年每月天数（Java processDays 用固定 365 天，不处理闰年）
+    # ClassVar 才不会变成 Pydantic 字段，否则会被写进缓存 JSON
+    MONTH_LENGTHS: ClassVar[tuple[int, ...]] = (31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+
     class Events(BaseModelWithAlias):
         """日历事件 / Calendar Event
 
@@ -93,5 +98,39 @@ class KnownCalendarSeasons(BastWorldState):
     year_iteration: int | None = Field(default=None, alias="YearIteration")
     version: int | None = Field(default=None, alias="Version")
     upgrade_availability_requirements: list[str] = Field(default_factory=list, alias="UpgradeAvaliabilityRequirements")
-    month_days: dict | None = Field(default=None, alias="MonthDays")
+    month_days: dict[int, list[Days]] | None = Field(default=None, alias="MonthDays")
+
+    def process_days(self) -> None:
+        """把 day-of-year 拆成「月/日」并按月分组 — 镜像 Java processDays()。
+
+        API 只给 ``day``（当年第几天，1 起），``month`` 恒为 null。
+        Java 用固定月长表逐月扣减，本方法与其保持一致；处理是幂等的，
+        重复调用不会把已经换算过的日期再减一次。
+        """
+        if self.month_days:
+            return
+        if not self.days:
+            return
+
+        for day in self.days:
+            if day.day is None:
+                continue
+            remaining = day.day
+            month = 1
+            for length in self.MONTH_LENGTHS:
+                if remaining <= length:
+                    break
+                remaining -= length
+                month += 1
+            day.month = month
+            day.day = remaining
+
+        self.days.sort(key=lambda d: (d.month or 0, d.day or 0))
+
+        grouped: dict[int, list[KnownCalendarSeasons.Days]] = {}
+        for day in self.days:
+            if day.month is None:
+                continue
+            grouped.setdefault(day.month, []).append(day)
+        self.month_days = grouped
 

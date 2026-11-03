@@ -54,6 +54,11 @@ class CdnClient:
             return tag
 
     @classmethod
+    async def get_latest_tag(cls) -> str:
+        """获取 DataSource 仓库最新 tag（公开入口，带 2 分钟缓存）。"""
+        return await cls._get_latest_tag()
+
+    @classmethod
     async def _base_url(cls) -> str:
         """获取当前配置的 CDN 基础 URL，自动拼接最新版本号。"""
         base = get_wf_data_source_cdn()
@@ -84,6 +89,18 @@ class CdnClient:
             log_templates={
                 RetryLogLevel.WARNING: "获取星图节点数据失败（第 {attempt}/{max_retries} 次），{retry_delay} 秒后重试...",
                 RetryLogLevel.ERROR: "获取星图节点数据失败，已重试 {max_retries} 次，放弃",
+            },
+        )
+
+    @classmethod
+    async def fetch_arbitration_tiers(cls) -> list[dict] | None:
+        """获取仲裁节点分级数据（warframe/arbitration_tiers.json）。"""
+        url = f"{await cls._base_url()}/warframe/arbitration_tiers.json"
+        return await fetch_json_with_retry(
+            url,
+            log_templates={
+                RetryLogLevel.WARNING: "获取仲裁分级数据失败（第 {attempt}/{max_retries} 次），{retry_delay} 秒后重试...",
+                RetryLogLevel.ERROR: "获取仲裁分级数据失败，已重试 {max_retries} 次，放弃",
             },
         )
 

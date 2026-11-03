@@ -23,7 +23,7 @@ from .http_utils import (
     fetch_text,
     get_session,
 )
-from .metadata import get_plugin_name
+from .metadata import get_plugin_name, get_plugin_version
 from .string_utils import to_title_case
 from .time_utils import (
     format_time_remaining,
@@ -35,6 +35,7 @@ from .time_utils import (
 __all__ = [
     "get_public_data_path",
     "get_plugin_name",
+    "get_plugin_version",
     # Cache
     "world_state_cache",
     "market_cache",

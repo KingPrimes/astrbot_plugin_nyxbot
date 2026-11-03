@@ -42,6 +42,9 @@ AstrBot 的 Warframe 助手插件，提供世界状态查询、市场交易、�
 | `警报` | — | 查看当前警报任务 |
 | `突击` | — | 查看今日突击任务 |
 | `仲裁` | — | 查看当前仲裁任务 |
+| `仲裁表` | — | 查看有价值的未来仲裁（S/A/B 分级） |
+| `更新仲裁` | — | 重拉仲裁时间表（管理员） |
+| `更新分级` | — | 重拉仲裁节点分级（管理员） |
 | `裂隙` | `裂缝` | 查看当前虚空裂隙 |
 | `钢铁裂隙` | `钢铁裂缝` | 查看钢铁之路虚空裂隙 |
 | `九重天裂隙` | `九重天` / `九重天裂缝` | 查看九重天虚空裂隙 |
@@ -121,6 +124,7 @@ AstrBot 的 Warframe 助手插件，提供世界状态查询、市场交易、�
 渲染层 (src/render/ — 21 个卡片渲染器 + 引擎)
   CardRenderer (主引擎)  →  字体管理 / 派系图标 / 任务着色
   ImageCombiner (建造者) →  圆角矩形 / 双层边框 / 看板娘 / 文字排版
+  standing.py (看板娘)   →  按本机季节自动换装（styles/1-5.png）
   card_*.py (各卡片)     →  警报 / 突击 / 裂隙 / 入侵 / 仲裁 / 平原 / 双衍
                           钢铁 / 奸商 / 电波 / 1999 / 执刑官 / 遗物 / 赏金 / 每日特惠
                           市场订单 / 紫卡拍卖 / 赤毒信条 / 杜卡德 / 紫卡分析
@@ -149,6 +153,29 @@ AstrBot 的 Warframe 助手插件，提供世界状态查询、市场交易、�
     → 解析 → 翻译 → 写入 SQLite 缓存
       → 对比变更 → 触发订阅通知推送
 ```
+
+### 看板娘换装
+
+卡片右下角的看板娘立绘放在 `src/render/styles/`，按编号命名：
+
+| 文件 | 用途 |
+|------|------|
+| `1.png` | 默认（常服）—— 季节图缺失时兜底 |
+| `2.png` | 春季 |
+| `3.png` | 夏季 |
+| `4.png` | 秋季 |
+| `5.png` | 冬季 |
+
+`src/render/standing.py` 按本机当前日期（北半球：3-5 春 / 6-8 夏 / 9-11 秋 / 12-2 冬）自动选择立绘，
+所有卡片统一跟随。想固定用某一张：
+
+- 全部固定默认图：把 `SEASONAL_STANDING` 改为 `False`；
+- 单张卡片固定：调用 `draw_standing(..., seasonal=False)` 或 `draw_standing_at(..., index=3)`。
+
+例外：`/1999` 日历卡片不跟本机日期，而是按日历数据里的 `Season` 换装（春季/夏季/秋季/冬季，
+兼容 `CST_SPRING` 这类枚举名）；数据里季节为空时回退默认 `1.png`。
+
+替换立绘时保持 PNG 透明背景、正方形画布即可，渲染时会等比缩放到卡片预留区域。
 
 ---
 
@@ -184,12 +211,33 @@ uv sync
 
 | 配置项 | 说明 | 类型 | 默认值 |
 |--------|------|------|--------|
+| `wf_data_init_mode` | 数据初始化模式：`auto` / `always` / `never` / `offline` | `string` | `auto` |
 | `wf_update_interval` | 世界状态更新间隔（秒），建议不低于 60 | `int` | `600` |
 | `wf_notification_retention_hours` | 通知历史保留时长（小时），超时自动清理 | `int` | `12` |
 | `wf_data_source_cdn` | 数据源 CDN 地址（翻译/别名等静态数据） | `string` | `https://testingcf.jsdelivr.net/gh/KingPrimes/DataSource` |
-| `wf_arbitration_data` | 仲裁数据源 URL，需返回 JSON 格式 | `string` |  |
 | `wf_command_prefix` | 指令前缀，为空则无需前缀 | `string` | `""`（空） |
 | `db_debug` | 数据库调试日志，开启后输出 SQL 查询日志 | `bool` | `false` |
+
+### 数据初始化模式
+
+首次启动会把导出文件、CDN 静态数据和 Market API 数据导入 SQLite（约 3 万行），
+之后启动默认**不会**重复导入。用一个开关就能控制：
+
+| 模式 | 启动时数据导入 | OCR / 仲裁预热 / WorldState |
+|------|----------------|---------------------------|
+| `auto`（默认） | 核心表为空才导入，已导入过则跳过 | 正常启动 |
+| `always` | 忽略非空判断，每次启动重跑全量导入 | 正常启动 |
+| `never` | 跳过，直接使用现有数据库（反复调指令） | 正常启动 |
+| `offline` | 跳过 | 一并跳过（离线 / CI，启动最快） |
+
+判断依据是 `state_translation` / `nodes` / `weapons` / `relics` / `reward_pool` / `night_wave` /
+`alias` / `orders_items` 等核心表是否全部非空 —— 只看这 10 张真实会被填充的表，
+避免 `warframes` 这类尚未实现的空表把判断拉成"永远未初始化"。
+
+`auto` 模式下想刷新一次数据，把模式临时改成 `always` 重启，跑完再改回 `auto` 即可。
+旧版本的 `wf_runtime_env` / `wf_data_force_sync` 仍会被识别并自动映射到新模式，无需手动迁移。
+
+
 
 ### 数据源 CDN 可选项
 
@@ -231,7 +279,7 @@ astrbot_plugin_nyxbot/
 │   ├── ocr/                   # PaddleOCR PP-OCRv5 文字识别服务
 │   ├── render/                # Pillow 卡片渲染引擎
 │   │   ├── fonts/             #   字体文件
-│   │   ├── standing/          #   看板娘素材
+│   │   ├── styles/            #   看板娘立绘（1 默认 / 2 春 / 3 夏 / 4 秋 / 5 冬）
 │   │   ├── card_renderer.py   #   主渲染引擎
 │   │   ├── image_combiner.py  #   图像合成建造者
 │   │   └── card_*.py          #   各卡片渲染器（21 个）

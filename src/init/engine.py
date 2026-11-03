@@ -10,7 +10,7 @@ import asyncio
 import logging
 from pathlib import Path
 
-from tortoise import Tortoise
+from tortoise import Tortoise, connections
 from tortoise.context import get_current_context, set_global_context
 from tortoise.exceptions import ConfigurationError
 
@@ -41,6 +41,42 @@ def set_init_complete() -> None:
 async def init_ready() -> None:
     """阻塞等待直到数据初始化完成。命令执行前可调用此函数确保数据就绪。"""
     await _get_init_event().wait()
+
+
+# 需要补列的升级项：(表名, 列名, 建列语句片段)
+_SCHEMA_UPGRADES: tuple[tuple[str, str, str], ...] = (
+    (
+        "alias",
+        "is_custom",
+        "INTEGER NOT NULL DEFAULT 0",
+    ),
+)
+
+
+async def _apply_schema_upgrades() -> None:
+    """给已存在的库补列。
+
+    ``Tortoise.generate_schemas()`` 只建缺失的表，不会 ALTER 已有表，
+    所以模型新增字段后旧库会缺列。这里按需补列，幂等。
+    """
+    conn = connections.get("default")
+    for table, column, ddl in _SCHEMA_UPGRADES:
+        try:
+            rows = await conn.execute_query_dict(f"PRAGMA table_info({table})")
+        except Exception as exc:  # 表不存在等情况交给后续建表
+            logger.debug(f"检查表 {table} 结构失败: {exc}")
+            continue
+        if not rows:
+            continue
+        if column in {row.get("name") for row in rows}:
+            continue
+        try:
+            await conn.execute_script(
+                f"ALTER TABLE {table} ADD COLUMN {column} {ddl}"
+            )
+            logger.info(f"数据库升级：{table} 表新增 {column} 列")
+        except Exception as exc:
+            logger.warning(f"给 {table} 补列 {column} 失败: {exc}")
 
 
 # ============================================================
@@ -100,6 +136,7 @@ async def get_engine():
                     modules={"models": _MODELS_MODULES},
                 )
                 await Tortoise.generate_schemas()
+                await _apply_schema_upgrades()
 
                 # 将 TortoiseContext 设为全局回退，使跨 asyncio task 均可访问
                 # 若其他插件已设置全局回退，则跳过（NyxBot 的 contextvars 仍会在子 task 中传播）

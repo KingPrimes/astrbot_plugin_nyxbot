@@ -1,4 +1,16 @@
 {
+  "wf_data_init_mode": {
+    "description": "数据初始化模式",
+    "type": "string",
+    "hint": "auto=自动（核心表缺数据才导入，已导入过就跳过，推荐）；always=每次启动强制重跑全量导入（耗时长，仅用于刷新数据）；never=跳过启动导入，直接用现有数据库（开发调试）；offline=跳过导入，并跳过 OCR 初始化与仲裁/WorldState 后台拉取（离线或 CI 环境）。",
+    "options": [
+      "auto",
+      "always",
+      "never",
+      "offline"
+    ],
+    "default": "auto"
+  },
   "wf_update_interval": {
     "description": "世界状态更新间隔（秒）",
     "type": "int",
@@ -22,12 +34,6 @@
       "https://kingprimes.top"
     ],
     "default":"https://testingcf.jsdelivr.net/gh/KingPrimes/DataSource@"
-  },
-  "wf_arbitration_data":{
-    "description": "Warframe仲裁数据源Url地址",
-    "type": "string",
-    "hint": "Warframe仲裁数据源Url地址，需要返回类型为JSON格式的数据源，并且字段为：[{'id':'任务开始时间戳ID','activation':'任务开始日期','expiry':'任务结束日期','node':'V Prime (金星)','missionType':'生存','enemy':'Corpus'}]",
-    "default":"https://wf.555590.xyz/api/arbys?days=30"
   },
   "wf_command_prefix": {
     "description": "Warframe 助手指令前缀",

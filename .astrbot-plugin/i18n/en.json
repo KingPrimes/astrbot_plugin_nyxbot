@@ -24,6 +24,7 @@
       "models": {
         "alias": "Aliases",
         "nodes": "Nodes",
+        "arbitration_tier": "Arbitration Tiers",
         "state_translation": "State Translations",
         "night_wave": "Nightwave",
         "relics": "Relics",

@@ -4,6 +4,27 @@ from __future__ import annotations
 import re
 
 
+def path_tail(text: str) -> str:
+    """取未翻译资源路径的尾段 — 对齐 Go ``draw.PathTail``。
+
+    翻译未命中时，事件名会保留成 ``/Lotus/Upgrades/Calendar/RadiationProcOnTakeDamage``
+    这类原始路径。整条画进卡片会又长又换行，因此渲染前只取最后一段。
+
+    仅在「以 / 开头且不含空白」时裁剪，其余文本原样返回（避免误伤正常文案）。
+
+    Args:
+        text: 待处理文本。
+
+    Returns:
+        尾段（或原文）。
+    """
+    if not text:
+        return text
+    if not text.startswith("/") or any(c in text for c in " \t\n"):
+        return text
+    return text.rsplit("/", 1)[-1]
+
+
 def to_title_case(text: str) -> str:
     """将分隔命名转换为每个部分首字母大写，保留原分隔符。
 

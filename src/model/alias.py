@@ -16,6 +16,10 @@ class Alias(Model):
     id = fields.IntField(pk=True, description="自增主键")
     cn = fields.CharField(max_length=255, index=True, unique=True, description="别名名称")
     en = fields.CharField(max_length=255, index=True, description="原名称/被映射的名称")
+    is_custom = fields.BooleanField(
+        default=False,
+        description="是否用户自定义：True 表示通过管理页/接口手工添加，同步时不清除",
+    )
 
     class Meta:
         table = "alias"

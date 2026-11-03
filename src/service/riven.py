@@ -47,6 +47,7 @@ class RivenService:
             data=data,
             key_field=key_field,
             build_instance=build_instance,
+            prune=True,  # 整份快照：上游删掉的词条本地也要删
         )
         total = await model_cls.all().count()
         logger.info(f"{log_name}数据初始化完成，共 {total} 条记录（本次新增 {new_count} 条）")

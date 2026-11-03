@@ -214,3 +214,9 @@ AGENTS.md
 CLAUDE.md
 .playwright
 /reviews
+
+# WorkBuddy 会话记忆（本地工作副本）
+.workbuddy-ai/
+
+# 运行时数据（插件在本地跑起来后生成）
+/data/

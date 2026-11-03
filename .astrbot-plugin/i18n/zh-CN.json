@@ -24,6 +24,7 @@
       "models": {
         "alias": "别名",
         "nodes": "节点",
+        "arbitration_tier": "仲裁分级",
         "state_translation": "状态翻译",
         "night_wave": "午夜电波",
         "relics": "遗物",

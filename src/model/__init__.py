@@ -2,7 +2,8 @@
 from __future__ import annotations
 
 from .alias import Alias
-from .arbitration import Arbitration
+from .arbitration import Arbitration, ArbitrationView
+from .arbitration_tier import ArbitrationTier
 from .ephemeras import Ephemeras
 
 # Export models
@@ -43,6 +44,8 @@ __all__ = [
     # Existing
     "Alias",
     "Arbitration",
+    "ArbitrationView",
+    "ArbitrationTier",
     "MissionSubscribe",
     "MissionSubscribeUser",
     "NotificationHistory",
