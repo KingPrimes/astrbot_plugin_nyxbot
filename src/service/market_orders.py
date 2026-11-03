@@ -156,8 +156,10 @@ class MarketOrdersService:
         ``braton``（库里没有该物品）不会因为以 b 开头、含 n 就落成
         ``Banshee Prime 一套``，而是继续走候选列表。
         """
-        # 名字里的空格在 SQL 里已经被 REPLACE 掉，模式也按无空格构造
-        compact = keyword.replace(" ", "")
+        # 名字里的空格在 SQL 里已经被 REPLACE 掉，模式也按无空格构造。
+        # 统一转小写：别名替换后可能带回大写（冰队 → Frost），而 SQL 侧是
+        # UPPER(...) 比较、前缀校验也要按小写比，否则 "Frost P" 会被误拒。
+        compact = keyword.replace(" ", "").lower()
         if len(compact) < 2:
             return None
 
