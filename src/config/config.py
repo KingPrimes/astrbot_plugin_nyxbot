@@ -17,6 +17,22 @@ from astrbot.core.utils.astrbot_path import get_astrbot_config_path
 
 from ..util import get_plugin_name
 
+# --- 数据初始化模式 ---
+DATA_INIT_MODE_AUTO = "auto"
+DATA_INIT_MODE_ALWAYS = "always"
+DATA_INIT_MODE_NEVER = "never"
+DATA_INIT_MODE_OFFLINE = "offline"
+_DATA_INIT_MODES = (
+    DATA_INIT_MODE_AUTO,
+    DATA_INIT_MODE_ALWAYS,
+    DATA_INIT_MODE_NEVER,
+    DATA_INIT_MODE_OFFLINE,
+)
+
+# 旧配置项（v1 早期版本使用，仅用于启动时兼容映射）
+_LEGACY_ENV_KEY = "wf_runtime_env"
+_LEGACY_FORCE_KEY = "wf_data_force_sync"
+
 
 class PluginConfig:
     """插件配置解析类，负责加载 schema 和配置文件并提供类型安全的访问。
@@ -117,6 +133,32 @@ class PluginConfig:
     # --- Typed properties / 类型化属性 ---
 
     @property
+    def wf_data_init_mode(self) -> str:
+        """数据初始化模式（auto / always / never / offline）。"""
+        # 只认配置文件里显式写入的值，缺失时才走旧配置映射
+        raw = self._config.get("wf_data_init_mode")
+        if raw is None:
+            return self._legacy_data_init_mode()
+
+        normalized = str(raw).strip().lower()
+        if normalized in _DATA_INIT_MODES:
+            return normalized
+
+        logger.warning(f"未知的 wf_data_init_mode={raw!r}，回退 auto")
+        return self._legacy_data_init_mode()
+
+    def _legacy_data_init_mode(self) -> str:
+        """从旧配置（wf_runtime_env + wf_data_force_sync）推导初始化模式。"""
+        if bool(self.get(_LEGACY_FORCE_KEY, False)):
+            return DATA_INIT_MODE_ALWAYS
+        legacy_env = str(self.get(_LEGACY_ENV_KEY, "")).strip().lower()
+        if legacy_env == "development":
+            return DATA_INIT_MODE_NEVER
+        if legacy_env == "testing":
+            return DATA_INIT_MODE_OFFLINE
+        return DATA_INIT_MODE_AUTO
+
+    @property
     def wf_update_interval(self) -> int:
         """世界状态更新间隔（秒）。"""
         return int(self.get("wf_update_interval", 600))
@@ -130,11 +172,6 @@ class PluginConfig:
     def wf_data_source_cdn(self) -> str:
         """数据源CDN地址。"""
         return str(self.get("wf_data_source_cdn", "https://testingcf.jsdelivr.net/gh/KingPrimes/DataSource@"))
-
-    @property
-    def wf_arbitration_data(self) -> str:
-        """Warframe仲裁数据源Url地址。"""
-        return str(self.get("wf_arbitration_data", "https://wf.555590.xyz/api/arbys?days=30"))
 
     @property
     def wf_command_prefix(self) -> str:
@@ -176,6 +213,17 @@ def get_wf_update_interval() -> int:
     return _get_default_config().wf_update_interval
 
 
+def get_data_init_mode() -> str:
+    """获取数据初始化模式（auto / always / never / offline）。"""
+    return _get_default_config().wf_data_init_mode
+
+
+def normalize_data_init_mode(mode: str | None) -> str:
+    """规整外部传入的初始化模式，未知值回退 ``auto``。"""
+    normalized = str(mode).strip().lower() if mode else ""
+    return normalized if normalized in _DATA_INIT_MODES else DATA_INIT_MODE_AUTO
+
+
 def get_wf_notification_retention_hours() -> int:
     """获取通知历史保留时长（小时）。"""
     return _get_default_config().wf_notification_retention_hours
@@ -184,11 +232,6 @@ def get_wf_notification_retention_hours() -> int:
 def get_wf_data_source_cdn() -> str:
     """获取数据源CDN地址。"""
     return _get_default_config().wf_data_source_cdn
-
-
-def get_wf_arbitration_data() -> str:
-    """获取Warframe仲裁数据源Url地址。"""
-    return _get_default_config().wf_arbitration_data
 
 
 def get_wf_command_prefix() -> str:
