@@ -65,7 +65,12 @@ class DataAdminService:
             创建的模型实例。
         """
         await get_engine()
-        instance = model_cls(**data)
+        payload = dict(data)
+        # 带 is_custom 标记的模型（如 Alias）：手工新增一律标记为用户自定义，
+        # 这样上游快照同步时不会把它当成「已消失的条目」删掉
+        if "is_custom" in model_cls._meta.fields:
+            payload["is_custom"] = True
+        instance = model_cls(**payload)
         await instance.save()
         return instance
 

@@ -135,10 +135,21 @@ class DataSyncService:
                 stale = db_keys - set(keys)
                 if stale:
                     stale_list = list(stale)
+                    has_custom = "is_custom" in model_cls._meta.fields
+                    deleted = 0
                     for i in range(0, len(stale_list), _BATCH_SIZE):
                         chunk = stale_list[i : i + _BATCH_SIZE]
-                        await model_cls.filter(**{f"{key_field}__in": chunk}).delete()
-                    logger.info(f"{model_cls.__name__} 清理 {len(stale_list)} 条已消失的记录")
+                        delete_filter: dict[str, object] = {
+                            f"{key_field}__in": chunk
+                        }
+                        if has_custom:
+                            # 用户通过管理页手工添加的记录不清理
+                            delete_filter["is_custom"] = False
+                        deleted += await model_cls.filter(**delete_filter).delete()
+                    if deleted:
+                        logger.info(
+                            f"{model_cls.__name__} 清理 {deleted} 条已消失的记录"
+                        )
 
             return new_count, updated_count
 
