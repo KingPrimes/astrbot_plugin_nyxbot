@@ -17,6 +17,39 @@ import aiohttp
 from astrbot.api import logger
 
 
+USER_AGENT = (
+    "NyxBot-AstrBot/1.0 (+https://github.com/KingPrimes/astrbot_plugin_nyxbot)"
+)
+"""对外 User-Agent。warframe.market 规则要求可识别，禁止伪装浏览器。"""
+
+_MARKET_HOST = "warframe.market"
+_MARKET_MIN_INTERVAL = 0.35
+"""对 warframe.market 的最小请求间隔（秒）。官方限制 3 req/s，留出余量。"""
+
+_market_lock: asyncio.Lock | None = None
+_market_last_at: float = 0.0
+
+
+async def _throttle_market(url: str) -> None:
+    """给 warframe.market 的请求排队，避免突发超限。
+
+    只对 market 生效：官方规则是「公共 API 3 req/s、合约搜索 10~20 req/min」，
+    其他站点（GitHub、官方导出文件）不受影响。
+    """
+    global _market_lock, _market_last_at
+    host = urlsplit(url).hostname or ""
+    if not host.endswith(_MARKET_HOST):
+        return
+    if _market_lock is None:
+        _market_lock = asyncio.Lock()
+    async with _market_lock:
+        loop = asyncio.get_running_loop()
+        wait = _market_last_at + _MARKET_MIN_INTERVAL - loop.time()
+        if wait > 0:
+            await asyncio.sleep(wait)
+        _market_last_at = loop.time()
+
+
 class RetryLogLevel(Enum):
     """重试日志等级枚举，用于 fetch_json_with_retry 的 log_templates 参数。"""
 
@@ -93,7 +126,7 @@ async def get_session() -> aiohttp.ClientSession:
                 _session = aiohttp.ClientSession(
                     timeout=DEFAULT_TIMEOUT,
                     headers={
-                        "User-Agent": "NyxBot-AstrBot/1.0",
+                        "User-Agent": USER_AGENT,
                         "Accept": "application/json",
                     },
                     connector=aiohttp.TCPConnector(limit=20, limit_per_host=5),
@@ -134,6 +167,7 @@ async def _fetch(
     Returns:
         response_handler 的返回值，失败返回 None。
     """
+    await _throttle_market(url)
     session = await get_session()
     try:
         async with session.get(

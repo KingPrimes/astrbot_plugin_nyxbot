@@ -1,0 +1,214 @@
+{
+ "apiVersion": "0.25.0",
+ "data": {
+  "id": "56783f24cbfa8f0432dd899c",
+  "items": [
+   {
+    "id": "56783f24cbfa8f0432dd899c",
+    "slug": "frost_prime_set",
+    "gameRef": "/Lotus/Powersuits/Frost/FrostPrime",
+    "tags": [
+     "set",
+     "prime",
+     "warframe"
+    ],
+    "setRoot": true,
+    "setParts": [
+     "54a73e65e779893a797fff80",
+     "54a73e65e779893a797fff7d",
+     "54a73e65e779893a797fff6c",
+     "56783f24cbfa8f0432dd899c",
+     "54a73e65e779893a797fff79"
+    ],
+    "ducats": 175,
+    "reqMasteryRank": 0,
+    "tradingTax": 8000,
+    "tradable": true,
+    "i18n": {
+     "zh-hans": {
+      "name": "Frost Prime 一套",
+      "description": "Frost Prime 拥有与 Frost 一样的急冻技能，但自带独特的 Mod 极性槽，可提供更优秀的自定义空间。",
+      "wikiLink": "https://wiki.warframe.com/w/Frost/Prime",
+      "icon": "items/images/en/frost_prime_set.4f8ff8605be1afaab9a0e5cc3c67cb21.png",
+      "thumb": "items/images/en/thumbs/frost_prime_set.4f8ff8605be1afaab9a0e5cc3c67cb21.128x128.png"
+     },
+     "en": {
+      "name": "Frost Prime Set",
+      "description": "Frost Prime has the same chilling abilities as Frost but provides unique mod polarities, allowing for greater customization.",
+      "wikiLink": "https://wiki.warframe.com/w/Frost/Prime",
+      "icon": "items/images/en/frost_prime_set.4f8ff8605be1afaab9a0e5cc3c67cb21.png",
+      "thumb": "items/images/en/thumbs/frost_prime_set.4f8ff8605be1afaab9a0e5cc3c67cb21.128x128.png"
+     }
+    }
+   },
+   {
+    "id": "54a73e65e779893a797fff80",
+    "slug": "frost_prime_blueprint",
+    "gameRef": "/Lotus/Types/Recipes/WarframeRecipes/FrostPrimeBlueprint",
+    "tags": [
+     "blueprint",
+     "prime",
+     "warframe"
+    ],
+    "setRoot": false,
+    "setParts": [
+     "54a73e65e779893a797fff80",
+     "54a73e65e779893a797fff7d",
+     "54a73e65e779893a797fff6c",
+     "56783f24cbfa8f0432dd899c",
+     "54a73e65e779893a797fff79"
+    ],
+    "quantityInSet": 1,
+    "ducats": 100,
+    "reqMasteryRank": 0,
+    "tradingTax": 2000,
+    "tradable": true,
+    "i18n": {
+     "en": {
+      "name": "Frost Prime Blueprint",
+      "description": "Frost Prime has the same chilling abilities as Frost but provides unique mod polarities, allowing for greater customization.",
+      "wikiLink": "https://wiki.warframe.com/w/Frost/Prime",
+      "icon": "items/images/en/frost_prime_blueprint.4f8ff8605be1afaab9a0e5cc3c67cb21.png",
+      "thumb": "items/images/en/thumbs/frost_prime_blueprint.4f8ff8605be1afaab9a0e5cc3c67cb21.128x128.png",
+      "subIcon": "sub_icons/blueprint_128x128.png"
+     },
+     "zh-hans": {
+      "name": "Frost Prime 蓝图",
+      "description": "Frost Prime 拥有与 Frost 一样的急冻技能，但自带独特的 Mod 极性槽，可提供更优秀的自定义空间。",
+      "wikiLink": "https://wiki.warframe.com/w/Frost/Prime",
+      "icon": "items/images/en/frost_prime_blueprint.4f8ff8605be1afaab9a0e5cc3c67cb21.png",
+      "thumb": "items/images/en/thumbs/frost_prime_blueprint.4f8ff8605be1afaab9a0e5cc3c67cb21.128x128.png",
+      "subIcon": "sub_icons/blueprint_128x128.png"
+     }
+    }
+   },
+   {
+    "id": "54a73e65e779893a797fff7d",
+    "slug": "frost_prime_chassis_blueprint",
+    "gameRef": "/Lotus/Types/Recipes/WarframeRecipes/FrostPrimeChassisBlueprint",
+    "tags": [
+     "component",
+     "prime",
+     "warframe",
+     "blueprint"
+    ],
+    "setRoot": false,
+    "setParts": [
+     "54a73e65e779893a797fff80",
+     "54a73e65e779893a797fff7d",
+     "54a73e65e779893a797fff6c",
+     "56783f24cbfa8f0432dd899c",
+     "54a73e65e779893a797fff79"
+    ],
+    "quantityInSet": 1,
+    "ducats": 15,
+    "reqMasteryRank": 0,
+    "tradingTax": 2000,
+    "tradable": true,
+    "i18n": {
+     "zh-hans": {
+      "name": "Frost Prime 机体 蓝图",
+      "description": "Frost Prime 战甲的机体组件。",
+      "wikiLink": "https://wiki.warframe.com/w/Frost/Prime",
+      "icon": "items/images/en/frost_prime_chassis.4f8ff8605be1afaab9a0e5cc3c67cb21.png",
+      "thumb": "items/images/en/thumbs/frost_prime_chassis.4f8ff8605be1afaab9a0e5cc3c67cb21.128x128.png",
+      "subIcon": "sub_icons/warframe/prime_chassis_128x128.png"
+     },
+     "en": {
+      "name": "Frost Prime Chassis Blueprint",
+      "description": "Chassis component of the Frost Prime Warframe.",
+      "wikiLink": "https://wiki.warframe.com/w/Frost/Prime",
+      "icon": "items/images/en/frost_prime_chassis.4f8ff8605be1afaab9a0e5cc3c67cb21.png",
+      "thumb": "items/images/en/thumbs/frost_prime_chassis.4f8ff8605be1afaab9a0e5cc3c67cb21.128x128.png",
+      "subIcon": "sub_icons/warframe/prime_chassis_128x128.png"
+     }
+    }
+   },
+   {
+    "id": "54a73e65e779893a797fff6c",
+    "slug": "frost_prime_neuroptics_blueprint",
+    "gameRef": "/Lotus/Types/Recipes/WarframeRecipes/FrostPrimeHelmetBlueprint",
+    "tags": [
+     "component",
+     "prime",
+     "warframe",
+     "blueprint"
+    ],
+    "setRoot": false,
+    "setParts": [
+     "54a73e65e779893a797fff80",
+     "54a73e65e779893a797fff7d",
+     "54a73e65e779893a797fff6c",
+     "56783f24cbfa8f0432dd899c",
+     "54a73e65e779893a797fff79"
+    ],
+    "quantityInSet": 1,
+    "ducats": 15,
+    "reqMasteryRank": 0,
+    "tradingTax": 2000,
+    "tradable": true,
+    "i18n": {
+     "zh-hans": {
+      "name": "Frost Prime 头部神经光元 蓝图",
+      "description": "Frost Prime 战甲的头部神经光元组件。",
+      "wikiLink": "https://wiki.warframe.com/w/Frost/Prime",
+      "icon": "items/images/en/frost_prime_neuroptics.4f8ff8605be1afaab9a0e5cc3c67cb21.png",
+      "thumb": "items/images/en/thumbs/frost_prime_neuroptics.4f8ff8605be1afaab9a0e5cc3c67cb21.128x128.png",
+      "subIcon": "sub_icons/warframe/prime_helmet_128x128.png"
+     },
+     "en": {
+      "name": "Frost Prime Neuroptics Blueprint",
+      "description": "Neuroptics component of the Frost Prime Warframe.",
+      "wikiLink": "https://wiki.warframe.com/w/Frost/Prime",
+      "icon": "items/images/en/frost_prime_neuroptics.4f8ff8605be1afaab9a0e5cc3c67cb21.png",
+      "thumb": "items/images/en/thumbs/frost_prime_neuroptics.4f8ff8605be1afaab9a0e5cc3c67cb21.128x128.png",
+      "subIcon": "sub_icons/warframe/prime_helmet_128x128.png"
+     }
+    }
+   },
+   {
+    "id": "54a73e65e779893a797fff79",
+    "slug": "frost_prime_systems_blueprint",
+    "gameRef": "/Lotus/Types/Recipes/WarframeRecipes/FrostPrimeSystemsBlueprint",
+    "tags": [
+     "component",
+     "prime",
+     "warframe",
+     "blueprint"
+    ],
+    "setRoot": false,
+    "setParts": [
+     "54a73e65e779893a797fff80",
+     "54a73e65e779893a797fff7d",
+     "54a73e65e779893a797fff6c",
+     "56783f24cbfa8f0432dd899c",
+     "54a73e65e779893a797fff79"
+    ],
+    "quantityInSet": 1,
+    "ducats": 45,
+    "reqMasteryRank": 0,
+    "tradingTax": 2000,
+    "tradable": true,
+    "i18n": {
+     "zh-hans": {
+      "name": "Frost Prime 系统 蓝图",
+      "description": "Frost Prime 战甲的系统组件。",
+      "wikiLink": "https://wiki.warframe.com/w/Frost/Prime",
+      "icon": "items/images/en/frost_prime_systems.4f8ff8605be1afaab9a0e5cc3c67cb21.png",
+      "thumb": "items/images/en/thumbs/frost_prime_systems.4f8ff8605be1afaab9a0e5cc3c67cb21.128x128.png",
+      "subIcon": "sub_icons/warframe/prime_systems_128x128.png"
+     },
+     "en": {
+      "name": "Frost Prime Systems Blueprint",
+      "description": "Systems component of the Frost Prime Warframe.",
+      "wikiLink": "https://wiki.warframe.com/w/Frost/Prime",
+      "icon": "items/images/en/frost_prime_systems.4f8ff8605be1afaab9a0e5cc3c67cb21.png",
+      "thumb": "items/images/en/thumbs/frost_prime_systems.4f8ff8605be1afaab9a0e5cc3c67cb21.128x128.png",
+      "subIcon": "sub_icons/warframe/prime_systems_128x128.png"
+     }
+    }
+   }
+  ]
+ },
+ "error": null
+}

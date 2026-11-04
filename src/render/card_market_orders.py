@@ -46,18 +46,23 @@ _STANDING_MAX_H = 420
 _MIN_HEIGHT = 700
 
 # 表格列宽（总和 = 880 = _CONTENT_W）
+_COL_INDEX_W = 60
 _COL_PRICE_W = 130
 _COL_QUANTITY_W = 120
 _COL_RANK_W = 130
-_COL_SELLER_W = 320
+_COL_SELLER_W = 260
 _COL_STATUS_W = 180
 
 # 列起始 X 坐标（相对于 _CONTENT_X）
-_COL_PRICE_X = _CONTENT_X
-_COL_QUANTITY_X = _CONTENT_X + _COL_PRICE_W
-_COL_RANK_X = _CONTENT_X + _COL_PRICE_W + _COL_QUANTITY_W
-_COL_SELLER_X = _CONTENT_X + _COL_PRICE_W + _COL_QUANTITY_W + _COL_RANK_W
-_COL_STATUS_X = _CONTENT_X + _COL_PRICE_W + _COL_QUANTITY_W + _COL_RANK_W + _COL_SELLER_W
+_COL_INDEX_X = _CONTENT_X
+_COL_PRICE_X = _CONTENT_X + _COL_INDEX_W
+_COL_QUANTITY_X = _COL_PRICE_X + _COL_PRICE_W
+_COL_RANK_X = _COL_QUANTITY_X + _COL_QUANTITY_W
+_COL_SELLER_X = _COL_RANK_X + _COL_RANK_W
+_COL_STATUS_X = _COL_SELLER_X + _COL_SELLER_W
+
+_WHISPER_HINT = "回复 /w 序号 获取对应卖家的私聊语句（2 分钟内有效）"
+"""卡片底部提示。"""
 
 # 颜色常量
 _TABLE_HEADER_BG = (41, 128, 185)           # #2980B9
@@ -207,6 +212,7 @@ def _draw_table_header(
     cb.fill_rect(_CONTENT_X, _TABLE_START_Y, _CONTENT_W, _TABLE_HEADER_H)
 
     headers = [
+        ("#", _COL_INDEX_X),
         ("价格", _COL_PRICE_X),
         ("数量", _COL_QUANTITY_X),
         ("等级", _COL_RANK_X),
@@ -243,6 +249,10 @@ def _draw_order_row(
     if order.user is not None:
         seller = order.user.ingame_name or "未知"
         status = order.user.status or "未知"
+
+    # 序号（配合 /w <序号> 取私聊语句）
+    cb.set_color(ThemeColor.TEXT_SECONDARY).set_font(row_font)
+    cb.add_text(str(row_index + 1), _COL_INDEX_X + 14, text_y)
 
     # 价格（白金）
     cb.set_color(ThemeColor.ACCENT_GOLD).set_font(row_font)
@@ -298,7 +308,7 @@ def render_market_orders_card(
     # ---- 动态高度 ----
     row_count = len(order_list)
     table_h = _TABLE_HEADER_H + row_count * _ROW_H
-    content_bottom = _TABLE_START_Y + table_h
+    content_bottom = _TABLE_START_Y + table_h + 46
     canvas_h = max(content_bottom + _STANDING_MAX_H + _FOOTER_OFFSET, _MIN_HEIGHT)
 
     # ---- 字体 ----
@@ -331,6 +341,10 @@ def render_market_orders_card(
     for i, order in enumerate(order_list):
         row_y = _TABLE_START_Y + _TABLE_HEADER_H + i * _ROW_H
         _draw_order_row(cb, order, row_y, row_font, i, orders.req_mastery_rank or 0)
+
+    # ---- 私聊提示 ----
+    cb.set_color(ThemeColor.TEXT_SECONDARY).set_font(header_font)
+    cb.add_centered_text(_WHISPER_HINT, _TABLE_START_Y + table_h + 14)
 
     # ---- 看板娘 ----
     draw_standing(cb, max_w=_STANDING_MAX_W, max_h=_STANDING_MAX_H)

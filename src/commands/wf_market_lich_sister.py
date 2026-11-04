@@ -17,6 +17,7 @@ from ..render.card_market_lich_sister import render_market_lich_sister_card
 from ..render.card_market_orders import render_market_orders_possible_items_card
 from ..render.card_renderer import CardRenderer
 from ..service.market import MarketService
+from ..service import whisper as whisper_service
 from ..service.smart_match import remember_candidates, resolve_selection
 from ..util.command_args import command_args
 
@@ -68,6 +69,12 @@ async def _handle_lich_sister(
             )
             yield event.chain_result(chain)
             return
+        whisper_service.remember(
+            event.unified_msg_origin,
+            str(event.get_sender_id() or ""),
+            command,
+            result[1].whispers,
+        )
         chain = await CardRenderer.render_card_to_chain_result(
             render_market_lich_sister_card, result[1], title_suffix
         )

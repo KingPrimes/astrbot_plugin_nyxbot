@@ -21,6 +21,7 @@ from ..render.card_market_orders import render_market_orders_possible_items_card
 from ..render.card_market_riven import render_market_riven_card
 from ..render.card_renderer import CardRenderer
 from ..service.market_riven import MarketRivenService
+from ..service import whisper as whisper_service
 from ..service.smart_match import remember_candidates, resolve_selection
 from ..util.command_args import command_args, normalize_whitespace
 
@@ -130,6 +131,12 @@ async def wf_market_riven(self, event: AstrMessageEvent):
         yield event.plain_result(f"未找到匹配的紫卡武器: {keyword}")
         return
 
+    whisper_service.remember(
+        event.unified_msg_origin,
+        str(event.get_sender_id() or ""),
+        "WR",
+        result.whispers,
+    )
     chain = await CardRenderer.render_card_to_chain_result(
         render_market_riven_card, result
     )

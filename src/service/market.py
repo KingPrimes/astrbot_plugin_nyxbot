@@ -16,6 +16,7 @@ from tortoise.exceptions import DoesNotExist
 from astrbot.api import logger
 
 from ..api import MarketClient
+from ..config import get_whisper_fallback_lang
 from ..model.ephemeras import Ephemeras
 from ..model.lich_sister_weapons import LichSisterWeapons
 from ..model.market import (
@@ -26,6 +27,7 @@ from ..model.market import (
     MarketLichSisterPayload,
 )
 from .smart_match import Candidates, Hit, Source, resolve
+from .whisper import lich_whisper
 
 
 class MarketService:
@@ -133,13 +135,24 @@ class MarketService:
                 )
             )
 
+        fallback = get_whisper_fallback_lang()
+        whispers = [
+            entry
+            for auction in auction_list
+            if (
+                entry := lich_whisper(
+                    auction, weapon.name, weapon.enName, fallback
+                )
+            )
+        ]
         return (
             weapon.name or keyword,
             MarketLichSister(
                 payload=MarketLichSisterPayload(
                     auctions=auction_list,
                     item_name=weapon.name or keyword,
-                )
+                ),
+                whispers=whispers,
             ),
         )
 

@@ -45,6 +45,8 @@ _COLS = 3
 _COL_GAP = 32
 _CARD_W = (_CONTENT_W - _COL_GAP * (_COLS - 1)) // _COLS  # 576
 _CARD_H = 572
+
+_WHISPER_HINT = "回复 /w 序号 获取对应卖家的私聊语句（2 分钟内有效）"
 _CARD_RADIUS = 20
 _CARD_PAD = 26
 _ROW_GAP = 26
@@ -131,11 +133,18 @@ def _draw_riven_card(
     card_x: int,
     card_y: int,
     fonts: dict[str, ImageFont.FreeTypeFont | ImageFont.ImageFont],
+    index: int = 0,
 ) -> None:
     """绘制单张紫卡卡片到主画布。/ Draw a single riven card onto the canvas."""
     rim = auction.item
     inner_x = card_x + _CARD_PAD
     inner_right = card_x + _CARD_W - _CARD_PAD
+
+    # 序号角标（配合 /w <序号> 取私聊语句）
+    if index:
+        badge = f"#{index}"
+        cb.set_color(ThemeColor.ACCENT_GOLD).set_font(fonts["badge"])
+        cb.add_text(badge, inner_right - cb.get_string_width(badge), card_y + 8)
     inner_w = inner_right - inner_x
 
     # 卡片背景 + 边框
@@ -390,7 +399,7 @@ def render_market_riven_card(
     last_row_y = _CONTENT_START_Y + (rows - 1) * (_CARD_H + _ROW_GAP)
     standing_in_row = last_row_count < _COLS
 
-    content_end = _CONTENT_START_Y + cards_h
+    content_end = _CONTENT_START_Y + cards_h + 34
     if standing_in_row:
         canvas_h = max(content_end, last_row_y + _STANDING_INROW_H + _FOOTER_OFFSET + 12)
     else:
@@ -425,7 +434,7 @@ def render_market_riven_card(
         col = i % _COLS
         card_x = col_xs[col]
         card_y = _CONTENT_START_Y + row * (_CARD_H + _ROW_GAP)
-        _draw_riven_card(cb, auction, item_name, card_x, card_y, fonts)
+        _draw_riven_card(cb, auction, item_name, card_x, card_y, fonts, i + 1)
 
     # 看板娘 — 尾行有空位时固定置于最右列，避免 1 个数据时跑到中间
     if standing_in_row:
@@ -437,6 +446,10 @@ def render_market_riven_card(
         standing_x = _CONTENT_X + _CONTENT_W - _STANDING_BELOW_W - 26
         draw_standing_at(cb, standing_x, content_end + 12,
                          _STANDING_BELOW_W, _STANDING_BELOW_H)
+
+    # 私聊提示
+    cb.set_color(ThemeColor.TEXT_SECONDARY).set_font(FontManager.get_text_font(22))
+    cb.add_centered_text(_WHISPER_HINT, content_end - 26)
 
     # Footer
     cb.draw_card_footer(canvas_h, _FOOTER_OFFSET, 24)

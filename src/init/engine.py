@@ -45,11 +45,34 @@ async def init_ready() -> None:
 
 # 需要补列的升级项：(表名, 列名, 建列语句片段)
 _SCHEMA_UPGRADES: tuple[tuple[str, str, str], ...] = (
-    (
-        "alias",
-        "is_custom",
-        "INTEGER NOT NULL DEFAULT 0",
-    ),
+    ("alias", "is_custom", "INTEGER NOT NULL DEFAULT 0"),
+    # ── ordersitems：对齐 API 的 Item 模型 ──
+    ("ordersitems", "enName", "VARCHAR(255)"),
+    ("ordersitems", "tags", "TEXT"),
+    ("ordersitems", "setRoot", "INTEGER"),
+    ("ordersitems", "setParts", "TEXT"),
+    ("ordersitems", "quantityInSet", "INTEGER"),
+    ("ordersitems", "rarity", "VARCHAR(50)"),
+    ("ordersitems", "subtypes", "TEXT"),
+    ("ordersitems", "maxCharges", "INTEGER"),
+    ("ordersitems", "endoMultiplier", "REAL"),
+    ("ordersitems", "vosfor", "INTEGER"),
+    ("ordersitems", "tradable", "INTEGER"),
+    ("ordersitems", "subIcon", "VARCHAR(500)"),
+    ("ordersitems", "description", "TEXT"),
+    ("ordersitems", "wikiLink", "VARCHAR(500)"),
+    # ── rivenitems：对齐 Riven Item 模型 ──
+    ("rivenitems", "enName", "VARCHAR(255)"),
+    ("rivenitems", "subIcon", "VARCHAR(500)"),
+    ("rivenitems", "wikiLink", "VARCHAR(500)"),
+    # ── lichsisterweapons：对齐 Lich/Sister Weapon 模型 ──
+    ("lichsisterweapons", "enName", "VARCHAR(255)"),
+    ("lichsisterweapons", "wikiLink", "VARCHAR(500)"),
+)
+
+_COLUMN_RENAMES: tuple[tuple[str, str, str], ...] = (
+    # (表, 旧列名, 新列名) — 与 API 字段名对齐
+    ("rivention", "units", "unit"),
 )
 
 
@@ -77,6 +100,23 @@ async def _apply_schema_upgrades() -> None:
             logger.info(f"数据库升级：{table} 表新增 {column} 列")
         except Exception as exc:
             logger.warning(f"给 {table} 补列 {column} 失败: {exc}")
+
+    # 列改名（与 API 字段名对齐）；SQLite 3.25+ 支持 RENAME COLUMN
+    for table, old_name, new_name in _COLUMN_RENAMES:
+        try:
+            rows = await conn.execute_query_dict(f"PRAGMA table_info({table})")
+        except Exception:
+            continue
+        columns = {row.get("name") for row in rows}
+        if not rows or old_name not in columns or new_name in columns:
+            continue
+        try:
+            await conn.execute_script(
+                f"ALTER TABLE {table} RENAME COLUMN {old_name} TO {new_name}"
+            )
+            logger.info(f"数据库升级：{table} 表 {old_name} 列改名为 {new_name}")
+        except Exception as exc:
+            logger.warning(f"重命名 {table}.{old_name} 失败: {exc}")
 
 
 # ============================================================

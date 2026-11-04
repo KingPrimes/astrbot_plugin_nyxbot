@@ -4,7 +4,7 @@
 """
 from __future__ import annotations
 
-from typing import Generic, TypeVar
+from typing import Any, Generic, TypeVar
 
 from pydantic import Field
 
@@ -22,7 +22,10 @@ class MarketOwner(BaseModelWithAlias):
     avatar: str | None = Field(default=None)
     last_seen: str | None = Field(default=None, alias="last_seen")
     ingame_name: str | None = Field(default=None, alias="ingame_name")
+    slug: str | None = Field(default=None)
     status: str | None = Field(default=None)
+    platform: str | None = Field(default=None)
+    crossplay: bool | None = Field(default=None)
     id: str | None = Field(default=None)
     region: str | None = Field(default=None)
 
@@ -47,3 +50,9 @@ class BaseAuction(BaseModelWithAlias, Generic[T_Item, T_Owner]):
     updated: str | None = Field(default=None)
     is_direct_sell: bool | None = Field(default=None, alias="is_direct_sell")
     id: str | None = Field(default=None)
+    crossplay: bool | None = Field(default=None)
+    private: bool | None = Field(default=None)
+    note_raw: str | None = Field(default=None, alias="note_raw")
+    is_marked_for: str | None = Field(default=None, alias="is_marked_for")
+    marked_operation_at: str | None = Field(default=None, alias="marked_operation_at")
+    winner: Any | None = Field(default=None)
