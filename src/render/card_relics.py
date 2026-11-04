@@ -210,3 +210,98 @@ def render_relic_card(
     cb.draw_card_footer(canvas_h, _FOOTER_OFFSET, 26)
 
     return cb.to_image()
+
+
+# ---------------------------------------------------------------------------
+# 使用说明卡（/遗物 无参数时展示）
+# ---------------------------------------------------------------------------
+
+_HELP_W = 1300
+_HELP_TITLE_Y = 52
+_HELP_DIVIDER_Y = 124
+_HELP_TOP = 160
+_HELP_ROW_H = 92
+_HELP_ROW_GAP = 12
+_HELP_STANDING_W = 280
+_HELP_STANDING_H = 360
+
+_HELP_ROWS: tuple[tuple[str, str, str], ...] = (
+    ("按遗物名", "/遗物 中纪 A1", "精确查这一个遗物，只出 1 张卡"),
+    ("按奖励", "/遗物 Frost Prime", "列出含该奖励的所有遗物（如 13 条）"),
+    ("按拼音", "/遗物 zhongji", "与 /遗物 中纪 等价，支持全拼/首字母"),
+    ("按别名", "/核桃 后纪 S5", "/核桃 是 /遗物 的别名，用法相同"),
+)
+
+_HELP_TIERS = "古纪 / 前纪 / 中纪 / 后纪 / 安魂"
+
+
+def render_relic_help_card(renderer: CardRenderer) -> Image.Image:
+    """绘制 `/遗物` 使用说明卡片。
+
+    Args:
+        renderer: CardRenderer 实例（保持与其他卡片一致的资源入口）。
+
+    Returns:
+        PIL Image 对象。
+    """
+    content_x, content_w = LayoutConstants.get_content_bounds(_HELP_W)
+    row_w = content_w - _HELP_STANDING_W - 60
+
+    rows_h = len(_HELP_ROWS) * (_HELP_ROW_H + _HELP_ROW_GAP)
+    warn_y = _HELP_TOP + rows_h + 8
+    warn_h = 96
+    canvas_h = warn_y + warn_h + 90
+
+    title_font = FontManager.get_text_font(36)
+    label_font = FontManager.get_text_font(24)
+    cmd_font = FontManager.get_text_font(26)
+    desc_font = FontManager.get_text_font(20)
+
+    cb = ImageCombiner(_HELP_W, canvas_h, ThemeColor.BG_DARK)
+    cb.draw_default_double_border()
+
+    # ---- 标题 ----
+    cb.set_color(ThemeColor.ACCENT_BLUE).set_font(title_font)
+    cb.add_centered_text("遗物查询使用说明", _HELP_TITLE_Y)
+    cb.draw_content_divider(_HELP_DIVIDER_Y, content_x, content_w)
+
+    # ---- 用法条目 ----
+    y = _HELP_TOP
+    for label, command, desc in _HELP_ROWS:
+        cb.set_color(ThemeColor.BG_CARD)
+        cb.draw_rounded_rect(
+            content_x, y, row_w, _HELP_ROW_H, radius=10, fill=ThemeColor.BG_CARD
+        )
+
+        cb.set_color(ThemeColor.ACCENT_GOLD).set_font(label_font)
+        cb.add_text(label, content_x + 24, y + 32)
+
+        cb.set_color(ThemeColor.TEXT_PRIMARY).set_font(cmd_font)
+        cb.add_text(command, content_x + 170, y + 14)
+
+        cb.set_color(ThemeColor.TEXT_SECONDARY).set_font(desc_font)
+        cb.add_text(desc, content_x + 170, y + 52)
+
+        y += _HELP_ROW_H + _HELP_ROW_GAP
+
+    # ---- 警示：只给档位会被拒绝 ----
+    cb.set_color(ThemeColor.BG_CARD_ALT)
+    cb.draw_rounded_rect(
+        content_x, warn_y, row_w, warn_h, radius=10, fill=ThemeColor.BG_CARD_ALT
+    )
+    cb.set_color(ThemeColor.ACCENT).set_font(label_font)
+    cb.add_text("只写档位会被拒绝", content_x + 24, warn_y + 18)
+    cb.set_color(ThemeColor.TEXT_SECONDARY).set_font(desc_font)
+    cb.add_text(_HELP_TIERS + " 只是档位，请补上编号（如 中纪 A1）", content_x + 24, warn_y + 56)
+
+    # ---- 看板娘 + 署名 ----
+    draw_standing_at(
+        cb,
+        content_x + row_w + 40,
+        _HELP_TOP,
+        _HELP_STANDING_W,
+        _HELP_STANDING_H,
+    )
+    cb.draw_card_footer(canvas_h, 50, 22)
+
+    return cb.to_image()

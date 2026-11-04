@@ -5,7 +5,7 @@ from astrbot.api.event import AstrMessageEvent
 
 from ...registry import wf
 from ..init import init_ready
-from ..render.card_relics import render_relic_card
+from ..render.card_relics import render_relic_card, render_relic_help_card
 from ..render.card_renderer import CardRenderer
 from ..service.relics import RelicsService
 from ..util.command_args import command_args
@@ -44,6 +44,14 @@ async def wf_relics(self, event: AstrMessageEvent):
 
     # 遗物名/奖励名可能含空格（"中纪 A1"、"Frost Prime"），取整段原文
     name = command_args(event, "遗物", "核桃")
+
+    # 没有参数 → 出使用说明图
+    if not name:
+        result = await CardRenderer.render_card_to_chain_result(
+            render_relic_help_card
+        )
+        yield event.chain_result(result)
+        return
 
     # 只写档位等于没指定遗物：中纪 196 个、后纪 198 个，画出来没意义
     if _tier_only(name):
