@@ -1,0 +1,1575 @@
+{
+ "apiVersion": "0.25.0",
+ "note": "按字段组合从 3893 条中抽样；i18n 含 en 与 zh-hans（与插件请求头一致）",
+ "data": [
+  {
+   "id": "54ca39abe7798915c1c11e10",
+   "slug": "creeping_bullseye",
+   "gameRef": "/Lotus/Upgrades/Mods/Pistol/DualStat/CorruptedCritChanceFireRatePistol",
+   "tags": [
+    "mod",
+    "rare",
+    "pistol",
+    "secondary"
+   ],
+   "maxRank": 5,
+   "i18n": {
+    "zh-hans": {
+     "name": "匍匐靶心",
+     "icon": "items/images/en/creeping_bullseye.c2c011bdb9f6f49d3be586bd04bfb2d4.webp",
+     "thumb": "items/images/en/thumbs/creeping_bullseye.c2c011bdb9f6f49d3be586bd04bfb2d4.128x128.webp"
+    },
+    "en": {
+     "name": "Creeping Bullseye",
+     "icon": "items/images/en/creeping_bullseye.c2c011bdb9f6f49d3be586bd04bfb2d4.webp",
+     "thumb": "items/images/en/thumbs/creeping_bullseye.c2c011bdb9f6f49d3be586bd04bfb2d4.128x128.webp"
+    }
+   }
+  },
+  {
+   "id": "54e0c9eee7798903744178b0",
+   "slug": "irradiating_disarm",
+   "gameRef": "/Lotus/Powersuits/Loki/DisarmAugmentCard",
+   "tags": [
+    "mod",
+    "warframe",
+    "augment",
+    "loki",
+    "rare"
+   ],
+   "maxRank": 3,
+   "i18n": {
+    "zh-hans": {
+     "name": "辐射缴械",
+     "icon": "items/images/en/irradiating_disarm.77392b6908a3a1b5d6a857fe23f16153.webp",
+     "thumb": "items/images/en/thumbs/irradiating_disarm.77392b6908a3a1b5d6a857fe23f16153.128x128.webp"
+    },
+    "en": {
+     "name": "Irradiating Disarm",
+     "icon": "items/images/en/irradiating_disarm.77392b6908a3a1b5d6a857fe23f16153.webp",
+     "thumb": "items/images/en/thumbs/irradiating_disarm.77392b6908a3a1b5d6a857fe23f16153.128x128.webp"
+    }
+   }
+  },
+  {
+   "id": "54e644ffe779897594fa68cf",
+   "slug": "antimatter_absorb",
+   "gameRef": "/Lotus/Powersuits/AntiMatter/AntiMatterDropAugmentCard",
+   "tags": [
+    "mod",
+    "warframe",
+    "nova",
+    "augment",
+    "rare"
+   ],
+   "maxRank": 3,
+   "i18n": {
+    "zh-hans": {
+     "name": "反物质吸收",
+     "icon": "items/images/en/antimatter_absorb.3d5224fd7de31320918160c0d4ab4e84.webp",
+     "thumb": "items/images/en/thumbs/antimatter_absorb.3d5224fd7de31320918160c0d4ab4e84.128x128.webp"
+    },
+    "en": {
+     "name": "Antimatter Absorb",
+     "icon": "items/images/en/antimatter_absorb.3d5224fd7de31320918160c0d4ab4e84.webp",
+     "thumb": "items/images/en/thumbs/antimatter_absorb.3d5224fd7de31320918160c0d4ab4e84.128x128.webp"
+    }
+   }
+  },
+  {
+   "id": "56a7b2a51133f656cb085d93",
+   "slug": "catalyzer_link",
+   "gameRef": "/Lotus/Upgrades/Mods/Rifle/Event/StatusProcWhileAimingRifleMod",
+   "tags": [
+    "common",
+    "mod",
+    "rifle",
+    "primary"
+   ],
+   "maxRank": 5,
+   "i18n": {
+    "zh-hans": {
+     "name": "触媒连动",
+     "icon": "items/images/en/catalyzer_link.8ffa520e67c52e10b51ccc1cec6b7f88.png",
+     "thumb": "items/images/en/thumbs/catalyzer_link.8ffa520e67c52e10b51ccc1cec6b7f88.128x128.png"
+    },
+    "en": {
+     "name": "Catalyzer Link",
+     "icon": "items/images/en/catalyzer_link.8ffa520e67c52e10b51ccc1cec6b7f88.png",
+     "thumb": "items/images/en/thumbs/catalyzer_link.8ffa520e67c52e10b51ccc1cec6b7f88.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "56a7b2bb1133f656cb085d98",
+   "slug": "targeting_subsystem",
+   "gameRef": "/Lotus/Upgrades/Mods/Pistol/Event/AccuracyWhileAimingPistolMod",
+   "tags": [
+    "mod",
+    "uncommon",
+    "secondary",
+    "pistol"
+   ],
+   "maxRank": 5,
+   "i18n": {
+    "en": {
+     "name": "Targeting Subsystem",
+     "icon": "items/images/en/targeting_subsystem.596778691b53b019e110525990872c41.webp",
+     "thumb": "items/images/en/thumbs/targeting_subsystem.596778691b53b019e110525990872c41.128x128.webp"
+    },
+    "zh-hans": {
+     "name": "定位辅助",
+     "icon": "items/images/en/targeting_subsystem.596778691b53b019e110525990872c41.webp",
+     "thumb": "items/images/en/thumbs/targeting_subsystem.596778691b53b019e110525990872c41.128x128.webp"
+    }
+   }
+  },
+  {
+   "id": "56b656d1ef0390c7e4006381",
+   "slug": "tectonic_fracture",
+   "gameRef": "/Lotus/Powersuits/Brawler/BrawlerBarrierAugmentCard",
+   "tags": [
+    "atlas",
+    "mod",
+    "warframe",
+    "augment",
+    "rare"
+   ],
+   "maxRank": 3,
+   "i18n": {
+    "zh-hans": {
+     "name": "构造裂缝",
+     "icon": "items/images/en/tectonic_fracture.7c38025ee84d0e86175625030dd0a712.png",
+     "thumb": "items/images/en/thumbs/tectonic_fracture.7c38025ee84d0e86175625030dd0a712.128x128.png"
+    },
+    "en": {
+     "name": "Tectonic Fracture",
+     "icon": "items/images/en/tectonic_fracture.7c38025ee84d0e86175625030dd0a712.png",
+     "thumb": "items/images/en/thumbs/tectonic_fracture.7c38025ee84d0e86175625030dd0a712.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "6054dd075221e30057500f15",
+   "slug": "requiem_iv_relic",
+   "gameRef": "/Lotus/Types/Game/Projections/T5VoidProjectionImmortalD",
+   "tags": [
+    "relic",
+    "requiem"
+   ],
+   "bulkTradable": true,
+   "subtypes": [
+    "intact",
+    "exceptional",
+    "flawless",
+    "radiant"
+   ],
+   "vaulted": true,
+   "i18n": {
+    "zh-hans": {
+     "name": "安魂 IV 遗物",
+     "icon": "items/images/en/requiem_iv_relic.70479db2ff21c243673e2a3caf93d7b9.png",
+     "thumb": "items/images/en/thumbs/requiem_iv_relic.70479db2ff21c243673e2a3caf93d7b9.128x128.png"
+    },
+    "en": {
+     "name": "Requiem IV Relic",
+     "icon": "items/images/en/requiem_iv_relic.70479db2ff21c243673e2a3caf93d7b9.png",
+     "thumb": "items/images/en/thumbs/requiem_iv_relic.70479db2ff21c243673e2a3caf93d7b9.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "6054dd095221e30057500f16",
+   "slug": "requiem_iii_relic",
+   "gameRef": "/Lotus/Types/Game/Projections/T5VoidProjectionImmortalC",
+   "tags": [
+    "relic",
+    "requiem"
+   ],
+   "bulkTradable": true,
+   "subtypes": [
+    "intact",
+    "exceptional",
+    "flawless",
+    "radiant"
+   ],
+   "vaulted": true,
+   "i18n": {
+    "zh-hans": {
+     "name": "安魂 III 遗物",
+     "icon": "items/images/en/requiem_iii_relic.70479db2ff21c243673e2a3caf93d7b9.png",
+     "thumb": "items/images/en/thumbs/requiem_iii_relic.70479db2ff21c243673e2a3caf93d7b9.128x128.png"
+    },
+    "en": {
+     "name": "Requiem III Relic",
+     "icon": "items/images/en/requiem_iii_relic.70479db2ff21c243673e2a3caf93d7b9.png",
+     "thumb": "items/images/en/thumbs/requiem_iii_relic.70479db2ff21c243673e2a3caf93d7b9.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "6054dd0b5221e30057500f17",
+   "slug": "requiem_ii_relic",
+   "gameRef": "/Lotus/Types/Game/Projections/T5VoidProjectionImmortalB",
+   "tags": [
+    "relic",
+    "requiem"
+   ],
+   "bulkTradable": true,
+   "subtypes": [
+    "intact",
+    "exceptional",
+    "flawless",
+    "radiant"
+   ],
+   "vaulted": true,
+   "i18n": {
+    "zh-hans": {
+     "name": "安魂 II 遗物",
+     "icon": "items/images/en/requiem_ii_relic.70479db2ff21c243673e2a3caf93d7b9.png",
+     "thumb": "items/images/en/thumbs/requiem_ii_relic.70479db2ff21c243673e2a3caf93d7b9.128x128.png"
+    },
+    "en": {
+     "name": "Requiem II Relic",
+     "icon": "items/images/en/requiem_ii_relic.70479db2ff21c243673e2a3caf93d7b9.png",
+     "thumb": "items/images/en/thumbs/requiem_ii_relic.70479db2ff21c243673e2a3caf93d7b9.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "6054dd0c5221e30057500f18",
+   "slug": "requiem_i_relic",
+   "gameRef": "/Lotus/Types/Game/Projections/T5VoidProjectionImmortalA",
+   "tags": [
+    "relic",
+    "requiem"
+   ],
+   "bulkTradable": true,
+   "subtypes": [
+    "intact",
+    "exceptional",
+    "flawless",
+    "radiant"
+   ],
+   "vaulted": true,
+   "i18n": {
+    "en": {
+     "name": "Requiem I Relic",
+     "icon": "items/images/en/requiem_i_relic.70479db2ff21c243673e2a3caf93d7b9.png",
+     "thumb": "items/images/en/thumbs/requiem_i_relic.70479db2ff21c243673e2a3caf93d7b9.128x128.png"
+    },
+    "zh-hans": {
+     "name": "安魂 I 遗物",
+     "icon": "items/images/en/requiem_i_relic.70479db2ff21c243673e2a3caf93d7b9.png",
+     "thumb": "items/images/en/thumbs/requiem_i_relic.70479db2ff21c243673e2a3caf93d7b9.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "6054dd0e5221e30057500f19",
+   "slug": "axi_h3_relic",
+   "gameRef": "/Lotus/Types/Game/Projections/T4VoidProjectionZephyrPrimeC",
+   "tags": [
+    "relic",
+    "axi"
+   ],
+   "bulkTradable": true,
+   "subtypes": [
+    "intact",
+    "exceptional",
+    "flawless",
+    "radiant"
+   ],
+   "vaulted": true,
+   "i18n": {
+    "en": {
+     "name": "Axi H3 Relic",
+     "icon": "items/images/en/axi_h3_relic.a74c06f0cae21bdb8933685c867385f8.png",
+     "thumb": "items/images/en/thumbs/axi_h3_relic.a74c06f0cae21bdb8933685c867385f8.128x128.png"
+    },
+    "zh-hans": {
+     "name": "后纪 H3 遗物",
+     "icon": "items/images/en/axi_h3_relic.a74c06f0cae21bdb8933685c867385f8.png",
+     "thumb": "items/images/en/thumbs/axi_h3_relic.a74c06f0cae21bdb8933685c867385f8.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "6054dd0f5221e30057500f1a",
+   "slug": "axi_o2_relic",
+   "gameRef": "/Lotus/Types/Game/Projections/T4VoidProjectionZephyrPrimeB",
+   "tags": [
+    "relic",
+    "axi"
+   ],
+   "bulkTradable": true,
+   "subtypes": [
+    "intact",
+    "exceptional",
+    "flawless",
+    "radiant"
+   ],
+   "vaulted": true,
+   "i18n": {
+    "en": {
+     "name": "Axi O2 Relic",
+     "icon": "items/images/en/axi_o2_relic.a74c06f0cae21bdb8933685c867385f8.png",
+     "thumb": "items/images/en/thumbs/axi_o2_relic.a74c06f0cae21bdb8933685c867385f8.128x128.png"
+    },
+    "zh-hans": {
+     "name": "后纪 O2 遗物",
+     "icon": "items/images/en/axi_o2_relic.a74c06f0cae21bdb8933685c867385f8.png",
+     "thumb": "items/images/en/thumbs/axi_o2_relic.a74c06f0cae21bdb8933685c867385f8.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "56783f24cbfa8f0432dd899c",
+   "slug": "frost_prime_set",
+   "gameRef": "/Lotus/Powersuits/Frost/FrostPrime",
+   "tags": [
+    "set",
+    "prime",
+    "warframe"
+   ],
+   "ducats": 175,
+   "i18n": {
+    "en": {
+     "name": "Frost Prime Set",
+     "icon": "items/images/en/frost_prime_set.4f8ff8605be1afaab9a0e5cc3c67cb21.png",
+     "thumb": "items/images/en/thumbs/frost_prime_set.4f8ff8605be1afaab9a0e5cc3c67cb21.128x128.png"
+    },
+    "zh-hans": {
+     "name": "Frost Prime 一套",
+     "icon": "items/images/en/frost_prime_set.4f8ff8605be1afaab9a0e5cc3c67cb21.png",
+     "thumb": "items/images/en/thumbs/frost_prime_set.4f8ff8605be1afaab9a0e5cc3c67cb21.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "59a48b625cd9938cfede703c",
+   "slug": "hydroid_prime_set",
+   "gameRef": "/Lotus/Powersuits/Pirate/HydroidPrime",
+   "tags": [
+    "warframe",
+    "prime",
+    "set"
+   ],
+   "ducats": 205,
+   "i18n": {
+    "zh-hans": {
+     "name": "Hydroid Prime 一套",
+     "icon": "items/images/en/hydroid_prime_set.5f1abb4ef137bf0dd41565a913f5232a.png",
+     "thumb": "items/images/en/thumbs/hydroid_prime_set.5f1abb4ef137bf0dd41565a913f5232a.128x128.png"
+    },
+    "en": {
+     "name": "Hydroid Prime Set",
+     "icon": "items/images/en/hydroid_prime_set.5f1abb4ef137bf0dd41565a913f5232a.png",
+     "thumb": "items/images/en/thumbs/hydroid_prime_set.5f1abb4ef137bf0dd41565a913f5232a.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "5ab1570db2b6a8044d5137c3",
+   "slug": "zephyr_prime_chassis_blueprint",
+   "gameRef": "/Lotus/Types/Recipes/WarframeRecipes/ZephyrPrimeChassisBlueprint",
+   "tags": [
+    "component",
+    "prime",
+    "warframe",
+    "blueprint"
+   ],
+   "ducats": 25,
+   "i18n": {
+    "en": {
+     "name": "Zephyr Prime Chassis Blueprint",
+     "icon": "items/images/en/zephyr_prime_chassis.4ffc19dd100b3c182beef5f1ef3d337e.png",
+     "thumb": "items/images/en/thumbs/zephyr_prime_chassis.4ffc19dd100b3c182beef5f1ef3d337e.128x128.png",
+     "subIcon": "sub_icons/warframe/prime_chassis_128x128.png"
+    },
+    "zh-hans": {
+     "name": "Zephyr Prime 机体 蓝图",
+     "icon": "items/images/en/zephyr_prime_chassis.4ffc19dd100b3c182beef5f1ef3d337e.png",
+     "thumb": "items/images/en/thumbs/zephyr_prime_chassis.4ffc19dd100b3c182beef5f1ef3d337e.128x128.png",
+     "subIcon": "sub_icons/warframe/prime_chassis_128x128.png"
+    }
+   }
+  },
+  {
+   "id": "5c196fad96037800ddadac14",
+   "slug": "redeemer_prime_blade",
+   "gameRef": "/Lotus/Types/Recipes/Weapons/WeaponParts/RedeemerPrimeBlade",
+   "tags": [
+    "component",
+    "weapon",
+    "prime"
+   ],
+   "ducats": 15,
+   "i18n": {
+    "zh-hans": {
+     "name": "救赎者 Prime 刀刃",
+     "icon": "items/images/en/redeemer_prime_blade.92fcede37c1ab66d22a2287dc2334731.png",
+     "thumb": "items/images/en/thumbs/redeemer_prime_blade.92fcede37c1ab66d22a2287dc2334731.128x128.png",
+     "subIcon": "sub_icons/weapon/prime_blade_128x128.png"
+    },
+    "en": {
+     "name": "Redeemer Prime Blade",
+     "icon": "items/images/en/redeemer_prime_blade.92fcede37c1ab66d22a2287dc2334731.png",
+     "thumb": "items/images/en/thumbs/redeemer_prime_blade.92fcede37c1ab66d22a2287dc2334731.128x128.png",
+     "subIcon": "sub_icons/weapon/prime_blade_128x128.png"
+    }
+   }
+  },
+  {
+   "id": "5c196fb096037800ddadac18",
+   "slug": "akjagara_prime_receiver",
+   "gameRef": "/Lotus/Types/Recipes/Weapons/WeaponParts/AkjagaraPrimeReceiver",
+   "tags": [
+    "component",
+    "weapon",
+    "prime"
+   ],
+   "ducats": 45,
+   "i18n": {
+    "en": {
+     "name": "Akjagara Prime Receiver",
+     "icon": "items/images/en/akjagara_prime_receiver.5ed111e5dcb3df5d57c5411849c113e4.png",
+     "thumb": "items/images/en/thumbs/akjagara_prime_receiver.5ed111e5dcb3df5d57c5411849c113e4.128x128.png",
+     "subIcon": "sub_icons/weapon/prime_receiver_128x128.png"
+    },
+    "zh-hans": {
+     "name": "觉醒双枪 Prime 枪机",
+     "icon": "items/images/en/akjagara_prime_receiver.5ed111e5dcb3df5d57c5411849c113e4.png",
+     "thumb": "items/images/en/thumbs/akjagara_prime_receiver.5ed111e5dcb3df5d57c5411849c113e4.128x128.png",
+     "subIcon": "sub_icons/weapon/prime_receiver_128x128.png"
+    }
+   }
+  },
+  {
+   "id": "5d21ce43f4604c012d1e0c0e",
+   "slug": "zhuge_prime_grip",
+   "gameRef": "/Lotus/Types/Recipes/Weapons/WeaponParts/ZhugePrimeStock",
+   "tags": [
+    "component",
+    "weapon",
+    "prime"
+   ],
+   "ducats": 15,
+   "i18n": {
+    "en": {
+     "name": "Zhuge Prime Grip",
+     "icon": "items/images/en/zhuge_prime_grip.38e0e6189f1a333b382507a117b194a9.png",
+     "thumb": "items/images/en/thumbs/zhuge_prime_grip.38e0e6189f1a333b382507a117b194a9.128x128.png",
+     "subIcon": "sub_icons/weapon/prime_grip_128x128.png"
+    },
+    "zh-hans": {
+     "name": "诸葛连弩 Prime 弓身",
+     "icon": "items/images/en/zhuge_prime_grip.38e0e6189f1a333b382507a117b194a9.png",
+     "thumb": "items/images/en/thumbs/zhuge_prime_grip.38e0e6189f1a333b382507a117b194a9.128x128.png",
+     "subIcon": "sub_icons/weapon/prime_grip_128x128.png"
+    }
+   }
+  },
+  {
+   "id": "54aae292e7798909064f1575",
+   "slug": "secura_dual_cestra",
+   "gameRef": "/Lotus/Weapons/Syndicates/PerrinSequence/Pistols/PSDualCestra",
+   "tags": [
+    "syndicate",
+    "weapon",
+    "secondary"
+   ],
+   "i18n": {
+    "en": {
+     "name": "Secura Dual Cestra",
+     "icon": "items/images/en/secura_dual_cestra.3d47a4ec6675ff774bb0da9b16c53e0e.png",
+     "thumb": "items/images/en/thumbs/secura_dual_cestra.3d47a4ec6675ff774bb0da9b16c53e0e.128x128.png"
+    },
+    "zh-hans": {
+     "name": "保障·锡斯特双枪",
+     "icon": "items/images/en/secura_dual_cestra.3d47a4ec6675ff774bb0da9b16c53e0e.png",
+     "thumb": "items/images/en/thumbs/secura_dual_cestra.3d47a4ec6675ff774bb0da9b16c53e0e.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "54d4c727e77989281cc7d753",
+   "slug": "mutalist_alad_v_assassinate_key",
+   "gameRef": "/Lotus/Types/Keys/InfestedAladVQuest/AssassinateInfestedAladVKey",
+   "tags": [
+    "key"
+   ],
+   "i18n": {
+    "zh-hans": {
+     "name": "异融阿拉德 V 刺杀 （钥匙）",
+     "icon": "items/images/en/mutalist_alad_v_assassinate_key.7540fb6d7ef2b2843352e32c9ff64e73.png",
+     "thumb": "items/images/en/thumbs/mutalist_alad_v_assassinate_key.7540fb6d7ef2b2843352e32c9ff64e73.128x128.png"
+    },
+    "en": {
+     "name": "Mutalist Alad V Assassinate (Key)",
+     "icon": "items/images/en/mutalist_alad_v_assassinate_key.7540fb6d7ef2b2843352e32c9ff64e73.png",
+     "thumb": "items/images/en/thumbs/mutalist_alad_v_assassinate_key.7540fb6d7ef2b2843352e32c9ff64e73.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "55e797d2e7798924849dd9f0",
+   "slug": "telos_boltor",
+   "gameRef": "/Lotus/Weapons/Syndicates/ArbitersOfHexis/LongGuns/AHBoltor",
+   "tags": [
+    "syndicate",
+    "primary",
+    "weapon"
+   ],
+   "i18n": {
+    "zh-hans": {
+     "name": "终极·螺钉步枪",
+     "icon": "items/images/en/telos_boltor.9a109e6b666017c81b2402e7031243b5.png",
+     "thumb": "items/images/en/thumbs/telos_boltor.9a109e6b666017c81b2402e7031243b5.128x128.png"
+    },
+    "en": {
+     "name": "Telos Boltor",
+     "icon": "items/images/en/telos_boltor.9a109e6b666017c81b2402e7031243b5.png",
+     "thumb": "items/images/en/thumbs/telos_boltor.9a109e6b666017c81b2402e7031243b5.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "56aba2f78d6d183da42403c0",
+   "slug": "strun_wraith_receiver",
+   "gameRef": "/Lotus/Types/Recipes/Weapons/WeaponParts/StrunWraithReceiver",
+   "tags": [
+    "component",
+    "weapon"
+   ],
+   "i18n": {
+    "zh-hans": {
+     "name": "斯特朗·亡魂 枪机",
+     "icon": "items/images/en/strun_wraith_receiver.0ef693321b08beb361c5a654663ecf32.png",
+     "thumb": "items/images/en/thumbs/strun_wraith_receiver.0ef693321b08beb361c5a654663ecf32.128x128.png",
+     "subIcon": "sub_icons/weapon/generic_receiver_128x128.png"
+    },
+    "en": {
+     "name": "Strun Wraith Receiver",
+     "icon": "items/images/en/strun_wraith_receiver.0ef693321b08beb361c5a654663ecf32.png",
+     "thumb": "items/images/en/thumbs/strun_wraith_receiver.0ef693321b08beb361c5a654663ecf32.128x128.png",
+     "subIcon": "sub_icons/weapon/generic_receiver_128x128.png"
+    }
+   }
+  },
+  {
+   "id": "57222f1c92cc365777a61c0f",
+   "slug": "mantis_set",
+   "gameRef": "/Lotus/Types/Items/Ships/InsectShip",
+   "tags": [
+    "set"
+   ],
+   "i18n": {
+    "zh-hans": {
+     "name": "Mantis 一套",
+     "icon": "items/images/en/mantis_set.d4716b0defc2695308eb9b5a4b18d935.png",
+     "thumb": "items/images/en/thumbs/mantis_set.d4716b0defc2695308eb9b5a4b18d935.128x128.png"
+    },
+    "en": {
+     "name": "Mantis Set",
+     "icon": "items/images/en/mantis_set.d4716b0defc2695308eb9b5a4b18d935.png",
+     "thumb": "items/images/en/thumbs/mantis_set.d4716b0defc2695308eb9b5a4b18d935.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "5783bee2d9b6753790c89e87",
+   "slug": "kaszas_blade",
+   "gameRef": "/Lotus/Types/Recipes/Weapons/WeaponParts/ArchScytheBlade",
+   "tags": [
+    "component",
+    "weapon",
+    "archwing"
+   ],
+   "i18n": {
+    "zh-hans": {
+     "name": "死亡使徒 刀刃",
+     "icon": "items/images/en/kaszas_blade.11baea8229af2d3500c79b829f9dfcee.png",
+     "thumb": "items/images/en/thumbs/kaszas_blade.11baea8229af2d3500c79b829f9dfcee.128x128.png",
+     "subIcon": "sub_icons/weapon/generic_blade_128x128.png"
+    },
+    "en": {
+     "name": "Kaszas Blade",
+     "icon": "items/images/en/kaszas_blade.11baea8229af2d3500c79b829f9dfcee.png",
+     "thumb": "items/images/en/thumbs/kaszas_blade.11baea8229af2d3500c79b829f9dfcee.128x128.png",
+     "subIcon": "sub_icons/weapon/generic_blade_128x128.png"
+    }
+   }
+  },
+  {
+   "id": "551085aee77989729e1416d0",
+   "slug": "arcane_barrier",
+   "gameRef": "/Lotus/Upgrades/CosmeticEnhancers/Defensive/InstantShieldOnDamage",
+   "tags": [
+    "legendary",
+    "arcane_enhancement"
+   ],
+   "bulkTradable": true,
+   "maxRank": 5,
+   "i18n": {
+    "zh-hans": {
+     "name": "赋能·壁垒",
+     "icon": "items/images/en/arcane_barrier.c4b3b25fcc9c874a4bfc0f8998b9f5bd.png",
+     "thumb": "items/images/en/thumbs/arcane_barrier.c4b3b25fcc9c874a4bfc0f8998b9f5bd.128x128.png"
+    },
+    "en": {
+     "name": "Arcane Barrier",
+     "icon": "items/images/en/arcane_barrier.c4b3b25fcc9c874a4bfc0f8998b9f5bd.png",
+     "thumb": "items/images/en/thumbs/arcane_barrier.c4b3b25fcc9c874a4bfc0f8998b9f5bd.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "551085c9e7798972b4a2b206",
+   "slug": "arcane_ice",
+   "gameRef": "/Lotus/Upgrades/CosmeticEnhancers/Defensive/FireProcResist",
+   "tags": [
+    "common",
+    "arcane_enhancement"
+   ],
+   "bulkTradable": true,
+   "maxRank": 5,
+   "i18n": {
+    "zh-hans": {
+     "name": "赋能·冰冷",
+     "icon": "items/images/en/arcane_ice.d3cb62ba9923dcf396c854fb857e5718.png",
+     "thumb": "items/images/en/thumbs/arcane_ice.d3cb62ba9923dcf396c854fb857e5718.128x128.png"
+    },
+    "en": {
+     "name": "Arcane Ice",
+     "icon": "items/images/en/arcane_ice.d3cb62ba9923dcf396c854fb857e5718.png",
+     "thumb": "items/images/en/thumbs/arcane_ice.d3cb62ba9923dcf396c854fb857e5718.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "5a04750c6c4655012038ddcb",
+   "slug": "virtuos_strike",
+   "gameRef": "/Lotus/Upgrades/CosmeticEnhancers/OperatorAmps/IncreasedCriticalDamageOnCriticalStrike",
+   "tags": [
+    "operator",
+    "uncommon",
+    "arcane_enhancement"
+   ],
+   "bulkTradable": true,
+   "maxRank": 3,
+   "i18n": {
+    "en": {
+     "name": "Virtuos Strike",
+     "icon": "items/images/en/virtuos_strike.9bb469736054bb8b5c4d55628d49e83e.png",
+     "thumb": "items/images/en/thumbs/virtuos_strike.9bb469736054bb8b5c4d55628d49e83e.128x128.png"
+    },
+    "zh-hans": {
+     "name": "正直·打击",
+     "icon": "items/images/en/virtuos_strike.9bb469736054bb8b5c4d55628d49e83e.png",
+     "thumb": "items/images/en/thumbs/virtuos_strike.9bb469736054bb8b5c4d55628d49e83e.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "5bf54b483ffcc7066e7eb856",
+   "slug": "pax_soar",
+   "gameRef": "/Lotus/Upgrades/CosmeticEnhancers/Offensive/EyeInTheSky",
+   "tags": [
+    "rare",
+    "arcane_enhancement"
+   ],
+   "bulkTradable": true,
+   "maxRank": 3,
+   "i18n": {
+    "en": {
+     "name": "Pax Soar",
+     "icon": "items/images/en/pax_soar.b1cec46096b57bd8c82c974fbd376baa.png",
+     "thumb": "items/images/en/thumbs/pax_soar.b1cec46096b57bd8c82c974fbd376baa.128x128.png"
+    },
+    "zh-hans": {
+     "name": "和平·高飞",
+     "icon": "items/images/en/pax_soar.b1cec46096b57bd8c82c974fbd376baa.png",
+     "thumb": "items/images/en/thumbs/pax_soar.b1cec46096b57bd8c82c974fbd376baa.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "551085ece7798972cb579c3e",
+   "slug": "arcane_trickery",
+   "gameRef": "/Lotus/Upgrades/CosmeticEnhancers/Offensive/InvisibilityOnFinisher",
+   "tags": [
+    "uncommon",
+    "arcane_enhancement"
+   ],
+   "bulkTradable": true,
+   "maxRank": 5,
+   "i18n": {
+    "en": {
+     "name": "Arcane Trickery",
+     "icon": "items/images/en/arcane_trickery.bec8b43aaa7a5ec1cb152f017516a69c.png",
+     "thumb": "items/images/en/thumbs/arcane_trickery.bec8b43aaa7a5ec1cb152f017516a69c.128x128.png"
+    },
+    "zh-hans": {
+     "name": "赋能·诡计",
+     "icon": "items/images/en/arcane_trickery.bec8b43aaa7a5ec1cb152f017516a69c.png",
+     "thumb": "items/images/en/thumbs/arcane_trickery.bec8b43aaa7a5ec1cb152f017516a69c.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "566751d35dcbc186f0536bd6",
+   "slug": "arcane_velocity",
+   "gameRef": "/Lotus/Upgrades/CosmeticEnhancers/Offensive/GolemArcanePistolSpeedOnCrit",
+   "tags": [
+    "uncommon",
+    "arcane_enhancement"
+   ],
+   "bulkTradable": true,
+   "maxRank": 5,
+   "i18n": {
+    "en": {
+     "name": "Arcane Velocity",
+     "icon": "items/images/en/arcane_velocity.ea37edd24f8212ce4bb283205658829b.png",
+     "thumb": "items/images/en/thumbs/arcane_velocity.ea37edd24f8212ce4bb283205658829b.128x128.png"
+    },
+    "zh-hans": {
+     "name": "赋能·迅速",
+     "icon": "items/images/en/arcane_velocity.ea37edd24f8212ce4bb283205658829b.png",
+     "thumb": "items/images/en/thumbs/arcane_velocity.ea37edd24f8212ce4bb283205658829b.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "6054de645221e3005750106e",
+   "slug": "aquapulmo",
+   "gameRef": "/Lotus/Types/Items/Fish/Deimos/HybridRareAFishItem",
+   "tags": [
+    "fish"
+   ],
+   "bulkTradable": true,
+   "subtypes": [
+    "basic",
+    "adorned",
+    "magnificent"
+   ],
+   "i18n": {
+    "en": {
+     "name": "Aquapulmo",
+     "icon": "items/images/en/aquapulmo.614ee00bc189bf6e8188792cddcf15e3.png",
+     "thumb": "items/images/en/thumbs/aquapulmo.614ee00bc189bf6e8188792cddcf15e3.128x128.png"
+    },
+    "zh-hans": {
+     "name": "水肺",
+     "icon": "items/images/en/aquapulmo.614ee00bc189bf6e8188792cddcf15e3.png",
+     "thumb": "items/images/en/thumbs/aquapulmo.614ee00bc189bf6e8188792cddcf15e3.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "6054de655221e3005750106f",
+   "slug": "ostimyr",
+   "gameRef": "/Lotus/Types/Items/Fish/Deimos/HybridUncommonAFishItem",
+   "tags": [
+    "fish"
+   ],
+   "bulkTradable": true,
+   "subtypes": [
+    "basic",
+    "adorned",
+    "magnificent"
+   ],
+   "i18n": {
+    "zh-hans": {
+     "name": "奥斯蒂剑鱼",
+     "icon": "items/images/en/ostimyr.cad7b700633006fd0feb87ffec1825d2.png",
+     "thumb": "items/images/en/thumbs/ostimyr.cad7b700633006fd0feb87ffec1825d2.128x128.png"
+    },
+    "en": {
+     "name": "Ostimyr",
+     "icon": "items/images/en/ostimyr.cad7b700633006fd0feb87ffec1825d2.png",
+     "thumb": "items/images/en/thumbs/ostimyr.cad7b700633006fd0feb87ffec1825d2.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "6054de665221e30057501070",
+   "slug": "vitreospina",
+   "gameRef": "/Lotus/Types/Items/Fish/Deimos/HybridUncommonBFishItem",
+   "tags": [
+    "fish"
+   ],
+   "bulkTradable": true,
+   "subtypes": [
+    "basic",
+    "adorned",
+    "magnificent"
+   ],
+   "i18n": {
+    "en": {
+     "name": "Vitreospina",
+     "icon": "items/images/en/vitreospina.80a20c278dacce4cd8b2c9f938f129e9.png",
+     "thumb": "items/images/en/thumbs/vitreospina.80a20c278dacce4cd8b2c9f938f129e9.128x128.png"
+    },
+    "zh-hans": {
+     "name": "璃化脊鳎",
+     "icon": "items/images/en/vitreospina.80a20c278dacce4cd8b2c9f938f129e9.png",
+     "thumb": "items/images/en/thumbs/vitreospina.80a20c278dacce4cd8b2c9f938f129e9.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "6054de665221e30057501071",
+   "slug": "cryptosuctus",
+   "gameRef": "/Lotus/Types/Items/Fish/Deimos/InfestedCommonAFishItem",
+   "tags": [
+    "fish"
+   ],
+   "bulkTradable": true,
+   "subtypes": [
+    "small",
+    "medium",
+    "large"
+   ],
+   "i18n": {
+    "zh-hans": {
+     "name": "墓沼隐龙",
+     "icon": "items/images/en/cryptosuctus.4022e55bcff5b4fcfe01d3408b4b01f9.png",
+     "thumb": "items/images/en/thumbs/cryptosuctus.4022e55bcff5b4fcfe01d3408b4b01f9.128x128.png"
+    },
+    "en": {
+     "name": "Cryptosuctus",
+     "icon": "items/images/en/cryptosuctus.4022e55bcff5b4fcfe01d3408b4b01f9.png",
+     "thumb": "items/images/en/thumbs/cryptosuctus.4022e55bcff5b4fcfe01d3408b4b01f9.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "6054de675221e30057501072",
+   "slug": "barbisteo",
+   "gameRef": "/Lotus/Types/Items/Fish/Deimos/InfestedCommonBFishItem",
+   "tags": [
+    "fish"
+   ],
+   "bulkTradable": true,
+   "subtypes": [
+    "small",
+    "medium",
+    "large"
+   ],
+   "i18n": {
+    "zh-hans": {
+     "name": "倒刺蒂鳌",
+     "icon": "items/images/en/barbisteo.84f1b278faa86c27bee4bbf1c66b8299.png",
+     "thumb": "items/images/en/thumbs/barbisteo.84f1b278faa86c27bee4bbf1c66b8299.128x128.png"
+    },
+    "en": {
+     "name": "Barbisteo",
+     "icon": "items/images/en/barbisteo.84f1b278faa86c27bee4bbf1c66b8299.png",
+     "thumb": "items/images/en/thumbs/barbisteo.84f1b278faa86c27bee4bbf1c66b8299.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "6054de675221e30057501073",
+   "slug": "kymaeros",
+   "gameRef": "/Lotus/Types/Items/Fish/Deimos/InfestedCommonCFishItem",
+   "tags": [
+    "fish"
+   ],
+   "bulkTradable": true,
+   "subtypes": [
+    "small",
+    "medium",
+    "large"
+   ],
+   "i18n": {
+    "en": {
+     "name": "Kymaeros",
+     "icon": "items/images/en/kymaeros.0e3d7278b025ef71f33f3751f37b8df4.png",
+     "thumb": "items/images/en/thumbs/kymaeros.0e3d7278b025ef71f33f3751f37b8df4.128x128.png"
+    },
+    "zh-hans": {
+     "name": "高额异鳍",
+     "icon": "items/images/en/kymaeros.0e3d7278b025ef71f33f3751f37b8df4.png",
+     "thumb": "items/images/en/thumbs/kymaeros.0e3d7278b025ef71f33f3751f37b8df4.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "54a74454e779892d5e5155ff",
+   "slug": "streamline",
+   "gameRef": "/Lotus/Upgrades/Mods/Warframe/AvatarAbilityEfficiencyMod",
+   "tags": [
+    "mod",
+    "warframe",
+    "rare"
+   ],
+   "subtypes": [
+    "regular",
+    "atragraph"
+   ],
+   "maxRank": 5,
+   "i18n": {
+    "en": {
+     "name": "Streamline",
+     "icon": "items/images/en/streamline.17b1eb16da88f21bdca078284b233aad.webp",
+     "thumb": "items/images/en/thumbs/streamline.17b1eb16da88f21bdca078284b233aad.128x128.webp"
+    },
+    "zh-hans": {
+     "name": "简化",
+     "icon": "items/images/en/streamline.17b1eb16da88f21bdca078284b233aad.webp",
+     "thumb": "items/images/en/thumbs/streamline.17b1eb16da88f21bdca078284b233aad.128x128.webp"
+    }
+   }
+  },
+  {
+   "id": "54a74454e779892d5e515644",
+   "slug": "hells_chamber",
+   "gameRef": "/Lotus/Upgrades/Mods/Shotgun/WeaponFireIterationsMod",
+   "tags": [
+    "shotgun",
+    "mod",
+    "rare",
+    "primary"
+   ],
+   "subtypes": [
+    "regular",
+    "atragraph"
+   ],
+   "maxRank": 5,
+   "i18n": {
+    "en": {
+     "name": "Hell's Chamber",
+     "icon": "items/images/en/hells_chamber.eb3ff423fe41efafd3b7f7565a0c4d59.png",
+     "thumb": "items/images/en/thumbs/hells_chamber.eb3ff423fe41efafd3b7f7565a0c4d59.128x128.png"
+    },
+    "zh-hans": {
+     "name": "地狱弹膛",
+     "icon": "items/images/en/hells_chamber.eb3ff423fe41efafd3b7f7565a0c4d59.png",
+     "thumb": "items/images/en/thumbs/hells_chamber.eb3ff423fe41efafd3b7f7565a0c4d59.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "54a74454e779892d5e5155fe",
+   "slug": "vitality",
+   "gameRef": "/Lotus/Upgrades/Mods/Warframe/AvatarHealthMaxMod",
+   "tags": [
+    "mod",
+    "common",
+    "warframe"
+   ],
+   "subtypes": [
+    "regular",
+    "atragraph"
+   ],
+   "maxRank": 10,
+   "i18n": {
+    "zh-hans": {
+     "name": "生命力",
+     "icon": "items/images/en/vitality.a4758f3c625ccc4d5914361541f44272.webp",
+     "thumb": "items/images/en/thumbs/vitality.a4758f3c625ccc4d5914361541f44272.128x128.webp"
+    },
+    "en": {
+     "name": "Vitality",
+     "icon": "items/images/en/vitality.a4758f3c625ccc4d5914361541f44272.webp",
+     "thumb": "items/images/en/thumbs/vitality.a4758f3c625ccc4d5914361541f44272.128x128.webp"
+    }
+   }
+  },
+  {
+   "id": "54a74454e779892d5e515595",
+   "slug": "target_cracker",
+   "gameRef": "/Lotus/Upgrades/Mods/Pistol/WeaponCritDamageMod",
+   "tags": [
+    "mod",
+    "uncommon",
+    "pistol",
+    "secondary"
+   ],
+   "subtypes": [
+    "regular",
+    "atragraph"
+   ],
+   "maxRank": 5,
+   "i18n": {
+    "en": {
+     "name": "Target Cracker",
+     "icon": "items/images/en/target_cracker.6b81dd2b57724976438b9b083f8301f3.png",
+     "thumb": "items/images/en/thumbs/target_cracker.6b81dd2b57724976438b9b083f8301f3.128x128.png"
+    },
+    "zh-hans": {
+     "name": "弱点专精",
+     "icon": "items/images/en/target_cracker.6b81dd2b57724976438b9b083f8301f3.png",
+     "thumb": "items/images/en/thumbs/target_cracker.6b81dd2b57724976438b9b083f8301f3.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "54a74454e779892d5e51560e",
+   "slug": "barrel_diffusion",
+   "gameRef": "/Lotus/Upgrades/Mods/Pistol/WeaponFireIterationsMod",
+   "tags": [
+    "mod",
+    "rare",
+    "pistol",
+    "secondary"
+   ],
+   "subtypes": [
+    "regular",
+    "atragraph"
+   ],
+   "maxRank": 5,
+   "i18n": {
+    "zh-hans": {
+     "name": "弹头扩散",
+     "icon": "items/images/en/barrel_diffusion.3c2fbabc91cc911e56dc43b046b9ecdb.png",
+     "thumb": "items/images/en/thumbs/barrel_diffusion.3c2fbabc91cc911e56dc43b046b9ecdb.128x128.png"
+    },
+    "en": {
+     "name": "Barrel Diffusion",
+     "icon": "items/images/en/barrel_diffusion.3c2fbabc91cc911e56dc43b046b9ecdb.png",
+     "thumb": "items/images/en/thumbs/barrel_diffusion.3c2fbabc91cc911e56dc43b046b9ecdb.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "54a74454e779892d5e5155e9",
+   "slug": "berserker_fury",
+   "gameRef": "/Lotus/Upgrades/Mods/Melee/WeaponCritFireRateBonusMod",
+   "tags": [
+    "mod",
+    "melee",
+    "rare"
+   ],
+   "subtypes": [
+    "regular",
+    "atragraph"
+   ],
+   "maxRank": 5,
+   "i18n": {
+    "zh-hans": {
+     "name": "嗜血 狂暴",
+     "icon": "items/images/en/berserker_fury.69abc0b62a345aff4889e2afac345278.webp",
+     "thumb": "items/images/en/thumbs/berserker_fury.69abc0b62a345aff4889e2afac345278.128x128.webp"
+    },
+    "en": {
+     "name": "Berserker Fury",
+     "icon": "items/images/en/berserker_fury.69abc0b62a345aff4889e2afac345278.webp",
+     "thumb": "items/images/en/thumbs/berserker_fury.69abc0b62a345aff4889e2afac345278.128x128.webp"
+    }
+   }
+  },
+  {
+   "id": "5c1e62d3817a0d0092fb1608",
+   "slug": "kitgun_riven_mod_veiled",
+   "gameRef": "/Lotus/Upgrades/Mods/Randomized/LotusModularPistolRandomModRare",
+   "tags": [
+    "mod",
+    "riven_mod",
+    "common",
+    "veiled_riven"
+   ],
+   "subtypes": [
+    "unrevealed",
+    "revealed"
+   ],
+   "i18n": {
+    "zh-hans": {
+     "name": "组合枪裂罅 Mod （尚未揭开）",
+     "icon": "items/images/en/kitgun_riven_mod_(veiled).c7cc9acb1a595ed66744e1d2b4f3bb42.png",
+     "thumb": "items/images/en/thumbs/kitgun_riven_mod_(veiled).c7cc9acb1a595ed66744e1d2b4f3bb42.128x128.png"
+    },
+    "en": {
+     "name": "Kitgun Riven Mod (Veiled)",
+     "icon": "items/images/en/kitgun_riven_mod_(veiled).c7cc9acb1a595ed66744e1d2b4f3bb42.png",
+     "thumb": "items/images/en/thumbs/kitgun_riven_mod_(veiled).c7cc9acb1a595ed66744e1d2b4f3bb42.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "5c1e62d3817a0d0092fb1609",
+   "slug": "zaw_riven_mod_veiled",
+   "gameRef": "/Lotus/Upgrades/Mods/Randomized/LotusModularMeleeRandomModRare",
+   "tags": [
+    "mod",
+    "riven_mod",
+    "common",
+    "veiled_riven"
+   ],
+   "subtypes": [
+    "unrevealed",
+    "revealed"
+   ],
+   "i18n": {
+    "en": {
+     "name": "Zaw Riven Mod (Veiled)",
+     "icon": "items/images/en/zaw_riven_mod_(veiled).8a8a788f0090d5be1b32481765ab8ad3.png",
+     "thumb": "items/images/en/thumbs/zaw_riven_mod_(veiled).8a8a788f0090d5be1b32481765ab8ad3.128x128.png"
+    },
+    "zh-hans": {
+     "name": "Zaw 裂罅 Mod （尚未揭开）",
+     "icon": "items/images/en/zaw_riven_mod_(veiled).8a8a788f0090d5be1b32481765ab8ad3.png",
+     "thumb": "items/images/en/thumbs/zaw_riven_mod_(veiled).8a8a788f0090d5be1b32481765ab8ad3.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "595567c18e34b5ed3cb3d9b9",
+   "slug": "melee_riven_mod_veiled",
+   "gameRef": "/Lotus/Upgrades/Mods/Randomized/PlayerMeleeWeaponRandomModRare",
+   "tags": [
+    "mod",
+    "riven_mod",
+    "common",
+    "veiled_riven"
+   ],
+   "subtypes": [
+    "unrevealed",
+    "revealed"
+   ],
+   "i18n": {
+    "zh-hans": {
+     "name": "近战裂罅 Mod （尚未揭开）",
+     "icon": "items/images/en/melee_riven_mod_(veiled).a04511643f40ae463121e146f7327d4b.webp",
+     "thumb": "items/images/en/thumbs/melee_riven_mod_(veiled).a04511643f40ae463121e146f7327d4b.128x128.webp"
+    },
+    "en": {
+     "name": "Melee Riven Mod (Veiled)",
+     "icon": "items/images/en/melee_riven_mod_(veiled).a04511643f40ae463121e146f7327d4b.webp",
+     "thumb": "items/images/en/thumbs/melee_riven_mod_(veiled).a04511643f40ae463121e146f7327d4b.128x128.webp"
+    }
+   }
+  },
+  {
+   "id": "58701655937cde2c9d378ac3",
+   "slug": "pistol_riven_mod_veiled",
+   "gameRef": "/Lotus/Upgrades/Mods/Randomized/LotusPistolRandomModRare",
+   "tags": [
+    "mod",
+    "riven_mod",
+    "common",
+    "veiled_riven"
+   ],
+   "subtypes": [
+    "unrevealed",
+    "revealed"
+   ],
+   "i18n": {
+    "zh-hans": {
+     "name": "手枪裂罅 Mod （尚未揭开）",
+     "icon": "items/images/en/pistol_riven_mod_(veiled).a04511643f40ae463121e146f7327d4b.webp",
+     "thumb": "items/images/en/thumbs/pistol_riven_mod_(veiled).a04511643f40ae463121e146f7327d4b.128x128.webp"
+    },
+    "en": {
+     "name": "Pistol Riven Mod (Veiled)",
+     "icon": "items/images/en/pistol_riven_mod_(veiled).a04511643f40ae463121e146f7327d4b.webp",
+     "thumb": "items/images/en/thumbs/pistol_riven_mod_(veiled).a04511643f40ae463121e146f7327d4b.128x128.webp"
+    }
+   }
+  },
+  {
+   "id": "5cc4816afc2db2099c1804cd",
+   "slug": "archgun_riven_mod_veiled",
+   "gameRef": "/Lotus/Upgrades/Mods/Randomized/LotusArchgunRandomModRare",
+   "tags": [
+    "mod",
+    "riven_mod",
+    "common",
+    "veiled_riven"
+   ],
+   "subtypes": [
+    "unrevealed",
+    "revealed"
+   ],
+   "i18n": {
+    "en": {
+     "name": "Archgun Riven Mod (Veiled)",
+     "icon": "items/images/en/archgun_riven_mod_(veiled).a04511643f40ae463121e146f7327d4b.webp",
+     "thumb": "items/images/en/thumbs/archgun_riven_mod_(veiled).a04511643f40ae463121e146f7327d4b.128x128.webp"
+    },
+    "zh-hans": {
+     "name": "曲翼枪械裂罅 Mod （尚未揭开）",
+     "icon": "items/images/en/archgun_riven_mod_(veiled).a04511643f40ae463121e146f7327d4b.webp",
+     "thumb": "items/images/en/thumbs/archgun_riven_mod_(veiled).a04511643f40ae463121e146f7327d4b.128x128.webp"
+    }
+   }
+  },
+  {
+   "id": "58701655937cde2c9d378ac2",
+   "slug": "shotgun_riven_mod_veiled",
+   "gameRef": "/Lotus/Upgrades/Mods/Randomized/LotusShotgunRandomModRare",
+   "tags": [
+    "mod",
+    "riven_mod",
+    "common",
+    "veiled_riven"
+   ],
+   "subtypes": [
+    "unrevealed",
+    "revealed"
+   ],
+   "i18n": {
+    "zh-hans": {
+     "name": "霰弹枪裂罅 Mod （尚未揭开）",
+     "icon": "items/images/en/shotgun_riven_mod_(veiled).a04511643f40ae463121e146f7327d4b.webp",
+     "thumb": "items/images/en/thumbs/shotgun_riven_mod_(veiled).a04511643f40ae463121e146f7327d4b.128x128.webp"
+    },
+    "en": {
+     "name": "Shotgun Riven Mod (Veiled)",
+     "icon": "items/images/en/shotgun_riven_mod_(veiled).a04511643f40ae463121e146f7327d4b.webp",
+     "thumb": "items/images/en/thumbs/shotgun_riven_mod_(veiled).a04511643f40ae463121e146f7327d4b.128x128.webp"
+    }
+   }
+  },
+  {
+   "id": "59eba86952f90ed715e14158",
+   "slug": "star_crimzian",
+   "gameRef": "/Lotus/Types/Items/Gems/Eidolon/RareGemACutAItem",
+   "tags": [
+    "gem"
+   ],
+   "bulkTradable": true,
+   "i18n": {
+    "zh-hans": {
+     "name": "星形绯红石",
+     "icon": "items/images/en/star_crimzian.db39ca051236313058cc68e0f57e355c.png",
+     "thumb": "items/images/en/thumbs/star_crimzian.db39ca051236313058cc68e0f57e355c.128x128.png"
+    },
+    "en": {
+     "name": "Star Crimzian",
+     "icon": "items/images/en/star_crimzian.db39ca051236313058cc68e0f57e355c.png",
+     "thumb": "items/images/en/thumbs/star_crimzian.db39ca051236313058cc68e0f57e355c.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "59eba86952f90ed715e14157",
+   "slug": "marquise_veridos",
+   "gameRef": "/Lotus/Types/Items/Gems/Eidolon/UncommonGemACutAItem",
+   "tags": [
+    "gem"
+   ],
+   "bulkTradable": true,
+   "i18n": {
+    "zh-hans": {
+     "name": "女侯爵翠萤石",
+     "icon": "items/images/en/marquise_veridos.0ff6080823e396fc6d3d5946dc192d9b.png",
+     "thumb": "items/images/en/thumbs/marquise_veridos.0ff6080823e396fc6d3d5946dc192d9b.128x128.png"
+    },
+    "en": {
+     "name": "Marquise Veridos",
+     "icon": "items/images/en/marquise_veridos.0ff6080823e396fc6d3d5946dc192d9b.png",
+     "thumb": "items/images/en/thumbs/marquise_veridos.0ff6080823e396fc6d3d5946dc192d9b.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "5be5f5a43ffcc7038857f132",
+   "slug": "smooth_phasmin",
+   "gameRef": "/Lotus/Types/Items/Gems/Solaris/SolarisCommonGemACutItem",
+   "tags": [
+    "gem"
+   ],
+   "bulkTradable": true,
+   "i18n": {
+    "en": {
+     "name": "Smooth Phasmin",
+     "icon": "items/images/en/smooth_phasmin.890678cdbcd828e4605b5e6181cd7b67.png",
+     "thumb": "items/images/en/thumbs/smooth_phasmin.890678cdbcd828e4605b5e6181cd7b67.128x128.png"
+    },
+    "zh-hans": {
+     "name": "光滑翡斯敏石",
+     "icon": "items/images/en/smooth_phasmin.890678cdbcd828e4605b5e6181cd7b67.png",
+     "thumb": "items/images/en/thumbs/smooth_phasmin.890678cdbcd828e4605b5e6181cd7b67.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "5be5f5a43ffcc7038857f12b",
+   "slug": "star_amarast",
+   "gameRef": "/Lotus/Types/Items/Gems/Solaris/SolarisRareGemACutItem",
+   "tags": [
+    "gem"
+   ],
+   "bulkTradable": true,
+   "i18n": {
+    "en": {
+     "name": "Star Amarast",
+     "icon": "items/images/en/star_amarast.ca85eb3d49ec07b1209b869e21aabe8f.png",
+     "thumb": "items/images/en/thumbs/star_amarast.ca85eb3d49ec07b1209b869e21aabe8f.128x128.png"
+    },
+    "zh-hans": {
+     "name": "星形紫苋石",
+     "icon": "items/images/en/star_amarast.ca85eb3d49ec07b1209b869e21aabe8f.png",
+     "thumb": "items/images/en/thumbs/star_amarast.ca85eb3d49ec07b1209b869e21aabe8f.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "5be5f5a23ffcc7038857f123",
+   "slug": "radiant_zodian",
+   "gameRef": "/Lotus/Types/Items/Gems/Solaris/SolarisEidolonGemACutItem",
+   "tags": [
+    "gem"
+   ],
+   "bulkTradable": true,
+   "i18n": {
+    "zh-hans": {
+     "name": "发光的黄道宝石",
+     "icon": "items/images/en/radiant_zodian.e2aefff3921bbf6045832fe9b77b0480.png",
+     "thumb": "items/images/en/thumbs/radiant_zodian.e2aefff3921bbf6045832fe9b77b0480.128x128.png"
+    },
+    "en": {
+     "name": "Radiant Zodian",
+     "icon": "items/images/en/radiant_zodian.e2aefff3921bbf6045832fe9b77b0480.png",
+     "thumb": "items/images/en/thumbs/radiant_zodian.e2aefff3921bbf6045832fe9b77b0480.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "59eba86952f90ed715e14155",
+   "slug": "tear_azurite",
+   "gameRef": "/Lotus/Types/Items/Gems/Eidolon/CommonGemACutAItem",
+   "tags": [
+    "gem"
+   ],
+   "bulkTradable": true,
+   "i18n": {
+    "en": {
+     "name": "Tear Azurite",
+     "icon": "items/images/en/tear_azurite.e2f857f217db500bb173a7a4e518958e.png",
+     "thumb": "items/images/en/thumbs/tear_azurite.e2f857f217db500bb173a7a4e518958e.128x128.png"
+    },
+    "zh-hans": {
+     "name": "泪滴形石青",
+     "icon": "items/images/en/tear_azurite.e2f857f217db500bb173a7a4e518958e.png",
+     "thumb": "items/images/en/thumbs/tear_azurite.e2f857f217db500bb173a7a4e518958e.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "57e91e65c76eb74c087f492f",
+   "slug": "ayatan_orta_sculpture",
+   "gameRef": "/Lotus/Types/Items/FusionTreasures/OroFusexC",
+   "tags": [
+    "ayatan_sculpture"
+   ],
+   "bulkTradable": true,
+   "maxAmberStars": 1,
+   "maxCyanStars": 3,
+   "baseEndo": 650,
+   "endoMultiplier": 2,
+   "i18n": {
+    "zh-hans": {
+     "name": "阿耶檀识 Orta 塑像",
+     "icon": "items/images/zh-hans/ayatan_orta_sculpture.942499eea26924073ddbb60d8d3016d6.png",
+     "thumb": "items/images/zh-hans/thumbs/ayatan_orta_sculpture.942499eea26924073ddbb60d8d3016d6.128x128.png"
+    },
+    "en": {
+     "name": "Ayatan Orta Sculpture",
+     "icon": "items/images/en/ayatan_orta_sculpture.942499eea26924073ddbb60d8d3016d6.png",
+     "thumb": "items/images/en/thumbs/ayatan_orta_sculpture.942499eea26924073ddbb60d8d3016d6.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "57e91e65c76eb74c087f4930",
+   "slug": "ayatan_piv_sculpture",
+   "gameRef": "/Lotus/Types/Items/FusionTreasures/OroFusexE",
+   "tags": [
+    "ayatan_sculpture"
+   ],
+   "bulkTradable": true,
+   "maxAmberStars": 1,
+   "maxCyanStars": 2,
+   "baseEndo": 375,
+   "endoMultiplier": 2,
+   "i18n": {
+    "zh-hans": {
+     "name": "阿耶檀识 Piv 塑像",
+     "icon": "items/images/zh-hans/ayatan_piv_sculpture.4d39cbe88cfd49b7da1ea55cc18629b7.png",
+     "thumb": "items/images/zh-hans/thumbs/ayatan_piv_sculpture.4d39cbe88cfd49b7da1ea55cc18629b7.128x128.png"
+    },
+    "en": {
+     "name": "Ayatan Piv Sculpture",
+     "icon": "items/images/en/ayatan_piv_sculpture.4d39cbe88cfd49b7da1ea55cc18629b7.png",
+     "thumb": "items/images/en/thumbs/ayatan_piv_sculpture.4d39cbe88cfd49b7da1ea55cc18629b7.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "58d8f22a11efe42a5e5231fe",
+   "slug": "ayatan_valana_sculpture",
+   "gameRef": "/Lotus/Types/Items/FusionTreasures/OroFusexG",
+   "tags": [
+    "ayatan_sculpture"
+   ],
+   "bulkTradable": true,
+   "maxAmberStars": 1,
+   "maxCyanStars": 2,
+   "baseEndo": 325,
+   "endoMultiplier": 2,
+   "i18n": {
+    "zh-hans": {
+     "name": "阿耶檀识 Valana 塑像",
+     "icon": "items/images/zh-hans/ayatan_valana_sculpture.331f1ba4280627977651aa7209361033.png",
+     "thumb": "items/images/zh-hans/thumbs/ayatan_valana_sculpture.331f1ba4280627977651aa7209361033.128x128.png"
+    },
+    "en": {
+     "name": "Ayatan Valana Sculpture",
+     "icon": "items/images/en/ayatan_valana_sculpture.331f1ba4280627977651aa7209361033.png",
+     "thumb": "items/images/en/thumbs/ayatan_valana_sculpture.331f1ba4280627977651aa7209361033.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "57e91e65c76eb74c087f4932",
+   "slug": "ayatan_vaya_sculpture",
+   "gameRef": "/Lotus/Types/Items/FusionTreasures/OroFusexD",
+   "tags": [
+    "ayatan_sculpture"
+   ],
+   "bulkTradable": true,
+   "maxAmberStars": 1,
+   "maxCyanStars": 2,
+   "baseEndo": 400,
+   "endoMultiplier": 2,
+   "i18n": {
+    "zh-hans": {
+     "name": "阿耶檀识 Vaya 塑像",
+     "icon": "items/images/zh-hans/ayatan_vaya_sculpture.3aaade63978258328e4106a499616299.png",
+     "thumb": "items/images/zh-hans/thumbs/ayatan_vaya_sculpture.3aaade63978258328e4106a499616299.128x128.png"
+    },
+    "en": {
+     "name": "Ayatan Vaya Sculpture",
+     "icon": "items/images/en/ayatan_vaya_sculpture.3aaade63978258328e4106a499616299.png",
+     "thumb": "items/images/en/thumbs/ayatan_vaya_sculpture.3aaade63978258328e4106a499616299.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "57e91e65c76eb74c087f4931",
+   "slug": "ayatan_sah_sculpture",
+   "gameRef": "/Lotus/Types/Items/FusionTreasures/OroFusexA",
+   "tags": [
+    "ayatan_sculpture"
+   ],
+   "bulkTradable": true,
+   "maxAmberStars": 1,
+   "maxCyanStars": 2,
+   "baseEndo": 300,
+   "endoMultiplier": 2,
+   "i18n": {
+    "en": {
+     "name": "Ayatan Sah Sculpture",
+     "icon": "items/images/en/ayatan_sah_sculpture.29dc05cf1143890b000ce67f6af4660c.png",
+     "thumb": "items/images/en/thumbs/ayatan_sah_sculpture.29dc05cf1143890b000ce67f6af4660c.128x128.png"
+    },
+    "zh-hans": {
+     "name": "阿耶檀识 Sah 塑像",
+     "icon": "items/images/zh-hans/ayatan_sah_sculpture.29dc05cf1143890b000ce67f6af4660c.png",
+     "thumb": "items/images/zh-hans/thumbs/ayatan_sah_sculpture.29dc05cf1143890b000ce67f6af4660c.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "5fe0ea826db57b0225115012",
+   "slug": "ayatan_hemakara_sculpture",
+   "gameRef": "/Lotus/Types/Items/FusionTreasures/OroFusexJ",
+   "tags": [
+    "ayatan_sculpture"
+   ],
+   "bulkTradable": true,
+   "maxAmberStars": 1,
+   "maxCyanStars": 2,
+   "baseEndo": 450,
+   "endoMultiplier": 3,
+   "i18n": {
+    "en": {
+     "name": "Ayatan Hemakara Sculpture",
+     "icon": "items/images/en/ayatan_hemakara_sculpture.fa1b98919aaef4e74dcdc8175526cc5f.png",
+     "thumb": "items/images/en/thumbs/ayatan_hemakara_sculpture.fa1b98919aaef4e74dcdc8175526cc5f.128x128.png"
+    },
+    "zh-hans": {
+     "name": "阿耶檀识 Hemakara 塑像",
+     "icon": "items/images/zh-hans/ayatan_hemakara_sculpture.fa1b98919aaef4e74dcdc8175526cc5f.png",
+     "thumb": "items/images/zh-hans/thumbs/ayatan_hemakara_sculpture.fa1b98919aaef4e74dcdc8175526cc5f.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "57e91e65c76eb74c087f492e",
+   "slug": "ayatan_ayr_sculpture",
+   "gameRef": "/Lotus/Types/Items/FusionTreasures/OroFusexB",
+   "tags": [
+    "ayatan_sculpture"
+   ],
+   "bulkTradable": true,
+   "maxCyanStars": 3,
+   "baseEndo": 325,
+   "endoMultiplier": 2,
+   "i18n": {
+    "zh-hans": {
+     "name": "阿耶檀识 Ayr 塑像",
+     "icon": "items/images/zh-hans/ayatan_ayr_sculpture.d5a5347b24a6ec864ce17552ba108ad7.png",
+     "thumb": "items/images/zh-hans/thumbs/ayatan_ayr_sculpture.d5a5347b24a6ec864ce17552ba108ad7.128x128.png"
+    },
+    "en": {
+     "name": "Ayatan Ayr Sculpture",
+     "icon": "items/images/en/ayatan_ayr_sculpture.d5a5347b24a6ec864ce17552ba108ad7.png",
+     "thumb": "items/images/en/thumbs/ayatan_ayr_sculpture.d5a5347b24a6ec864ce17552ba108ad7.128x128.png"
+    }
+   }
+  },
+  {
+   "id": "567af35fcbfa8f05d076a525",
+   "slug": "vital_systems_bypass",
+   "gameRef": "/Lotus/Upgrades/Mods/PvPMods/Warframe/HealthRegenLongerShieldRecharge",
+   "tags": [
+    "mod",
+    "rare",
+    "pvp",
+    "warframe"
+   ],
+   "maxRank": 3,
+   "i18n": {
+    "en": {
+     "name": "Vital Systems Bypass",
+     "icon": "items/images/en/vital_systems_bypass.1c5507b422997c813c3f12b989b307b2.webp",
+     "thumb": "items/images/en/thumbs/vital_systems_bypass.1c5507b422997c813c3f12b989b307b2.128x128.webp"
+    },
+    "zh-hans": {
+     "name": "再生分流",
+     "icon": "items/images/en/vital_systems_bypass.1c5507b422997c813c3f12b989b307b2.webp",
+     "thumb": "items/images/en/thumbs/vital_systems_bypass.1c5507b422997c813c3f12b989b307b2.128x128.webp"
+    }
+   }
+  },
+  {
+   "id": "56783f24cbfa8f0432dd8993",
+   "slug": "braton_prime_set",
+   "gameRef": "/Lotus/Weapons/Tenno/Rifle/BratonPrime",
+   "tags": [
+    "weapon",
+    "prime",
+    "set",
+    "primary"
+   ],
+   "ducats": 110,
+   "i18n": {
+    "en": {
+     "name": "Braton Prime Set",
+     "icon": "items/images/en/braton_prime_set.ae229642d6179ebfb1547ed7d976e749.png",
+     "thumb": "items/images/en/thumbs/braton_prime_set.ae229642d6179ebfb1547ed7d976e749.128x128.png"
+    },
+    "zh-hans": {
+     "name": "布莱顿 Prime 一套",
+     "icon": "items/images/en/braton_prime_set.ae229642d6179ebfb1547ed7d976e749.png",
+     "thumb": "items/images/en/thumbs/braton_prime_set.ae229642d6179ebfb1547ed7d976e749.128x128.png"
+    }
+   }
+  }
+ ]
+}

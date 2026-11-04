@@ -208,7 +208,8 @@ __marimo__/
 plans/
 .vscode
 .playwright-cli
-tests/
+# tests/ 需要入库：里面有 API 快照 fixture，测试不联网
+# tests/
 .roo
 AGENTS.md
 CLAUDE.md
