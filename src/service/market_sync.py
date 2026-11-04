@@ -1,18 +1,98 @@
 """Market sync service / 市场数据同步服务
 
 从 Warframe.Market API 拉取数据并同步到本地数据库。
+
+字段映射以 ``src/model/market/entities.py`` 为准（对应官方 data-models 文档），
+这里只负责「模型 → 表行」的转换。转换结果**只保留非 None 的键**，配合
+``batch_upsert`` 的「缺失字段不更新」语义，避免用 None 覆盖库里已有值。
 """
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 
 from astrbot.api import logger
 
 from ..api import MarketClient
 from ..model.ephemeras import Ephemeras
 from ..model.lich_sister_weapons import LichSisterWeapons
+from ..model.market.entities import Ephemera, Item, LichWeapon
 from ..model.orders_items import OrdersItems
 from ..util.i18n_utils import extract_i18n
+
+
+def _compact(row: dict) -> dict:
+    """丢掉 None 值（id 必须保留）。"""
+    return {
+        key: value
+        for key, value in row.items()
+        if value is not None or key == "id"
+    }
+
+
+def _item_row(raw: dict) -> dict:
+    """Item 模型 → ordersitems 行。"""
+    entity = Item.model_validate(raw)
+    row = {
+        "id": entity.id,
+        "slug": entity.slug,
+        "gameRef": entity.game_ref,
+        "tags": entity.tags or None,
+        "setRoot": entity.set_root,
+        "setParts": entity.set_parts or None,
+        "quantityInSet": entity.quantity_in_set,
+        "rarity": entity.rarity,
+        "bulkTradable": entity.bulk_tradable,
+        "subtypes": entity.subtypes or None,
+        "maxRank": entity.max_rank,
+        "maxCharges": entity.max_charges,
+        "maxAmberStars": entity.max_amber_stars,
+        "maxCyanStars": entity.max_cyan_stars,
+        "baseEndo": entity.base_endo,
+        "endoMultiplier": entity.endo_multiplier,
+        "ducats": entity.ducats,
+        "vosfor": entity.vosfor,
+        "reqMasteryRank": entity.req_mastery_rank,
+        "vaulted": entity.vaulted,
+        "tradingTax": entity.trading_tax,
+        "tradable": entity.tradable,
+    }
+    row.update(extract_i18n(raw))
+    return _compact(row)
+
+
+def _lich_weapon_row(raw: dict) -> dict:
+    """LichWeapon 模型 → lichsisterweapons 行。"""
+    entity = LichWeapon.model_validate(raw)
+    row = {
+        "id": entity.id,
+        "slug": entity.slug,
+        "gameRef": entity.game_ref,
+        "reqMasteryRank": entity.req_mastery_rank,
+    }
+    row.update(extract_i18n(raw))
+    return _compact(row)
+
+
+def _ephemera_row(raw: dict) -> dict:
+    """Ephemera 模型 → ephemeras 行。"""
+    entity = Ephemera.model_validate(raw)
+    row = {
+        "id": entity.id,
+        "slug": entity.slug,
+        "gameRef": entity.game_ref,
+        "animation": entity.animation,
+        "element": entity.element,
+    }
+    row.update(extract_i18n(raw))
+    return _compact(row)
+
+
+def _update_fields(rows: list[dict]) -> list[str]:
+    """本次出现过的所有列（不含主键），交给 batch_upsert 做脏检测。"""
+    keys = {key for row in rows for key in row}
+    keys.discard("id")
+    return sorted(keys)
 
 
 class MarketSyncService:
@@ -20,12 +100,7 @@ class MarketSyncService:
 
     @classmethod
     async def sync_orders_items(cls) -> None:
-        """初始化 OrdersItems（市场订单物品）表数据 — 从 Market API。
-
-        从 /items 端点获取所有可交易物品列表，提取基础字段并通过
-        batch_upsert 进行对比插入。
-        注意：ducats/vaulted/tradingTax 等字段在 /items 端点中不可用。
-        """
+        """同步 OrdersItems（市场订单物品）— 从 ``/v2/items``。"""
         from ..init.engine import get_engine
         from .data_sync import DataSyncService
 
@@ -42,32 +117,14 @@ class MarketSyncService:
             logger.warning("物品数据为空，跳过")
             return
 
-        items: list[dict] = [{**item, **extract_i18n(item)} for item in data]
+        rows = [_item_row(item) for item in data]
 
         total_upserted = await DataSyncService.batch_upsert(
             model_cls=OrdersItems,
-            items=items,
+            items=rows,
             key_field="id",
-            build_instance=lambda item: OrdersItems(
-                id=item["id"],
-                slug=item.get("slug"),
-                gameRef=item.get("gameRef"),
-                maxRank=item.get("maxRank"),
-                name=item.get("name"),
-                icon=item.get("icon"),
-                thumb=item.get("thumb"),
-                bulkTradable=item.get("bulkTradable"),
-                ducats=item.get("ducats"),
-                vaulted=item.get("vaulted"),
-                maxAmberStars=item.get("maxAmberStars"),
-                maxCyanStars=item.get("maxCyanStars"),
-                baseEndo=item.get("baseEndo"),
-            ),
-            update_fields=[
-                "slug", "gameRef", "maxRank", "name", "icon",
-                "thumb", "bulkTradable", "ducats", "vaulted",
-                "maxAmberStars", "maxCyanStars", "baseEndo",
-            ],
+            build_instance=lambda row: OrdersItems(**row),
+            update_fields=_update_fields(rows),
         )
         total = await OrdersItems.all().count()
         logger.info(f"物品数据初始化完成，共 {total} 条记录（本次处理 {total_upserted} 条）")
@@ -75,11 +132,10 @@ class MarketSyncService:
     @classmethod
     async def _sync_dual_market_resource(
         cls,
-        fetch_lich_fn,
-        fetch_sister_fn,
-        model_cls,
-        build_instance,
-        update_fields: list[str],
+        fetch_lich_fn: Callable,
+        fetch_sister_fn: Callable,
+        model_cls: type,
+        to_row: Callable[[dict], dict],
         log_name: str,
         lich_label: str,
         sister_label: str,
@@ -96,57 +152,43 @@ class MarketSyncService:
         )
 
         all_data: list[dict] = []
-
-        if lich_resp:
-            lich_data = lich_resp.get("data", [])
-            all_data.extend({**item, **extract_i18n(item)} for item in lich_data)
-            logger.info(f"{lich_label}: {len(lich_data)} 条")
-        else:
-            logger.warning(f"{lich_label}数据为空")
-
-        if sister_resp:
-            sister_data = sister_resp.get("data", [])
-            all_data.extend({**item, **extract_i18n(item)} for item in sister_data)
-            logger.info(f"{sister_label}: {len(sister_data)} 条")
-        else:
-            logger.warning(f"{sister_label}数据为空")
+        for resp, label in ((lich_resp, lich_label), (sister_resp, sister_label)):
+            if resp:
+                chunk = resp.get("data", [])
+                all_data.extend(chunk)
+                logger.info(f"{label}: {len(chunk)} 条")
+            else:
+                logger.warning(f"{label}数据为空")
 
         if not all_data:
             logger.warning(f"无{log_name}数据可插入")
             return
 
+        # 只保留目标表真实存在的列（extract_i18n 会产出 enName 等通用键）
+        allowed = set(model_cls._meta.fields_map)
+        rows = [
+            {k: v for k, v in to_row(item).items() if k in allowed}
+            for item in all_data
+        ]
+
         total_upserted = await DataSyncService.batch_upsert(
             model_cls=model_cls,
-            items=all_data,
+            items=rows,
             key_field="id",
-            build_instance=build_instance,
-            update_fields=update_fields,
+            build_instance=lambda row: model_cls(**row),
+            update_fields=_update_fields(rows),
         )
         total = await model_cls.all().count()
         logger.info(f"{log_name}数据初始化完成，共 {total} 条记录（本次处理 {total_upserted} 条）")
 
     @classmethod
     async def sync_ephemeras(cls) -> None:
-        """初始化 Ephemeras（幻纹）表数据 — 从 Market API。
-
-        从 /lich/ephemeras 和 /sister/ephemeras 两个端点并发获取数据，
-        合并后统一 batch_upsert。
-        """
+        """同步 Ephemeras（幻纹）— ``/lich/ephemeras`` + ``/sister/ephemeras``。"""
         await cls._sync_dual_market_resource(
             fetch_lich_fn=MarketClient.fetch_lich_ephemeras,
             fetch_sister_fn=MarketClient.fetch_sister_ephemeras,
             model_cls=Ephemeras,
-            build_instance=lambda item: Ephemeras(
-                id=item["id"],
-                slug=item.get("slug"),
-                gameRef=item.get("gameRef"),
-                animation=item.get("animation"),
-                element=item.get("element"),
-                name=item.get("name"),
-                icon=item.get("icon"),
-                thumb=item.get("thumb"),
-            ),
-            update_fields=["slug", "gameRef", "animation", "element", "name", "icon", "thumb"],
+            to_row=_ephemera_row,
             log_name="幻纹",
             lich_label="赤毒幻纹",
             sister_label="信条幻纹",
@@ -154,25 +196,12 @@ class MarketSyncService:
 
     @classmethod
     async def sync_lich_sister_weapons(cls) -> None:
-        """初始化 LichSisterWeapons（信条/赤毒武器）表数据 — 从 Market API。
-
-        从 /lich/weapons 和 /sister/weapons 两个端点并发获取数据，
-        合并后统一 batch_upsert。
-        """
+        """同步 LichSisterWeapons — ``/lich/weapons`` + ``/sister/weapons``。"""
         await cls._sync_dual_market_resource(
             fetch_lich_fn=MarketClient.fetch_lich_weapons,
             fetch_sister_fn=MarketClient.fetch_sister_weapons,
             model_cls=LichSisterWeapons,
-            build_instance=lambda item: LichSisterWeapons(
-                id=item["id"],
-                slug=item.get("slug"),
-                icon=item.get("icon"),
-                gameRef=item.get("gameRef"),
-                reqMasteryRank=item.get("reqMasteryRank"),
-                name=item.get("name"),
-                thumb=item.get("thumb"),
-            ),
-            update_fields=["slug", "icon", "gameRef", "reqMasteryRank", "name", "thumb"],
+            to_row=_lich_weapon_row,
             log_name="信条/赤毒武器",
             lich_label="赤毒武器",
             sister_label="信条武器",

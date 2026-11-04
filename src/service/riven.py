@@ -14,6 +14,7 @@ from ..model.riven_analyse_trend import RivenAnalyseTrend
 from ..model.riven_items import RivenItems
 from ..model.riven_tion import RivenTion
 from ..model.riven_tion_alias import RivenTionAlias
+from ..model.market.entities import RivenWeapon
 from ..util.i18n_utils import extract_i18n
 
 
@@ -62,12 +63,12 @@ class RivenService:
             build_instance=lambda item: RivenTion(
                 effect=item.get("effect"),
                 group=item.get("group"),
-                negative_only=item.get("negative_only"),
-                positive_is_negative=item.get("positive_is_negative"),
+                negative_only=bool(item.get("negative_only")),
+                positive_is_negative=bool(item.get("positive_is_negative")),
                 prefix=item.get("prefix"),
-                search_only=item.get("search_only"),
+                search_only=bool(item.get("search_only")),
                 suffix=item.get("suffix"),
-                units=item.get("units"),
+                unit=item.get("unit") or item.get("units"),
                 url_name=item.get("url_name", ""),
                 exclusive_to=item.get("exclusive_to"),
             ),
@@ -124,28 +125,30 @@ class RivenService:
             logger.warning("紫卡武器数据为空，跳过")
             return
 
-        items: list[dict] = [{**item, **extract_i18n(item)} for item in data]
+        rows: list[dict] = []
+        for raw in data:
+            entity = RivenWeapon.model_validate(raw)
+            row = {
+                "id": entity.id,
+                "slug": entity.slug,
+                "gameRef": entity.game_ref,
+                "group": entity.group,
+                "rivenType": entity.riven_type,
+                "disposition": entity.disposition,
+                "reqMasteryRank": entity.req_mastery_rank,
+            }
+            row.update(extract_i18n(raw))
+            rows.append({k: v for k, v in row.items() if v is not None or k == "id"})
 
+        update_fields = sorted(
+            {key for row in rows for key in row} - {"id"}
+        )
         total_upserted = await DataSyncService.batch_upsert(
             model_cls=RivenItems,
-            items=items,
+            items=rows,
             key_field="id",
-            build_instance=lambda item: RivenItems(
-                id=item["id"],
-                slug=item.get("slug"),
-                gameRef=item.get("gameRef"),
-                group=item.get("group"),
-                rivenType=item.get("rivenType"),
-                disposition=item.get("disposition"),
-                reqMasteryRank=item.get("reqMasteryRank"),
-                name=item.get("name"),
-                icon=item.get("icon"),
-                thumb=item.get("thumb"),
-            ),
-            update_fields=[
-                "slug", "gameRef", "group", "rivenType",
-                "disposition", "reqMasteryRank", "name", "icon", "thumb",
-            ],
+            build_instance=lambda row: RivenItems(**row),
+            update_fields=update_fields,
         )
         total = await RivenItems.all().count()
         logger.info(f"紫卡武器数据初始化完成，共 {total} 条记录（本次处理 {total_upserted} 条）")
@@ -226,7 +229,7 @@ class RivenService:
                 "prefix": item.prefix,
                 "search_only": item.search_only,
                 "suffix": item.suffix,
-                "units": item.units,
+                "unit": item.unit,
                 "url_name": item.url_name,
                 "exclusive_to": item.exclusive_to,
             }

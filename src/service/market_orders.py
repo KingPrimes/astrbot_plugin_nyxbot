@@ -82,10 +82,40 @@ class MarketOrdersService:
             if set_resp:
                 for i in set_resp.get("data", {}).get("items", []):
                     if i.get("id") == item_id:
+                        await cls._backfill_item_details(item_id, i)
                         return i.get("reqMasteryRank"), i.get("tradingTax")
         except Exception:
             logger.warning(f"获取物品详情失败: {slug}")
         return None, None
+
+    @classmethod
+    async def _backfill_item_details(cls, item_id: str, detail: dict) -> None:
+        """把 item set 接口里的字段回写进 ``ordersitems``。
+
+        这些字段（reqMasteryRank / tradingTax / setRoot / setParts …）只有
+        ``/v2/item/{slug}/set`` 才返回，全量同步要 3893 次请求，不现实。
+        这里在「用户查到这个物品」时顺手写回，只写一次（之后 WHERE 不命中）。
+        """
+        i18n = detail.get("i18n") or {}
+        localized = i18n.get("zh-hans") or i18n.get("en") or {}
+        values: dict[str, object] = {
+            "reqMasteryRank": detail.get("reqMasteryRank"),
+            "tradingTax": detail.get("tradingTax"),
+            "setRoot": detail.get("setRoot"),
+            "setParts": detail.get("setParts") or None,
+            "quantityInSet": detail.get("quantityInSet"),
+            "tradable": detail.get("tradable"),
+            "wikiLink": localized.get("wikiLink"),
+        }
+        values = {key: value for key, value in values.items() if value is not None}
+        if not values:
+            return
+        try:
+            await OrdersItems.filter(id=item_id, reqMasteryRank__isnull=True).update(
+                **values
+            )
+        except Exception as exc:  # 回写失败不影响查询
+            logger.debug(f"回写物品详情失败 {item_id}: {exc}")
 
     @classmethod
     async def _fetch_and_filter_market_orders(

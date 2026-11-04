@@ -22,6 +22,9 @@ class RivenItems(Model):
     name = fields.CharField(max_length=255, null=True, description="物品名称")
     icon = fields.CharField(max_length=500, null=True, description="图标")
     thumb = fields.CharField(max_length=500, null=True, description="缩略图")
+    enName = fields.CharField(max_length=255, null=True, description="英文名称")
+    subIcon = fields.CharField(max_length=500, null=True, description="子图标")
+    wikiLink = fields.CharField(max_length=500, null=True, description="Wiki 链接")
 
     class Meta:
         table = "rivenitems"

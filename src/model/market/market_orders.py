@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 from enum import StrEnum, unique
-from typing import Any
 
 from pydantic import Field
 
@@ -23,6 +22,24 @@ class MarketStatusEnum(StrEnum):
     INGAME = "ingame"
     OFFLINE = "offline"
     INVISIBLE = "invisible"
+
+
+@unique
+class ActivityTypeEnum(StrEnum):
+    """用户活动类型 — 对应文档 ActivityType"""
+    UNKNOWN = "UNKNOWN"
+    IDLE = "IDLE"
+    ON_MISSION = "ON_MISSION"
+    IN_DOJO = "IN_DOJO"
+    IN_ORBITER = "IN_ORBITER"
+    IN_RELAY = "IN_RELAY"
+
+
+class Activity(BaseModelWithAlias):
+    """用户当前活动 — 对应文档 Activity"""
+    type: str | None = Field(default=None)
+    details: str | None = Field(default=None)
+    started_at: str | None = Field(default=None, alias="startedAt")
 
 
 @unique
@@ -53,14 +70,14 @@ class MarketUser(BaseModelWithAlias):
     platform: MarketPlatformEnum | None = Field(default=None)
     crossplay: bool | None = Field(default=None)
     status: MarketStatusEnum | None = Field(default=None)
-    activity: dict[str, Any] | None = Field(default=None)
+    activity: Activity | None = Field(default=None)
     last_seen: str | None = Field(default=None, alias="lastSeen")
 
 
 class OrderWithUser(BaseModelWithAlias):
     """订单 + 用户信息 — 对应 Java OrderWithUser"""
     id: str | None = Field(default=None)
-    type: str | None = Field(default=None)
+    type: TransactionEnum | None = Field(default=None)
     platinum: int | None = Field(default=None)
     quantity: int | None = Field(default=None)
     per_trade: int | None = Field(default=None, alias="perTrade")

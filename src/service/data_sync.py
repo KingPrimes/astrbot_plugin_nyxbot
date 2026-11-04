@@ -113,7 +113,11 @@ class DataSyncService:
                         continue
                     changed = False
                     for field in update_fields:
-                        new_val = item.get(field)
+                        # 源数据没这个键就跳过：避免用 None 覆盖库里的已有值
+                        # （API 的很多字段是条件返回的，如 ducats 只在部分物品上出现）
+                        if field not in item:
+                            continue
+                        new_val = item[field]
                         if getattr(obj, field) != new_val:
                             setattr(obj, field, new_val)
                             changed = True
@@ -177,7 +181,8 @@ class DataSyncService:
             items: 待 upsert 的数据字典列表。
             key_field: 唯一键字段名（如 "uniqueName" 或 "id"）。
             build_instance: 从 dict 构建模型实例的工厂函数。
-            update_fields: Phase B 需要比较并更新的字段列表。
+            update_fields: Phase B 需要比较并更新的字段列表。**只有出现在本次
+                item 字典里的字段才会被更新**，缺失的字段保持原值。
             batch_size: 批处理大小，默认 _BATCH_SIZE。
             use_transaction: 是否用显式事务包裹整个 upsert。默认 True
                              以保证原子性；如果外部已有事务可设为 False。
@@ -219,7 +224,11 @@ class DataSyncService:
                 if obj is not None:
                     changed = False
                     for field in update_fields:
-                        new_val = item.get(field)
+                        # 源数据没这个键就跳过：避免用 None 覆盖库里的已有值
+                        # （API 的很多字段是条件返回的，如 ducats 只在部分物品上出现）
+                        if field not in item:
+                            continue
+                        new_val = item[field]
                         if getattr(obj, field) != new_val:
                             setattr(obj, field, new_val)
                             changed = True
