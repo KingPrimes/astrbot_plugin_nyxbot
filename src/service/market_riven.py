@@ -4,6 +4,7 @@
 """
 from __future__ import annotations
 
+from ..config import get_whisper_fallback_lang
 from ..model.market import (
     MarketRiven,
     MarketRivenPayload,
@@ -17,6 +18,7 @@ from ..model.riven_tion import RivenTion
 from ..model.riven_tion_alias import RivenTionAlias
 from .market import MarketService
 from .smart_match import Candidates, Hit, Source, resolve
+from .whisper import riven_whisper
 
 # 紫卡查询默认值（镜像 Java MarketRivenUtils 默认）
 # Riven query defaults — mirror Java MarketRivenUtils.
@@ -152,9 +154,20 @@ class MarketRivenService:
                 )
             )
 
+        fallback = get_whisper_fallback_lang()
+        whispers = [
+            entry
+            for auction in auction_list
+            if (
+                entry := riven_whisper(
+                    auction, riven_item.name, riven_item.enName, fallback
+                )
+            )
+        ]
         return MarketRiven(
             item_name=item_name,
             payload=MarketRivenPayload(auctions=auction_list),
+            whispers=whispers,
         )
 
     # ══════════════════════════════════════════════════════════════════

@@ -12,11 +12,13 @@ from tortoise.exceptions import DoesNotExist
 from astrbot.api import logger
 
 from ..api import MarketClient
+from ..config import get_whisper_fallback_lang
 from ..api.market import Platform
 from ..model.market import MarketUser, Orders, OrderWithUser
 from ..model.market_result import MarketResult
 from ..model.orders_items import OrdersItems
 from .smart_match import Candidates, Hit, Source, resolve
+from .whisper import order_whisper
 
 
 class MarketOrdersService:
@@ -189,7 +191,13 @@ class MarketOrdersService:
         req_mastery_rank: int | None = None,
         trading_tax: int | None = None
     ) -> Orders:
-        """从 OrdersItems 模型构建 Orders 渲染模型。"""
+        """从 OrdersItems 模型构建 Orders 渲染模型（含私聊语句）。"""
+        fallback = get_whisper_fallback_lang()
+        whispers = [
+            entry
+            for order in order_users
+            if (entry := order_whisper(order, item.name, item.enName, fallback))
+        ]
         return Orders(
             name=item.name or "",
             form=platform,
@@ -199,6 +207,7 @@ class MarketOrdersService:
             tradingTax=trading_tax or item.tradingTax or 0,
             reqMasteryRank=req_mastery_rank or item.reqMasteryRank or 0,
             orders=order_users,
+            whispers=whispers,
         )
 
     @classmethod

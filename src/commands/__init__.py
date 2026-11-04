@@ -38,6 +38,7 @@ def register_all() -> None:
         wf_steel_path,  # noqa: F401
         wf_syndicate,  # noqa: F401
         wf_void_trader,  # noqa: F401
+        wf_whisper,  # noqa: F401
     )
 
 

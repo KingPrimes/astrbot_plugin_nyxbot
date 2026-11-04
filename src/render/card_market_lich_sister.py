@@ -80,7 +80,7 @@ def render_market_lich_sister_card(
     item_name = pay.item_name or "未知武器"
     auctions = pay.auctions
     content_h = _HEADER_H + len(auctions) * _ROW_H
-    canvas_h = _TITLE_H + content_h + _FOOTER_H + 100
+    canvas_h = _TITLE_H + content_h + _FOOTER_H + 140
 
     title_font = FontManager.get_text_font(26)
     header_font = FontManager.get_text_font(18)
@@ -125,6 +125,7 @@ def render_market_lich_sister_card(
         reputation = _UNKNOWN_LABEL
         if auction.owner is not None:
             seller = auction.owner.ingame_name or _UNKNOWN_LABEL
+            seller = f"#{i + 1} {seller}"
             reputation = (
                 str(auction.owner.reputation) if auction.owner.reputation is not None else _UNKNOWN_LABEL
             )
@@ -153,6 +154,13 @@ def render_market_lich_sister_card(
         cb.add_text(reputation, _MARGIN + _COL_REP_X, text_y)
 
         current_y += _ROW_H
+
+    # 私聊提示
+    cb.set_color(ThemeColor.TEXT_SECONDARY).set_font(FontManager.get_text_font(16))
+    cb.add_centered_text(
+        "回复 /w 序号 获取对应卖家的私聊语句（5 分钟内有效）",
+        _TITLE_H + content_h + 30,
+    )
 
     draw_standing(cb, max_w=310, max_h=420)
     cb.draw_card_footer(canvas_h, _FOOTER_H, 16)

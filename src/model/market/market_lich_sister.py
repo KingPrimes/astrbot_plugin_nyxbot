@@ -8,6 +8,7 @@ from pydantic import Field
 
 from ..base import BaseModelWithAlias
 from .base import BaseAuction, MarketOwner
+from .whisper import WhisperEntry
 
 
 class LichSisterItem(BaseModelWithAlias):
@@ -39,3 +40,5 @@ class MarketLichSisterPayload(BaseModelWithAlias):
 class MarketLichSister(BaseModelWithAlias):
     """赤毒/信条拍卖数据 — 对应 Java MarketLichSister"""
     payload: MarketLichSisterPayload | None = Field(default=None)
+    whispers: list[WhisperEntry] = Field(default_factory=list)
+    """与 payload.auctions 一一对应的私聊语句。"""

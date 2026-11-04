@@ -13,6 +13,7 @@ from enum import StrEnum, unique
 from pydantic import Field
 
 from ..base import BaseModelWithAlias
+from .whisper import WhisperEntry
 
 
 @unique
@@ -108,3 +109,5 @@ class Orders(BaseModelWithAlias):
     req_mastery_rank: int = Field(default=0, alias="reqMasteryRank")
     trading_tax: int = Field(default=0, alias="tradingTax")
     orders: list[OrderWithUser] = Field(default_factory=list)
+    whispers: list[WhisperEntry] = Field(default_factory=list)
+    """与 orders 一一对应的私聊语句（/w <序号> 取用）。"""

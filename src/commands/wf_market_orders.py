@@ -27,6 +27,7 @@ from ..render.card_market_orders import (
 )
 from ..render.card_renderer import CardRenderer
 from ..service.market_orders import MarketOrdersService
+from ..service import whisper as whisper_service
 from ..service.smart_match import remember_candidates, resolve_selection
 from ..util.command_args import command_args, normalize_whitespace
 
@@ -140,6 +141,12 @@ async def wf_market_orders(self, event: AstrMessageEvent):
         yield event.plain_result(f"未找到匹配的物品: {keyword}")
         return
 
+    whisper_service.remember(
+        event.unified_msg_origin,
+        str(event.get_sender_id() or ""),
+        "WM",
+        result.result.whispers,
+    )
     chain = await CardRenderer.render_card_to_chain_result(
         render_market_orders_card, result.result
     )

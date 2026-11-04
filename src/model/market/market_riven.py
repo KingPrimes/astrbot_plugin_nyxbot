@@ -9,6 +9,7 @@ from pydantic import Field, field_validator
 from ...wenum.polarity import PolarityEnum
 from ..base import BaseModelWithAlias
 from .base import BaseAuction, MarketOwner
+from .whisper import WhisperEntry
 
 
 class RivenAttribute(BaseModelWithAlias):
@@ -67,3 +68,5 @@ class MarketRiven(BaseModelWithAlias):
     """紫卡市场数据 — 对应 Java MarketRiven"""
     item_name: str = Field(default="", alias="item_name")
     payload: MarketRivenPayload | None = Field(default=None)
+    whispers: list[WhisperEntry] = Field(default_factory=list)
+    """与 payload.auctions 一一对应的私聊语句。"""
