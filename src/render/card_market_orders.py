@@ -344,12 +344,15 @@ def render_market_orders_card(
 def render_market_orders_possible_items_card(
     renderer: CardRenderer,
     possible_items: list[str],
+    hint: str = "",
 ) -> Image.Image:
     """绘制"可能要查询的物品列表"卡片。
 
     Args:
         renderer: CardRenderer 实例。
         possible_items: 物品名称列表。
+        hint: 卡片副标题，通常写「回复 /WM 1~8 查询（60 秒内有效）」；
+            为空时退化为「未精确匹配，以下是可能的物品」。
 
     Returns:
         PIL Image 对象。
@@ -377,14 +380,14 @@ def render_market_orders_possible_items_card(
 
     # ---- 标题 ----
     cb.set_color(ThemeColor.ACCENT_BLUE).set_font(title_font)
-    cb.add_centered_text("可能要查询的物品列表", _TITLE_Y)
+    cb.add_centered_text("未精确匹配，以下是可能的物品", _TITLE_Y)
 
     # ---- 分割线 ----
     cb.draw_content_divider(_DIVIDER_Y, _CONTENT_X, _CONTENT_W)
 
-    # ---- 子标题 ----
+    # ---- 子标题：怎么用编号 ----
     cb.set_color(ThemeColor.TEXT_SECONDARY).set_font(header_font)
-    cb.add_centered_text("输入编号或名称查询具体物品", _DIVIDER_Y + 38)
+    cb.add_centered_text(hint or "请用更完整的名称重试", _DIVIDER_Y + 38)
 
     # ---- 列表表头 ----
     list_start_y = _DIVIDER_Y + 65

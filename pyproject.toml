@@ -25,6 +25,8 @@ dependencies = [
     # Utility
     "python-dateutil>=2.9.0",
     "pyyaml>=6.0",
+    # 搜索索引：中文名称的拼音键（纯 Python，无编译依赖）
+    "pypinyin>=0.55.0",
 ]
 
 [tool.uv]

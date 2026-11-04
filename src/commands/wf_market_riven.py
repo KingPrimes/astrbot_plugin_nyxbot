@@ -17,9 +17,11 @@ from astrbot.api.event import AstrMessageEvent
 
 from ...registry import wf
 from ..init import init_ready
+from ..render.card_market_orders import render_market_orders_possible_items_card
 from ..render.card_market_riven import render_market_riven_card
 from ..render.card_renderer import CardRenderer
 from ..service.market_riven import MarketRivenService
+from ..service.smart_match import remember_candidates, resolve_selection
 from ..util.command_args import command_args, normalize_whitespace
 
 
@@ -75,6 +77,13 @@ async def wf_market_riven(self, event: AstrMessageEvent):
     await init_ready()
 
     raw = command_args(event, "WR", "wr")
+
+    # 上一次出了候选 → 允许用编号回选（保留后面的词条参数）
+    session = event.unified_msg_origin
+    selected = resolve_selection(session, raw)
+    if selected:
+        raw = selected
+
     if not raw:
         yield event.plain_result(
             """\
@@ -100,6 +109,21 @@ async def wf_market_riven(self, event: AstrMessageEvent):
     except Exception:
         logger.exception("查询紫卡拍卖失败")
         yield event.plain_result("查询紫卡拍卖失败，请检查名称是否正确或稍后重试")
+        return
+
+    if isinstance(result, tuple):
+        candidates, _ = result
+        if not candidates:
+            yield event.plain_result(f"未找到匹配的紫卡武器: {keyword}")
+            return
+        candidates = candidates[:15]
+        remember_candidates(session, candidates)
+        chain = await CardRenderer.render_card_to_chain_result(
+            render_market_orders_possible_items_card,
+            candidates,
+            hint=f"回复 /WR 1~{len(candidates)} 查询（60 秒内有效）",
+        )
+        yield event.chain_result(chain)
         return
 
     if result is None:

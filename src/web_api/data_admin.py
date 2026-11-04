@@ -8,6 +8,8 @@ from __future__ import annotations
 from typing import Any
 
 from astrbot.api import logger
+
+from ..util.search_index import invalidate as invalidate_search_index
 from astrbot.api.star import Context
 
 from ..model.alias import Alias
@@ -357,6 +359,7 @@ def register_data_apis(context: Context) -> None:
                 return jsonify(
                     {"error": f"模型 {model} 同步未获得数据，数据源可能不可用"}
                 ), 502
+            invalidate_search_index()
             detail = (
                 f"，共 {result} 条"
                 if isinstance(result, int) and not isinstance(result, bool)

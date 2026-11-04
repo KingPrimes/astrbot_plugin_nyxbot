@@ -25,6 +25,7 @@ from ..model.market import (
     MarketLichSister,
     MarketLichSisterPayload,
 )
+from .smart_match import Candidates, Hit, Source, resolve
 
 
 class MarketService:
@@ -69,16 +70,14 @@ class MarketService:
         Returns:
             (item_name, MarketLichSister) 或 (possible_items, None) 或 None。
         """
-        try:
-            weapon = await LichSisterWeapons.get(name=keyword)
-        except DoesNotExist:
-            weapons = await LichSisterWeapons.filter(
-                name__contains=keyword
-            ).limit(15).all()
-            if weapons:
-                weapon = weapons[0]
-            else:
-                return ([], None)
+        resolved = await resolve(keyword, Source.LICH)
+        if isinstance(resolved, Candidates):
+            return ([entry.name for entry in resolved.entries], None)
+        if not isinstance(resolved, Hit):
+            return ([], None)
+        weapon = await LichSisterWeapons.get_or_none(id=resolved.entry.ref)
+        if weapon is None:
+            return ([], None)
 
         slug = weapon.slug
         if not slug:

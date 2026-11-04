@@ -22,6 +22,8 @@ from pathlib import Path
 
 from astrbot.api import logger
 
+from ..util.search_index import invalidate as invalidate_search_index
+
 from ..util.data_path import get_public_data_path
 
 STATE_FILE_NAME = "game_build_label.json"
@@ -165,6 +167,7 @@ async def _refresh_export_data(label: str) -> None:
         return
 
     write_build_label(label)
+    invalidate_search_index()
     logger.info(
         f"游戏版本 {label} 的导出数据刷新完成，耗时 {time.monotonic() - started:.1f}s"
     )

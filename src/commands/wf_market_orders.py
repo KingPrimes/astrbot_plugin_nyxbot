@@ -27,6 +27,7 @@ from ..render.card_market_orders import (
 )
 from ..render.card_renderer import CardRenderer
 from ..service.market_orders import MarketOrdersService
+from ..service.smart_match import remember_candidates, resolve_selection
 from ..util.command_args import command_args, normalize_whitespace
 
 # 平台关键字 → 内部平台标识（对齐 Go marketPlatformKeywords，按长度降序，
@@ -99,6 +100,13 @@ async def wf_market_orders(self, event: AstrMessageEvent):
 
     # 物品名可能含空格，取整段原文（框架按空格切参会把它截断）
     raw = command_args(event, "WM", "市场", "wm", "market")
+
+    # 上一次出了候选 → 允许用编号回选
+    session = event.unified_msg_origin
+    selected = resolve_selection(session, raw)
+    if selected:
+        raw = selected
+
     if not raw:
         yield event.plain_result("请输入正确的名称！用法：/WM 物品名称 [满级|MAX] [购买|出售] [PC|PS4|XBOX|SWITCH]")
         return
@@ -119,18 +127,20 @@ async def wf_market_orders(self, event: AstrMessageEvent):
 
     if result.possible_items:
         possible_items = result.possible_items[:15]
-        if not possible_items:
-            yield event.plain_result(f"未找到匹配的物品: {keyword}")
-            return
+        remember_candidates(session, possible_items)
         chain = await CardRenderer.render_card_to_chain_result(
-            render_market_orders_possible_items_card, possible_items
+            render_market_orders_possible_items_card,
+            possible_items,
+            hint=f"回复 /WM 1~{len(possible_items)} 查询（60 秒内有效）",
         )
-    elif result.result is not None:
-        chain = await CardRenderer.render_card_to_chain_result(
-            render_market_orders_card, result.result
-        )
-    else:
+        yield event.chain_result(chain)
+        return
+
+    if result.result is None:
         yield event.plain_result(f"未找到匹配的物品: {keyword}")
         return
 
+    chain = await CardRenderer.render_card_to_chain_result(
+        render_market_orders_card, result.result
+    )
     yield event.chain_result(chain)
