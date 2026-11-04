@@ -158,7 +158,7 @@ def render_market_lich_sister_card(
     # 私聊提示
     cb.set_color(ThemeColor.TEXT_SECONDARY).set_font(FontManager.get_text_font(16))
     cb.add_centered_text(
-        "回复 /w 序号 获取对应卖家的私聊语句（5 分钟内有效）",
+        "回复 /w 序号 获取对应卖家的私聊语句（2 分钟内有效）",
         _TITLE_H + content_h + 30,
     )
 

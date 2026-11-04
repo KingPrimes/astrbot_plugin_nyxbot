@@ -24,8 +24,8 @@ from astrbot.api import logger
 
 from ..model.market.whisper import WhisperEntry
 
-PICK_TTL = 300.0
-"""候选记忆有效期（秒）。用户要时间看卡片，比物品名候选的 60 秒长。"""
+PICK_TTL = 120.0
+"""候选记忆有效期（秒）。比物品名候选的 60 秒稍长，够看清卡片。"""
 
 _ZH_LOCALES = frozenset({"zh", "zh-hans", "zh-hant", "zh-cn", "zh-tw"})
 
@@ -265,7 +265,7 @@ def clear() -> None:
 
 USAGE = (
     "用法：/w <序号>\n"
-    "序号来自上一张市场卡片（/WM /WR /CD /XT）最左列，5 分钟内有效。"
+    "序号来自上一张市场卡片（/WM /WR /CD /XT）最左列，2 分钟内有效。"
 )
 
 
@@ -293,7 +293,7 @@ def reply_for(session: str, sender: str, raw: str) -> str:
     if total == 0:
         return (
             "还没有可用的私聊信息，请先查询：/WM 物品名 或 /WR 武器名"
-            "（结果 5 分钟内有效）"
+            "（结果 2 分钟内有效）"
         )
 
     entry = pop(session, sender, index)

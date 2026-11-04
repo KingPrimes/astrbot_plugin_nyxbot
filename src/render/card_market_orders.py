@@ -61,7 +61,7 @@ _COL_RANK_X = _COL_QUANTITY_X + _COL_QUANTITY_W
 _COL_SELLER_X = _COL_RANK_X + _COL_RANK_W
 _COL_STATUS_X = _COL_SELLER_X + _COL_SELLER_W
 
-_WHISPER_HINT = "回复 /w 序号 获取对应卖家的私聊语句（5 分钟内有效）"
+_WHISPER_HINT = "回复 /w 序号 获取对应卖家的私聊语句（2 分钟内有效）"
 """卡片底部提示。"""
 
 # 颜色常量

@@ -46,7 +46,7 @@ _COL_GAP = 32
 _CARD_W = (_CONTENT_W - _COL_GAP * (_COLS - 1)) // _COLS  # 576
 _CARD_H = 572
 
-_WHISPER_HINT = "回复 /w 序号 获取对应卖家的私聊语句（5 分钟内有效）"
+_WHISPER_HINT = "回复 /w 序号 获取对应卖家的私聊语句（2 分钟内有效）"
 _CARD_RADIUS = 20
 _CARD_PAD = 26
 _ROW_GAP = 26
