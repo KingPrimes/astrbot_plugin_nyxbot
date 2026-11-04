@@ -11,7 +11,7 @@
 - **紫卡**：官网只给 `你好!`，我们补上武器名与紫卡名，到名字为止（不带词条/价格）；
 - **玄骸**：补武器名与元素加成；
 - **语言**：跟随该条卖家 ``locale``（`zh-hans`/`zh-hant` → 中文，其余 → 英文），
-  缺失时用配置里的兜底语言。
+  缺失时兜底英文（warframe.market 以英文为通用语）。
 
 设计见 ``plans/market_whisper_design_2026-11-04.md``。
 """
@@ -42,7 +42,7 @@ _ELEMENT_NAMES: dict[str, tuple[str, str]] = {
 _MARKET_SUFFIX = " (warframe.market)"
 
 
-def pick_lang(locale: str | None, fallback: str = "zh") -> str:
+def pick_lang(locale: str | None, fallback: str = "en") -> str:
     """按卖家 locale 选模板语言。"""
     if not locale:
         return fallback
@@ -65,7 +65,7 @@ def order_whisper(
     order,
     name_zh: str | None,
     name_en: str | None,
-    fallback: str = "zh",
+    fallback: str = "en",
 ) -> WhisperEntry | None:
     """订单 → 私聊语句。
 
@@ -124,7 +124,7 @@ def riven_whisper(
     auction,
     weapon_zh: str | None,
     weapon_en: str | None,
-    fallback: str = "zh",
+    fallback: str = "en",
 ) -> WhisperEntry | None:
     """紫卡拍卖 → 私聊语句（到紫卡名为止，不带词条与价格）。"""
     owner = getattr(auction, "owner", None)
@@ -158,7 +158,7 @@ def lich_whisper(
     auction,
     weapon_zh: str | None,
     weapon_en: str | None,
-    fallback: str = "zh",
+    fallback: str = "en",
 ) -> WhisperEntry | None:
     """玄骸/信条拍卖 → 私聊语句（带武器名与元素加成）。"""
     owner = getattr(auction, "owner", None)

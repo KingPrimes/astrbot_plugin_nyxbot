@@ -304,3 +304,12 @@ def test_orders_model_skips_orders_without_name() -> None:
     )
     assert len(model.orders) == 2
     assert len(model.whispers) == 1
+
+
+def test_default_fallback_is_english() -> None:
+    """卖家没填 locale 时默认英文兜底（不再读配置）。"""
+    order = make_order(user={"id": "u", "ingameName": "Someone"})
+    entry = order_whisper(order, "物品", "Item")
+    assert entry is not None
+    assert entry.lang == "en"
+    assert pick_lang(None) == "en"

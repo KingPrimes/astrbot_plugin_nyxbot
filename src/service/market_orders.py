@@ -12,7 +12,6 @@ from tortoise.exceptions import DoesNotExist
 from astrbot.api import logger
 
 from ..api import MarketClient
-from ..config import get_whisper_fallback_lang
 from ..api.market import Platform
 from ..model.market import MarketUser, Orders, OrderWithUser
 from ..model.market_result import MarketResult
@@ -171,8 +170,13 @@ class MarketOrdersService:
                     user=MarketUser(
                         id=user.get("id"),
                         ingameName=user.get("ingameName"),
+                        slug=user.get("slug"),
                         reputation=user.get("reputation"),
+                        locale=user.get("locale"),
+                        platform=user.get("platform"),
+                        crossplay=user.get("crossplay"),
                         status=user.get("status"),
+                        activity=user.get("activity"),
                     ) if user else None,
                 )
             )
@@ -192,11 +196,10 @@ class MarketOrdersService:
         trading_tax: int | None = None
     ) -> Orders:
         """从 OrdersItems 模型构建 Orders 渲染模型（含私聊语句）。"""
-        fallback = get_whisper_fallback_lang()
         whispers = [
             entry
             for order in order_users
-            if (entry := order_whisper(order, item.name, item.enName, fallback))
+            if (entry := order_whisper(order, item.name, item.enName))
         ]
         return Orders(
             name=item.name or "",
