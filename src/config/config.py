@@ -133,11 +133,6 @@ class PluginConfig:
     # --- Typed properties / 类型化属性 ---
 
     @property
-    def wf_market_whisper_fallback_lang(self) -> str:
-        """私聊语句兜底语言（zh / en）。"""
-        return "en" if str(self.get("wf_market_whisper_fallback_lang", "zh")).lower() == "en" else "zh"
-
-    @property
     def wf_data_init_mode(self) -> str:
         """数据初始化模式（auto / always / never / offline）。"""
         # 只认配置文件里显式写入的值，缺失时才走旧配置映射
@@ -247,12 +242,6 @@ def get_wf_command_prefix() -> str:
 def get_db_debug() -> bool:
     """获取数据库调试模式开关。"""
     return _get_default_config().db_debug
-
-
-def get_whisper_fallback_lang() -> str:
-    """获取私聊语句的兜底语言（卖家 locale 缺失时使用）。"""
-    value = _get_default_config().wf_market_whisper_fallback_lang
-    return "en" if str(value).lower() == "en" else "zh"
 
 
 def get_qq_markdown_enabled() -> bool:

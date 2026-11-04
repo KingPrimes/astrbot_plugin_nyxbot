@@ -52,15 +52,5 @@
     "type": "bool",
     "hint": "开启后，QQ 官方平台文本消息将以 Markdown 格式发送（加粗、链接等排版更美观）",
     "default": false
-  },
-  "wf_market_whisper_fallback_lang": {
-    "description": "私聊语句兜底语言",
-    "type": "string",
-    "options": [
-      "zh",
-      "en"
-    ],
-    "hint": "私聊语句的语言跟随卖家 locale（zh-hans/zh-hant 用中文，其余用英文）；卖家没填 locale 时用这里的兜底值。",
-    "default": "zh"
   }
 }

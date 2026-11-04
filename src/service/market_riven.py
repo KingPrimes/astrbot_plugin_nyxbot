@@ -4,7 +4,6 @@
 """
 from __future__ import annotations
 
-from ..config import get_whisper_fallback_lang
 from ..model.market import (
     MarketRiven,
     MarketRivenPayload,
@@ -148,19 +147,22 @@ class MarketRivenService:
                     owner=RivenOwner(
                         reputation=owner.get("reputation"),
                         ingame_name=owner.get("ingame_name"),
+                        slug=owner.get("slug"),
+                        locale=owner.get("locale"),
+                        platform=owner.get("platform"),
+                        crossplay=owner.get("crossplay"),
                         status=owner.get("status"),
                         id=owner.get("id"),
                     ) if owner else None,
                 )
             )
 
-        fallback = get_whisper_fallback_lang()
         whispers = [
             entry
             for auction in auction_list
             if (
                 entry := riven_whisper(
-                    auction, riven_item.name, riven_item.enName, fallback
+                    auction, riven_item.name, riven_item.enName
                 )
             )
         ]
