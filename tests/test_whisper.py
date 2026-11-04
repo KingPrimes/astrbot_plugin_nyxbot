@@ -32,7 +32,7 @@ def make_order(**kwargs) -> OrderWithUser:
         "rank": None,
         "user": {
             "id": "u",
-            "ingameName": "zyx6687",
+            "ingameName": "Buyer01",
             "locale": "zh-hans",
             "status": "online",
         },
@@ -51,7 +51,7 @@ def test_order_whisper_zh_matches_site_sample() -> None:
     assert entry is not None
     assert entry.lang == "zh"
     assert entry.text == (
-        '/w zyx6687 你好! 我想以20白金购买: "主要·死首 (等级 5)"。(warframe.market)'
+        '/w Buyer01 你好! 我想以20白金购买: "主要·死首 (等级 5)"。(warframe.market)'
     )
 
 
@@ -61,13 +61,13 @@ def test_order_whisper_en_matches_site_sample() -> None:
         platinum=6,
         quantity=6,
         rank=0,
-        user={"id": "u", "ingameName": "W0lfieAGR", "locale": "en", "status": "ingame"},
+        user={"id": "u", "ingameName": "Buyer02", "locale": "en", "status": "ingame"},
     )
     entry = order_whisper(order, "主要·死首", "Primary Deadhead")
     assert entry is not None
     assert entry.lang == "en"
     assert entry.text == (
-        '/w W0lfieAGR Hi! I want to buy: x6 "Primary Deadhead (rank 0)" '
+        '/w Buyer02 Hi! I want to buy: x6 "Primary Deadhead (rank 0)" '
         "for 6 platinum. (warframe.market)"
     )
 
@@ -102,7 +102,7 @@ def _riven_auction(**kwargs) -> RivenAuction:
     payload = {
         "id": "a",
         "buyout_price": 5,
-        "owner": {"ingame_name": "Mr_Bullet", "locale": "en", "status": "offline"},
+        "owner": {"ingame_name": "Seller01", "locale": "en", "status": "offline"},
         "item": {
             "type": "riven",
             "name": "satitio",
@@ -123,7 +123,7 @@ def _riven_auction(**kwargs) -> RivenAuction:
 def test_riven_whisper_en() -> None:
     entry = riven_whisper(_riven_auction(), "噬蛇弩", "Nagantaka")
     assert entry is not None
-    assert entry.text == '/w Mr_Bullet Hi! I want to buy your Nagantaka riven "Satitio"'
+    assert entry.text == '/w Seller01 Hi! I want to buy your Nagantaka riven "Satitio"'
     assert entry.status == "offline"
 
 
@@ -143,7 +143,7 @@ def _lich_auction(**kwargs) -> LichSisterAuction:
     payload = {
         "id": "b",
         "buyout_price": 120,
-        "owner": {"ingame_name": "NOPE-Azurax", "locale": "de", "status": "offline"},
+        "owner": {"ingame_name": "Seller02", "locale": "de", "status": "offline"},
         "item": {
             "type": "lich",
             "element": "magnetic",
@@ -159,7 +159,7 @@ def _lich_auction(**kwargs) -> LichSisterAuction:
 def test_lich_whisper_en() -> None:
     entry = lich_whisper(_lich_auction(), "赤毒·布拉玛", "Kuva Bramma")
     assert entry is not None
-    assert entry.text == "/w NOPE-Azurax Hi! I want to buy your Kuva Bramma (38% Magnetic)"
+    assert entry.text == "/w Seller02 Hi! I want to buy your Kuva Bramma (38% Magnetic)"
 
 
 def test_lich_whisper_zh_and_ephemera() -> None:
@@ -279,7 +279,7 @@ def test_orders_model_carries_whispers() -> None:
             platinum=6,
             quantity=6,
             rank=0,
-            user={"id": "u", "ingameName": "W0lfieAGR", "locale": "en"},
+            user={"id": "u", "ingameName": "Buyer02", "locale": "en"},
         ),
     ]
     model = MarketOrdersService._build_orders_model_from_item(
@@ -288,8 +288,8 @@ def test_orders_model_carries_whispers() -> None:
     assert len(model.whispers) == 2
     assert model.whispers[0].lang == "zh"
     assert model.whispers[1].lang == "en"
-    assert model.whispers[0].text.startswith("/w zyx6687 你好!")
-    assert model.whispers[1].text.startswith("/w W0lfieAGR Hi!")
+    assert model.whispers[0].text.startswith("/w Buyer01 你好!")
+    assert model.whispers[1].text.startswith("/w Buyer02 Hi!")
 
 
 def test_orders_model_skips_orders_without_name() -> None:
