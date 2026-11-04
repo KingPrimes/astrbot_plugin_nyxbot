@@ -85,6 +85,20 @@ def _prime_variant(key: str) -> str:
     return key
 
 
+def _prime_inserted(text: str) -> str:
+    """把 `banshee chassis` 补成 `banshee prime chassis`。
+
+    库里 slug 是 ``banshee_prime_chassis_blueprint``，用户查部件时通常只写
+    `banshee chassis`（省掉 Prime），整串相等与前缀都对不上，只能落到候选。
+    仅对「纯 ASCII + 有空格 + 不含 prime」的输入补一版。
+    """
+    raw = " ".join((text or "").split())
+    if not raw or not raw.isascii() or " " not in raw or "prime" in raw.lower():
+        return ""
+    head, _, tail = raw.partition(" ")
+    return normalize_key(f"{head} prime {tail}")
+
+
 async def _variants(text: str) -> list[str]:
     """A 阶段的产物：原文键 + 别名键 + Prime 变体键（去重保序）。"""
     key = normalize_key(text)
@@ -98,6 +112,10 @@ async def _variants(text: str) -> list[str]:
     primed = _prime_variant(base)
     if primed and primed not in variants:
         variants.append(primed)
+
+    inserted = _prime_inserted(text)
+    if inserted and inserted not in variants:
+        variants.append(inserted)
 
     return variants
 
@@ -130,13 +148,16 @@ def _dedupe(entries: list[Entry]) -> list[Entry]:
 def _allow_first_char_fallback(key: str) -> bool:
     """G 的「同首字符」兜底是否可用。
 
-    ASCII 输入常是英文名的缩写或拼错（`braton`、`volt p`），首字母兜底能给出
-    有用的候选；中文首字信息密度低（`冰队` 会兜出 `冰凇`），只在输入本身
-    就是一个字（`/WM 冰`）时才允许，否则返回「未找到」更诚实。
+    ASCII 短输入常是英文名的缩写（`fro`、`volt`），首字母兜底能给出有用的候选；
+    但长输入（`kuva bramma` 这类库里没有的名字）兜出来的是完全无关的物品
+    （`k` → `Khora Prime 一套`），不如直接说没找到。中文首字信息密度低
+    （`冰队` 会兜出 `冰凇`），只在输入本身就是一个字时允许。
     """
     if not key:
         return False
-    return key.isascii() or len(key) == 1
+    if len(key) == 1:
+        return True
+    return key.isascii() and len(key) <= 4
 
 
 _PART_TOKENS = (
@@ -215,17 +236,22 @@ async def resolve(text: str, source: Source) -> Hit | Candidates | None:
             logger.debug(f"[{stage}] {raw!r} → {hits[0].name!r}")
             return Hit(hits[0], stage)
 
-    # D slug（仅纯 ASCII；未汉化物品靠它）
+    # D slug（仅纯 ASCII 输入；未汉化物品靠它）
+    # 只看原文与 Prime 补全变体：中文输入（冰队）走 F 阶段的别名变体，
+    # 否则 `frost` 会在 D 里命中，日志阶段会从 C 变成 D。
     if key.isascii():
-        result = _decide(index.by_slug(key, only), "D", key)
-        if result:
-            logger.debug(f"[D] {raw!r} → {result}")
-            return result
-        # D2：英文部件名在库里带 _blueprint 后缀，用户通常不会打全
-        result = _decide(index.slug_prefix(key, match=only), "D", key)
-        if result:
-            logger.debug(f"[D2] {raw!r} → {result}")
-            return result
+        for variant in variants:
+            if not variant.isascii():
+                continue
+            result = _decide(index.by_slug(variant, only), "D", variant)
+            if result:
+                logger.debug(f"[D] {raw!r} → {result}")
+                return result
+            # D2：英文部件名在库里带 _blueprint 后缀，用户通常不会打全
+            result = _decide(index.slug_prefix(variant, match=only), "D", variant)
+            if result:
+                logger.debug(f"[D2] {raw!r} → {result}")
+                return result
 
     # F 前缀 / 首末 / 包含
     for position, variant in enumerate(variants):
