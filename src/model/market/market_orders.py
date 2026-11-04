@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 from enum import StrEnum, unique
+from typing import Any
 
 from pydantic import Field
 
@@ -45,11 +46,14 @@ class MarketUser(BaseModelWithAlias):
     """Market 用户信息 — 对应 Java MarketUser"""
     id: str | None = Field(default=None)
     ingame_name: str | None = Field(default=None, alias="ingameName")
+    slug: str | None = Field(default=None)
     avatar: str | None = Field(default=None)
     reputation: int | None = Field(default=None)
     locale: str | None = Field(default=None)
     platform: MarketPlatformEnum | None = Field(default=None)
+    crossplay: bool | None = Field(default=None)
     status: MarketStatusEnum | None = Field(default=None)
+    activity: dict[str, Any] | None = Field(default=None)
     last_seen: str | None = Field(default=None, alias="lastSeen")
 
 
@@ -69,6 +73,7 @@ class OrderWithUser(BaseModelWithAlias):
     created_at: str | None = Field(default=None, alias="createdAt")
     updated_at: str | None = Field(default=None, alias="updatedAt")
     item_id: str | None = Field(default=None, alias="itemId")
+    group_id: str | None = Field(default=None, alias="groupId")
     user: MarketUser | None = Field(default=None)
 
 
