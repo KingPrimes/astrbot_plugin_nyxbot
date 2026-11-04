@@ -3,8 +3,8 @@
 把订单/拍卖转成可以直接粘进游戏聊天的 ``/w 玩家名 ...``。文案依据 2026-11-04 网页实测：
 
 ```
-/w W0lfieAGR Hi! I want to buy: x6 "Primary Deadhead (rank 0)" for 6 platinum. (warframe.market)
-/w zyx6687 你好! 我想以20白金购买: "主要·死首 (等级 5)"。(warframe.market)
+/w Buyer02 Hi! I want to buy: x6 "Primary Deadhead (rank 0)" for 6 platinum. (warframe.market)
+/w Buyer01 你好! 我想以20白金购买: "主要·死首 (等级 5)"。(warframe.market)
 ```
 
 - **订单**：完全照抄官网格式（含 `(warframe.market)` 后缀）；
