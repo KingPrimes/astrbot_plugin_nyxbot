@@ -397,5 +397,9 @@ class RelicsService:
             .order_by("name")
         )
         by_ref = {relic.uniqueName: relic for relic in relics}
-        return [by_ref[ref] for ref in refs if ref in by_ref]
+        # 索引给的是匹配优先级，展示按遗物名升序，避免结果顺序随索引变化
+        return sorted(
+            (by_ref[ref] for ref in refs if ref in by_ref),
+            key=lambda relic: relic.name,
+        )
 

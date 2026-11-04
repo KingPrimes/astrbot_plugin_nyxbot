@@ -29,6 +29,7 @@ from ..config import (
     get_data_init_mode,
     normalize_data_init_mode,
 )
+from ..util.alias_cache import invalidate_alias_cache
 from ..util.search_index import invalidate as invalidate_search_index
 from ..util.search_index import start_prewarm as start_index_prewarm
 from .data_version import UpdatePlan, plan_update, write_state
@@ -313,6 +314,7 @@ async def _report_result() -> bool:
         f"数据初始化结果：{len(counts)} 张表 / {sum(counts.values())} 行"
         + (f"，仍为空：{', '.join(empty)}" if empty else "")
     )
-    # 数据变了，内存搜索索引需要重建
+    # 数据变了，内存搜索索引与别名缓存都需要重建
     invalidate_search_index()
+    invalidate_alias_cache()
     return True

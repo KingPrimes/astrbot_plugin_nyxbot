@@ -10,6 +10,9 @@ from ..render.card_renderer import CardRenderer
 from ..service.relics import RelicsService
 from ..util.command_args import command_args
 
+_RELIC_RENDER_LIMIT = 30
+"""单次最多画 30 个遗物。`/遗物 中纪` 有 196 条，全画是 1.9 万像素高、1.4 秒的图。"""
+
 
 @wf.command(name="遗物", alias=["核桃"])
 async def wf_relics(self, event: AstrMessageEvent):
@@ -35,5 +38,14 @@ async def wf_relics(self, event: AstrMessageEvent):
         )
         return
 
-    result = await CardRenderer.render_card_to_chain_result(render_relic_card, relics)
+    total = len(relics)
+    shown = relics[:_RELIC_RENDER_LIMIT]
+
+    result = await CardRenderer.render_card_to_chain_result(render_relic_card, shown)
     yield event.chain_result(result)
+
+    if total > len(shown):
+        yield event.plain_result(
+            f"共 {total} 个遗物，仅显示前 {len(shown)} 个；"
+            "加档位或奖励名可缩小范围（如 /遗物 中纪 A1）"
+        )

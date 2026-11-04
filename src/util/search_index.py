@@ -20,7 +20,7 @@ import bisect
 import contextlib
 import re
 import time
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
 from tortoise import Tortoise
@@ -114,6 +114,10 @@ class Entry:
     """relic 专用：name=遗物名，reward=奖励名"""
 
 
+EntryFilter = Callable[[Entry], bool]
+"""条目筛选谓词。索引必须**先筛后截断**，否则热门数据源会挤掉目标数据源。"""
+
+
 class SearchIndex:
     """内存索引。构建一次约 0.4 s，常驻约 2 MB。"""
 
@@ -148,11 +152,21 @@ class SearchIndex:
 
             if not lazy_pinyin or not has_cjk(entry.name):
                 continue
-            cached = pinyin_cache.get(entry.name)
+            # 遗物名统一带「遗物」后缀，建拼音键时去掉，`/遗物 zhongji` 才能命中
+            pinyin_name = (
+                entry.name[:-2]
+                if entry.source == SOURCE_RELIC
+                and entry.kind == KIND_NAME
+                and entry.name.endswith("遗物")
+                else entry.name
+            )
+            cached = pinyin_cache.get(pinyin_name)
             if cached is None:
                 syllables = [
                     s
-                    for s in lazy_pinyin(entry.name, style=Style.NORMAL, errors="ignore")
+                    for s in lazy_pinyin(
+                        pinyin_name, style=Style.NORMAL, errors="ignore"
+                    )
                     if s
                 ]
                 cached = (
@@ -163,7 +177,7 @@ class SearchIndex:
                     if syllables
                     else None
                 )
-                pinyin_cache[entry.name] = cached
+                pinyin_cache[pinyin_name] = cached
             if cached is None:
                 continue
             index._by_pinyin.setdefault(cached[0], []).append(entry)
@@ -182,15 +196,17 @@ class SearchIndex:
         )
 
     # ------------------------------------------------------------------ 查询
-    def exact(self, key: str) -> list[Entry]:
+    def exact(self, key: str, match: EntryFilter | None = None) -> list[Entry]:
         """B：精确。"""
-        return self._by_key.get(key, [])
+        return _filter(self._by_key.get(key, []), match)
 
-    def by_slug(self, key: str) -> list[Entry]:
+    def by_slug(self, key: str, match: EntryFilter | None = None) -> list[Entry]:
         """D：slug / 英文键。"""
-        return self._by_slug.get(normalize_slug(key), [])
+        return _filter(self._by_slug.get(normalize_slug(key), []), match)
 
-    def slug_prefix(self, key: str, limit: int = 15) -> list[Entry]:
+    def slug_prefix(
+        self, key: str, limit: int = 15, match: EntryFilter | None = None
+    ) -> list[Entry]:
         """D2：slug 前缀。
 
         英文物品名在库里常带 ``_blueprint`` 后缀，用户不会打全
@@ -207,12 +223,14 @@ class SearchIndex:
             candidate = self._sorted_slugs[i]
             if not candidate.startswith(slug_key):
                 break
-            out.extend(self._by_slug[candidate])
+            out.extend(_filter(self._by_slug[candidate], match))
             if len(out) >= limit:
                 return out[:limit]
         return out
 
-    def prefix(self, key: str, limit: int = 15) -> list[Entry]:
+    def prefix(
+        self, key: str, limit: int = 15, match: EntryFilter | None = None
+    ) -> list[Entry]:
         """F1：前缀（二分定位，不扫全表）。"""
         if not key:
             return []
@@ -222,12 +240,14 @@ class SearchIndex:
             name_key = self._sorted_keys[i]
             if not name_key.startswith(key):
                 break
-            out.extend(self._by_key[name_key])
+            out.extend(_filter(self._by_key[name_key], match))
             if len(out) >= limit:
                 return out[:limit]
         return out
 
-    def prefix_end(self, key: str, limit: int = 15) -> list[Entry]:
+    def prefix_end(
+        self, key: str, limit: int = 15, match: EntryFilter | None = None
+    ) -> list[Entry]:
         """F2：前缀 + 末字符（对齐 Java/Go 的首末匹配）。
 
         前缀从 4 个字逐级放宽到 1 个；关键词 ≥4 字时前缀不再短于 3 个字，
@@ -246,26 +266,30 @@ class SearchIndex:
                 if not name_key.startswith(prefix_key):
                     break
                 if end in name_key[prefix_len:]:
-                    hits.extend(self._by_key[name_key])
+                    hits.extend(_filter(self._by_key[name_key], match))
                     if len(hits) >= limit:
                         break
             if hits:
                 return hits[:limit]
         return []
 
-    def contains(self, key: str, limit: int = 15) -> list[Entry]:
+    def contains(
+        self, key: str, limit: int = 15, match: EntryFilter | None = None
+    ) -> list[Entry]:
         """F3：包含（唯一的线性扫描，5000 条约 0.2 ms）。"""
         if len(key) < 2:
             return []
         out: list[Entry] = []
         for name_key in self._sorted_keys:
             if key in name_key:
-                out.extend(self._by_key[name_key])
+                out.extend(_filter(self._by_key[name_key], match))
                 if len(out) >= limit:
                     return out[:limit]
         return out
 
-    def pinyin(self, text: str, limit: int = 15) -> list[Entry]:
+    def pinyin(
+        self, text: str, limit: int = 15, match: EntryFilter | None = None
+    ) -> list[Entry]:
         """E：拼音。汉字输入先转拼音，ASCII 输入直接当拼音键查。"""
         compact = normalize_key(text)
         if not compact:
@@ -287,10 +311,17 @@ class SearchIndex:
             full_key = initial_key = fuzzy_pinyin(compact)
 
         # 全拼优先：全拼有结果时不再掺入首字母结果，避免短首字母带来的噪声
-        out = list(self._by_pinyin.get(full_key, []))
+        out = _filter(self._by_pinyin.get(full_key, []), match)
         if not out:
-            out = list(self._by_initial.get(initial_key, []))
+            out = _filter(self._by_initial.get(initial_key, []), match)
         return _dedupe(out)[:limit]
+
+
+def _filter(entries: list[Entry], match: EntryFilter | None) -> list[Entry]:
+    """按谓词筛选（数据源 / 遗物条目类型）。"""
+    if match is None:
+        return entries
+    return [entry for entry in entries if match(entry)]
 
 
 def _dedupe(entries: Iterable[Entry]) -> list[Entry]:
@@ -408,9 +439,9 @@ async def get_index() -> SearchIndex:
             if attempt == 0:
                 logger.info("搜索索引构建期间数据发生变化，丢弃本次结果重建")
 
-        # 数据一直在变（连续导入）：先用本次快照顶上，下次 invalidate() 会再重建
-        _index = index
-        logger.warning("搜索索引构建期间数据持续变化，暂用本次快照")
+        # 数据一直在变（连续导入）：本次快照不写缓存，避免把旧数据固化成长期索引；
+        # 调用方这次能用，下次查询会重新构建
+        logger.warning("搜索索引构建期间数据持续变化，本次快照不缓存")
         return index
 
 

@@ -22,9 +22,19 @@ from ..util.command_args import command_args
 
 
 async def _handle_lich_sister(
-    event: AstrMessageEvent, keyword: str, search_type: str, title_suffix: str
+    event: AstrMessageEvent,
+    keyword: str,
+    search_type: str,
+    title_suffix: str,
+    command: str,
 ) -> AsyncGenerator[MessageEventResult, None]:
-    """通用赤毒/信条拍卖处理。"""
+    """通用赤毒/信条拍卖处理。
+
+    Args:
+        search_type: 拍卖类型（``lich`` / ``sister``）。
+        title_suffix: 展示用中文名（``赤毒`` / ``信条``）。
+        command: 实际指令名（``CD`` / ``XT``），候选缓存按它区分。
+    """
 
     if not keyword:
         yield event.plain_result(f"请输入武器名称！用法：/{title_suffix} 武器名称")
@@ -50,7 +60,7 @@ async def _handle_lich_sister(
             if not isinstance(items, list) or not items:
                 yield event.plain_result(f"未找到匹配的{title_suffix}武器: {keyword}")
                 return
-            remember_candidates(event.unified_msg_origin, items)
+            remember_candidates(event.unified_msg_origin, items, command)
             chain = await CardRenderer.render_card_to_chain_result(
                 render_market_orders_possible_items_card,
                 items,
@@ -73,10 +83,10 @@ async def wf_market_liches(self, event: AstrMessageEvent) -> AsyncGenerator[Mess
     await init_ready()
     # 武器名可能含空格（"Kuva Bramma"），取整段原文
     keyword = command_args(event, "CD", "cd", "赤毒")
-    selected = resolve_selection(event.unified_msg_origin, keyword)
+    selected = resolve_selection(event.unified_msg_origin, keyword, "CD")
     if selected:
         keyword = selected
-    async for r in _handle_lich_sister(event, keyword, "lich", "赤毒"):
+    async for r in _handle_lich_sister(event, keyword, "lich", "赤毒", "CD"):
         yield r
 
 
@@ -84,8 +94,8 @@ async def wf_market_liches(self, event: AstrMessageEvent) -> AsyncGenerator[Mess
 async def wf_market_sisters(self, event: AstrMessageEvent) -> AsyncGenerator[MessageEventResult, None]:
     await init_ready()
     keyword = command_args(event, "XT", "xt", "信条")
-    selected = resolve_selection(event.unified_msg_origin, keyword)
+    selected = resolve_selection(event.unified_msg_origin, keyword, "XT")
     if selected:
         keyword = selected
-    async for r in _handle_lich_sister(event, keyword, "sister", "信条"):
+    async for r in _handle_lich_sister(event, keyword, "sister", "信条", "XT"):
         yield r

@@ -61,3 +61,26 @@ class AliasCacheHelper:
         if self._regex is None:
             return text
         return self._regex.sub(lambda m: self._map[m.group()], text)
+
+    def invalidate(self) -> None:
+        """丢弃缓存，下次调用时重新加载。
+
+        别名同步、管理页增删改之后必须调用，否则新增/删除的别名要重启才生效。
+        """
+        self._cache = None
+        self._regex = None
+        self._map = {}
+
+
+_default_helper = AliasCacheHelper()
+"""进程内共享的别名缓存：搜索链路与旧调用点共用同一份，便于统一失效。"""
+
+
+def get_alias_helper() -> AliasCacheHelper:
+    """取共享的别名缓存实例。"""
+    return _default_helper
+
+
+def invalidate_alias_cache() -> None:
+    """数据变更后丢弃别名缓存。"""
+    _default_helper.invalidate()

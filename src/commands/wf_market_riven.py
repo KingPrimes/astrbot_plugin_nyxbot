@@ -80,7 +80,7 @@ async def wf_market_riven(self, event: AstrMessageEvent):
 
     # 上一次出了候选 → 允许用编号回选（保留后面的词条参数）
     session = event.unified_msg_origin
-    selected = resolve_selection(session, raw)
+    selected = resolve_selection(session, raw, "WR")
     if selected:
         raw = selected
 
@@ -117,7 +117,7 @@ async def wf_market_riven(self, event: AstrMessageEvent):
             yield event.plain_result(f"未找到匹配的紫卡武器: {keyword}")
             return
         candidates = candidates[:15]
-        remember_candidates(session, candidates)
+        remember_candidates(session, candidates, "WR")
         chain = await CardRenderer.render_card_to_chain_result(
             render_market_orders_possible_items_card,
             candidates,

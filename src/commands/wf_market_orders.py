@@ -103,7 +103,7 @@ async def wf_market_orders(self, event: AstrMessageEvent):
 
     # 上一次出了候选 → 允许用编号回选
     session = event.unified_msg_origin
-    selected = resolve_selection(session, raw)
+    selected = resolve_selection(session, raw, "WM")
     if selected:
         raw = selected
 
@@ -127,7 +127,7 @@ async def wf_market_orders(self, event: AstrMessageEvent):
 
     if result.possible_items:
         possible_items = result.possible_items[:15]
-        remember_candidates(session, possible_items)
+        remember_candidates(session, possible_items, "WM")
         chain = await CardRenderer.render_card_to_chain_result(
             render_market_orders_possible_items_card,
             possible_items,

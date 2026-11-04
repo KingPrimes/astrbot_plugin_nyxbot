@@ -22,6 +22,7 @@ from pathlib import Path
 
 from astrbot.api import logger
 
+from ..util.alias_cache import invalidate_alias_cache
 from ..util.search_index import invalidate as invalidate_search_index
 
 from ..util.data_path import get_public_data_path
@@ -157,7 +158,16 @@ async def _refresh_export_data(label: str) -> None:
         ("遗物", RelicsService.sync_data),
     ]
 
-    failed = [name for name, func in stages if not await _run_stage(name, func)]
+    failed: list[str] = []
+    for name, func in stages:
+        if not await _run_stage(name, func):
+            failed.append(name)
+
+    # 任一阶段成功就可能写入了新数据（如遗物在状态翻译失败后仍然成功），
+    # 索引与别名缓存必须失效，否则搜索会一直用旧名称。
+    if len(failed) < len(stages):
+        invalidate_search_index()
+        invalidate_alias_cache()
 
     if failed:
         logger.warning(
@@ -167,7 +177,6 @@ async def _refresh_export_data(label: str) -> None:
         return
 
     write_build_label(label)
-    invalidate_search_index()
     logger.info(
         f"游戏版本 {label} 的导出数据刷新完成，耗时 {time.monotonic() - started:.1f}s"
     )
