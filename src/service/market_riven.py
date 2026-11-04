@@ -4,10 +4,6 @@
 """
 from __future__ import annotations
 
-import re
-
-from tortoise.exceptions import DoesNotExist
-
 from ..model.market import (
     MarketRiven,
     MarketRivenPayload,
@@ -20,6 +16,7 @@ from ..model.riven_items import RivenItems
 from ..model.riven_tion import RivenTion
 from ..model.riven_tion_alias import RivenTionAlias
 from .market import MarketService
+from .smart_match import Candidates, Hit, Source, resolve
 
 # 紫卡查询默认值（镜像 Java MarketRivenUtils 默认）
 # Riven query defaults — mirror Java MarketRivenUtils.
@@ -36,7 +33,7 @@ class MarketRivenService:
         keyword: str,
         positive_stats: str = "",
         negative_stats: str = "",
-    ) -> MarketRiven | None:
+    ) -> MarketRiven | tuple[list[str], None] | None:
         """搜索紫卡拍卖 — 镜像 Java MarketRivenUtils.marketRivenParameter()。
 
         支持两种输入方式（同时兼容）：
@@ -51,7 +48,9 @@ class MarketRivenService:
             negative_stats: 负面词条限定（"有"/"无"），映射为 "has"/"none"。
 
         Returns:
-            MarketRiven 模型或 None。
+            - ``MarketRiven``：查询成功；
+            - ``(候选名称列表, None)``：武器名没精确命中，交给指令层出候选；
+            - ``None``：完全找不到。
         """
         # ── 1. 双语法兼容解析 ──
         kw = (keyword or "").strip()
@@ -68,8 +67,13 @@ class MarketRivenService:
         final_pos = positive_stats.strip() or pos_from_kw
         final_neg = negative_stats.strip() or neg_from_kw
 
-        # ── 2. 武器解析 ──
-        riven_item = await cls._resolve_weapon(weapon_part)
+        # ── 2. 武器解析（统一 A~G 链路：精确/别名/slug/拼音/前缀）──
+        resolved = await resolve(weapon_part, Source.RIVEN)
+        if isinstance(resolved, Candidates):
+            return ([entry.name for entry in resolved.entries], None)
+        if not isinstance(resolved, Hit):
+            return None
+        riven_item = await RivenItems.get_or_none(id=resolved.entry.ref)
         if riven_item is None:
             return None
 
@@ -156,58 +160,6 @@ class MarketRivenService:
     # ══════════════════════════════════════════════════════════════════
     # 武器解析 / Weapon resolution — 镜像 Java MarketRivenUtils.getRiveItems()
     # ══════════════════════════════════════════════════════════════════
-
-    @classmethod
-    async def _resolve_weapon(cls, name: str) -> RivenItems | None:
-        """4 步武器名解析：精确 → p→Prime 别名 → 首末字符正则 → 首字符 likes。
-
-        Args:
-            name: 武器名称关键词。
-
-        Returns:
-            匹配到的 RivenItems；找不到或歧义时返回 None。
-        """
-        if not name:
-            return None
-
-        # Step 1: 精确匹配
-        try:
-            return await RivenItems.get(name=name)
-        except DoesNotExist:
-            pass
-
-        # Step 2: 小写 + p→Prime 别名（Java 行为：把所有 'p' 替换为 'Prime'）
-        lowered = name.lower()
-        if "prime" not in lowered and "p" in lowered:
-            candidate = lowered.replace("p", "Prime")
-            try:
-                return await RivenItems.get(name=candidate)
-            except DoesNotExist:
-                pass
-
-        # Step 3: 正则模糊（首字符 + 末字符，不区分大小写）
-        if len(name) >= 2:
-            pattern = f"^{re.escape(name[0])}.*?{re.escape(name[-1])}.*?$"
-            try:
-                items = await RivenItems.filter(name__iregex=pattern).all()
-            except Exception:
-                # 后端不支持 iregex 时回退到 icontains + Python 二次过滤
-                items = await RivenItems.filter(
-                    name__icontains=name[0]
-                ).limit(50).all()
-                items = [
-                    it for it in items
-                    if it.name
-                    and re.match(pattern, it.name, re.IGNORECASE)
-                ]
-            if len(items) == 1:
-                return items[0]
-
-        # Step 4: 首字符 likes（多结果视为 ambiguous → None）
-        items = await RivenItems.filter(
-            name__istartswith=name[:1]
-        ).limit(10).all()
-        return items[0] if len(items) == 1 else None
 
     # ══════════════════════════════════════════════════════════════════
     # 词条解析 / Stat translation — 镜像 Java MarketRivenUtils.resolveStatUrlNames()

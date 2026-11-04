@@ -12,7 +12,7 @@ import orjson
 
 from astrbot.api import logger
 
-from ..util.alias_cache import AliasCacheHelper
+from .smart_match import resolve_relic
 
 if TYPE_CHECKING:
     from ..model.export.relics import Relics
@@ -28,8 +28,6 @@ _WARFRAME_PART_TRANSLATIONS: dict[str, str] = {
 
 class RelicsService:
     """遗物服务。"""
-
-    _alias_helper = AliasCacheHelper()
 
     # ══════════════════════════════════════════════════════════════════
     # 私有：ExportRelicArcane 解析（原 export_parsers.py）
@@ -363,27 +361,23 @@ class RelicsService:
 
     @classmethod
     async def find_by_name_or_reward(cls, name: str) -> list[Relics]:
-        """多级回退查询遗物 — 按遗物名称或奖励物品名称搜索。
+        """按遗物名或奖励名查询遗物 —— 走统一搜索链路。
 
-        镜像 Java RelicsService.findAllByRelicNameOrRewardsItemName()：
-        1. 精确匹配遗物名称
-        2. 模糊匹配遗物名称
-        3. 模糊匹配奖励物品名称（通过 M2M 中间表反向查询）
-        4. 别名替换（中文→英文）后再次模糊匹配奖励
-        5. 全部失败返回空列表
+        链路：B 遗物名精确（去掉统一的「遗物」后缀）→ R 奖励名精确 /
+        前缀 / 包含 → F 遗物名前缀 / 包含 → E 拼音。匹配在内存索引里完成，
+        不再对遗物与奖励表做多次 `LIKE %x%` 查询。
+
+        对齐 Java ``RelicsService.findAllByRelicNameOrRewardsItemName()`` 的语义。
 
         Args:
             name: 搜索关键词（遗物名称或奖励物品名称）。
 
         Returns:
-            list[Relics]: 匹配的遗物模型列表（已 prefetch 关联奖励），按名称排序。
+            list[Relics]: 匹配的遗物列表（已 prefetch 奖励），按名称排序；无匹配为空。
         """
-        from tortoise.expressions import Q
-
-        from ..model.export.relic_rewards import RelicRewards
         from ..model.export.relics import Relics
 
-        # 空查询 → 返回所有遗物
+        # 空查询 → 返回所有遗物（保留旧行为）
         if not name or not name.strip():
             return await (
                 Relics.all()
@@ -391,62 +385,21 @@ class RelicsService:
                 .order_by("name")
             )
 
-        name = name.strip()
+        entries = await resolve_relic(name)
+        if not entries:
+            logger.debug(f"未找到遗物或奖励: {name}")
+            return []
 
-        # 1. 精确匹配遗物名称
-        rs = await (
-            Relics.filter(name=name)
+        refs = [entry.ref for entry in entries]
+        relics = await (
+            Relics.filter(uniqueName__in=refs)
             .prefetch_related("relic_rewards")
             .order_by("name")
         )
-        if rs:
-            return list(rs)
-
-        logger.debug(f"未查询到遗物名称为 '{name}' 的遗物，进行模糊查询")
-
-        # 2. 模糊匹配遗物名称
-        rs = await (
-            Relics.filter(name__contains=name)
-            .prefetch_related("relic_rewards")
-            .order_by("name")
+        by_ref = {relic.uniqueName: relic for relic in relics}
+        # 索引给的是匹配优先级，展示按遗物名升序，避免结果顺序随索引变化
+        return sorted(
+            (by_ref[ref] for ref in refs if ref in by_ref),
+            key=lambda relic: relic.name,
         )
-        if rs:
-            return list(rs)
 
-        logger.debug(f"未查询到包含 '{name}' 的遗物，进行奖励物品的模糊查询")
-
-        # 3. 模糊匹配奖励物品名称（排除 Forma，避免因每个遗物都含 Forma 导致结果膨胀）
-        reward_ids = await RelicRewards.filter(
-            Q(rewardName__contains=name) & ~Q(rewardName__contains="Forma"),
-        ).values_list("id", flat=True)
-        if reward_ids:
-            rs = await (
-                Relics.filter(relic_rewards__id__in=list(reward_ids))
-                .distinct()
-                .prefetch_related("relic_rewards")
-                .order_by("name")
-            )
-            if rs:
-                return list(rs)
-
-        logger.debug(f"未查询到包含 '{name}' 的遗物，使用别名模糊查询奖励列表")
-
-        # 4. 别名替换后再次模糊匹配（预编译正则，O(m) 替代 O(n*m) 线性扫描）
-        key = await cls._alias_helper.replace(name)
-
-        if key != name:
-            reward_ids = await RelicRewards.filter(
-                Q(rewardName__contains=key) & ~Q(rewardName__contains="Forma"),
-            ).values_list("id", flat=True)
-            if reward_ids:
-                rs = await (
-                    Relics.filter(relic_rewards__id__in=list(reward_ids))
-                    .distinct()
-                    .prefetch_related("relic_rewards")
-                    .order_by("name")
-                )
-                if rs:
-                    return list(rs)
-
-        logger.debug(f"未找到物品: {name}")
-        return []

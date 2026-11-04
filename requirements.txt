@@ -18,6 +18,8 @@ pillow==12.2.0
     # via astrbot-plugin-nyxbot (pyproject.toml)
 pydantic==2.13.4
     # via astrbot-plugin-nyxbot (pyproject.toml)
+pypinyin==0.55.0
+    # via astrbot-plugin-nyxbot (pyproject.toml)
 python-dateutil==2.9.0.post0
     # via astrbot-plugin-nyxbot (pyproject.toml)
 pyyaml==6.0.3

@@ -8,6 +8,9 @@ from __future__ import annotations
 from typing import Any
 
 from astrbot.api import logger
+
+from ..util.alias_cache import invalidate_alias_cache
+from ..util.search_index import invalidate as invalidate_search_index
 from astrbot.api.star import Context
 
 from ..model.alias import Alias
@@ -51,6 +54,21 @@ from ..service import (
 from ..service.data_admin import DataAdminService
 
 PLUGIN_NAME = "astrbot_plugin_nyxbot"
+
+_INDEXED_MODELS = frozenset(
+    {"alias", "orders_items", "riven_items", "lich_sister_weapons",
+     "relics", "relic_rewards"}
+)
+"""改动这些表会改变搜索结果，增删改后必须让内存缓存失效。"""
+
+
+def _invalidate_search_caches(model: str) -> None:
+    """让搜索索引与别名缓存失效（只对参与搜索的表）。"""
+    if model not in _INDEXED_MODELS:
+        return
+    invalidate_search_index()
+    invalidate_alias_cache()
+    logger.debug(f"{model} 数据已变更，搜索索引与别名缓存已失效")
 
 # ============================================================================
 # 模型路由映射
@@ -248,6 +266,7 @@ def register_data_apis(context: Context) -> None:
 
         try:
             instance = await DataAdminService.create(model_cls, data)
+            _invalidate_search_caches(model)
             return jsonify({"success": True, "data": _serialize_instance(instance)})
         except Exception as e:
             logger.error(f"创建 {model} 记录失败: {e}")
@@ -282,6 +301,7 @@ def register_data_apis(context: Context) -> None:
 
         try:
             instance = await DataAdminService.update(model_cls, record_id, data)
+            _invalidate_search_caches(model)
             return jsonify({"success": True, "data": _serialize_instance(instance)})
         except ValueError:
             return jsonify({"error": f"Record {record_id} not found"}), 404
@@ -317,6 +337,7 @@ def register_data_apis(context: Context) -> None:
             deleted = await DataAdminService.delete(model_cls, record_id)
             if not deleted:
                 return jsonify({"error": f"Record {record_id} not found"}), 404
+            _invalidate_search_caches(model)
             return jsonify({"success": True})
         except Exception as e:
             logger.error(f"删除 {model} 记录失败: {e}")
@@ -357,6 +378,8 @@ def register_data_apis(context: Context) -> None:
                 return jsonify(
                     {"error": f"模型 {model} 同步未获得数据，数据源可能不可用"}
                 ), 502
+            invalidate_search_index()
+            invalidate_alias_cache()
             detail = (
                 f"，共 {result} 条"
                 if isinstance(result, int) and not isinstance(result, bool)

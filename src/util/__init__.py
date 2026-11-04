@@ -8,6 +8,7 @@ from .cache_utils import (
     market_search_cache,
     world_state_cache,
 )
+from .command_args import command_args, normalize_whitespace
 from .compress_utils import (
     decompress_lzma,
     decompress_lzma_auto,
@@ -36,6 +37,9 @@ __all__ = [
     "get_public_data_path",
     "get_plugin_name",
     "get_plugin_version",
+    # Command
+    "command_args",
+    "normalize_whitespace",
     # Cache
     "world_state_cache",
     "market_cache",
