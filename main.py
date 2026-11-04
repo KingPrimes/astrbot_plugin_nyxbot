@@ -21,6 +21,7 @@ from .src.service import (
     WorldStateService,
 )
 from .src.util.log_filter import install_reload_noise_filter
+from .src.util.search_index import shutdown as search_index_shutdown
 from .src.web_api.registry import register_web_apis
 
 # 尽早安装日志降噪：抑制框架在插件重载时逐条打印的 Removed handler/module
@@ -152,6 +153,9 @@ class NyxBotPlugin(Star):
 
         # 停止仲裁后台预热
         await ArbitrationService.stop()
+
+        # 取消搜索索引预热（必须在关库之前）
+        await search_index_shutdown()
 
         # 关闭 TortoiseORM 数据库连接
         await close_engine()

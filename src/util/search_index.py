@@ -17,7 +17,9 @@ from __future__ import annotations
 
 import asyncio
 import bisect
+import contextlib
 import re
+import time
 from collections.abc import Iterable
 from dataclasses import dataclass
 
@@ -284,6 +286,14 @@ def _dedupe(entries: Iterable[Entry]) -> list[Entry]:
 _index: SearchIndex | None = None
 _build_lock: asyncio.Lock | None = None
 
+_generation = 0
+"""数据变更计数。构建期间若被 ``invalidate()`` 打断，本次结果不入缓存。"""
+
+_PREWARM_DELAY = 2.0
+"""预热延迟（秒）：让启动阶段的 OCR / WorldState 先跑完，避免抢 CPU。"""
+
+_prewarm_task: asyncio.Task | None = None
+
 
 async def _load_entries() -> list[Entry]:
     """从数据库读出全部可搜索名称。"""
@@ -351,7 +361,7 @@ async def _load_entries() -> list[Entry]:
 
 
 async def get_index() -> SearchIndex:
-    """取索引，首次调用时构建（线程池执行，构建约 0.4 s）。"""
+    """取索引，首次调用时构建（线程池执行，构建约 0.3 s）。"""
     global _index, _build_lock
     if _index is not None:
         return _index
@@ -359,17 +369,81 @@ async def get_index() -> SearchIndex:
     if _build_lock is None:
         _build_lock = asyncio.Lock()
     async with _build_lock:
-        if _index is None:
+        if _index is not None:
+            return _index
+
+        # 最多重建一次：构建期间数据被导入/同步改写时，丢弃这次快照重来
+        for attempt in range(2):
+            generation = _generation
             entries = await _load_entries()
             index = await asyncio.to_thread(SearchIndex.build, entries)
-            _index = index
-            logger.info(f"搜索索引构建完成：{len(entries)} 条名称，{index.stats()}")
-    return _index
+            if generation == _generation:
+                _index = index
+                logger.info(f"搜索索引构建完成：{len(entries)} 条名称，{index.stats()}")
+                return index
+            if attempt == 0:
+                logger.info("搜索索引构建期间数据发生变化，丢弃本次结果重建")
+
+        # 数据一直在变（连续导入）：先用本次快照顶上，下次 invalidate() 会再重建
+        _index = index
+        logger.warning("搜索索引构建期间数据持续变化，暂用本次快照")
+        return index
+
+
+def start_prewarm(delay: float = _PREWARM_DELAY) -> bool:
+    """后台预热索引（幂等）。
+
+    数据初始化完成后调用：构建丢在线程池里，不阻塞事件循环，也不影响
+    「NyxBot 初始化完成」的时间点；失败只告警，首次查询会再试一次。
+
+    Args:
+        delay: 延迟多少秒再开始，留给启动阶段的其他任务。
+
+    Returns:
+        是否新启动了任务（已有任务在跑或不在事件循环内时为 ``False``）。
+    """
+    global _prewarm_task
+    if _prewarm_task is not None and not _prewarm_task.done():
+        return False
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:  # 不在事件循环里（脚本直接调 bootstrap）
+        return False
+    _prewarm_task = loop.create_task(_prewarm(delay), name="nyxbot-index-prewarm")
+    return True
+
+
+async def _prewarm(delay: float) -> None:
+    if delay > 0:
+        await asyncio.sleep(delay)
+    started = time.perf_counter()
+    try:
+        index = await get_index()
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:
+        logger.warning(f"搜索索引预热失败，首次查询时会重试: {exc}")
+        return
+    logger.info(
+        f"搜索索引预热完成，耗时 {time.perf_counter() - started:.2f}s"
+        f"（{index.stats()}）"
+    )
+
+
+async def shutdown() -> None:
+    """取消预热任务（插件卸载、关库之前调用）。"""
+    global _prewarm_task
+    task, _prewarm_task = _prewarm_task, None
+    if task is not None and not task.done():
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
 
 
 def invalidate() -> None:
     """数据导入/刷新后调用，下次查询时重建。"""
-    global _index
+    global _index, _generation
+    _generation += 1
     if _index is not None:
         logger.debug("搜索索引已失效，下次查询时重建")
     _index = None

@@ -30,6 +30,7 @@ from ..config import (
     normalize_data_init_mode,
 )
 from ..util.search_index import invalidate as invalidate_search_index
+from ..util.search_index import start_prewarm as start_index_prewarm
 from .data_version import UpdatePlan, plan_update, write_state
 from .engine import get_engine
 
@@ -238,7 +239,7 @@ async def _import_all(plan: UpdatePlan) -> bool:
 
 
 async def bootstrap_data(mode: str | None = None) -> bool:
-    """按数据初始化模式决定是否导入数据。
+    """按数据初始化模式决定是否导入数据，完成后后台预热搜索索引。
 
     Args:
         mode: `auto` / `always` / `never` / `offline`；
@@ -247,6 +248,14 @@ async def bootstrap_data(mode: str | None = None) -> bool:
     Returns:
         本次是否真正执行了导入。
     """
+    imported = await _bootstrap_data(mode)
+    # 数据已就绪（导入或跳过都算）：后台预热索引，不阻塞初始化流程
+    start_index_prewarm()
+    return imported
+
+
+async def _bootstrap_data(mode: str | None) -> bool:
+    """``bootstrap_data`` 的实现体：判断是否需要导入并执行。"""
     current = normalize_data_init_mode(mode or get_data_init_mode())
 
     await get_engine()
