@@ -123,6 +123,7 @@ class SearchIndex:
         self._by_pinyin: dict[str, list[Entry]] = {}
         self._by_initial: dict[str, list[Entry]] = {}
         self._sorted_keys: list[str] = []
+        self._sorted_slugs: list[str] = []
 
     # ------------------------------------------------------------------ 构建
     @classmethod
@@ -169,6 +170,7 @@ class SearchIndex:
             index._by_initial.setdefault(cached[1], []).append(entry)
 
         index._sorted_keys = sorted(index._by_key)
+        index._sorted_slugs = sorted(index._by_slug)
         return index
 
     def stats(self) -> str:
@@ -187,6 +189,28 @@ class SearchIndex:
     def by_slug(self, key: str) -> list[Entry]:
         """D：slug / 英文键。"""
         return self._by_slug.get(normalize_slug(key), [])
+
+    def slug_prefix(self, key: str, limit: int = 15) -> list[Entry]:
+        """D2：slug 前缀。
+
+        英文物品名在库里常带 ``_blueprint`` 后缀，用户不会打全
+        （``frost prime chassis`` 对 ``frost_prime_chassis_blueprint``）。
+        纯 ASCII 输入精确命中不到时用前缀兜一层，短于 4 个字符不启用，
+        避免 ``fro`` 这类前缀把整张表捞出来。
+        """
+        slug_key = normalize_slug(key)
+        if len(slug_key) < 4:
+            return []
+        start = bisect.bisect_left(self._sorted_slugs, slug_key)
+        out: list[Entry] = []
+        for i in range(start, len(self._sorted_slugs)):
+            candidate = self._sorted_slugs[i]
+            if not candidate.startswith(slug_key):
+                break
+            out.extend(self._by_slug[candidate])
+            if len(out) >= limit:
+                return out[:limit]
+        return out
 
     def prefix(self, key: str, limit: int = 15) -> list[Entry]:
         """F1：前缀（二分定位，不扫全表）。"""

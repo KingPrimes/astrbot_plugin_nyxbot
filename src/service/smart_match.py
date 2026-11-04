@@ -139,13 +139,30 @@ def _allow_first_char_fallback(key: str) -> bool:
     return key.isascii() or len(key) == 1
 
 
-def _decide(entries: list[Entry], stage: str) -> Hit | Candidates | None:
+_PART_TOKENS = (
+    "头部神经光元", "头盔", "头",
+    "机体", "机",
+    "系统", "系",
+    "蓝图", "总图", "图",
+    "一套", "套",
+    "blueprint", "chassis", "systems", "system", "neuroptics", "helmet", "set",
+)
+"""部位/形态词。出现这些词说明用户要的是某个部件，不该被「套装优先」劫持。"""
+
+
+def _has_part_token(key: str) -> bool:
+    """查询里是否带部位词（``冰队蓝图``、``frost prime chassis``）。"""
+    return any(token in key for token in _PART_TOKENS)
+
+
+def _decide(
+    entries: list[Entry], stage: str, query_key: str = ""
+) -> Hit | Candidates | None:
     """命中判定。
 
     - 只有一个实体 → ``Hit``；
-    - 多个实体但排序第一的是**套装**（`slug` 以 set 结尾）→ 直接给套装，
-      因为套装就是「整套战甲/武器」这个基准物品，用户输 `冰队`/`frost`
-      时通常就要它；
+    - 多个实体但排序第一的是**套装**，且查询里没有部位词 → 直接给套装
+      （``冰队`` / ``embp`` / ``frost prime`` 要的就是整套）；
     - 其余多命中 → ``Candidates``，交给编号选择。
     """
     unique = _dedupe(entries)
@@ -154,7 +171,10 @@ def _decide(entries: list[Entry], stage: str) -> Hit | Candidates | None:
 
     ranked = _rank(unique)
     top = ranked[0]
-    if len(ranked) == 1 or (top.slug or "").endswith("set"):
+    is_set = (top.slug or "").endswith("set")
+    # query_key 为空表示调用方不参与「套装优先」判断（拼音阶段）
+    set_preferred = bool(query_key) and not _has_part_token(query_key)
+    if len(ranked) == 1 or (is_set and set_preferred):
         return Hit(top, stage)
     return Candidates(ranked[:15], stage)
 
@@ -192,9 +212,14 @@ async def resolve(text: str, source: Source) -> Hit | Candidates | None:
 
     # D slug（仅纯 ASCII；未汉化物品靠它）
     if key.isascii():
-        result = _decide(pick(index.by_slug(key)), "D")
+        result = _decide(pick(index.by_slug(key)), "D", key)
         if result:
             logger.debug(f"[D] {raw!r} → {result}")
+            return result
+        # D2：英文部件名在库里带 _blueprint 后缀，用户通常不会打全
+        result = _decide(pick(index.slug_prefix(key)), "D", key)
+        if result:
+            logger.debug(f"[D2] {raw!r} → {result}")
             return result
 
     # F 前缀 / 首末 / 包含
@@ -204,7 +229,7 @@ async def resolve(text: str, source: Source) -> Hit | Candidates | None:
             hits = pick(finder(variant))
             if hits:
                 break
-        result = _decide(hits, "F" if position == 0 else "C")
+        result = _decide(hits, "F" if position == 0 else "C", variant)
         if result:
             logger.debug(f"[F] {raw!r} → {result}")
             return result
