@@ -34,4 +34,6 @@ dev-dependencies = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.25.0",
     "ruff>=0.9.0",
+    # 字体覆盖校验（tests/test_icon_registry.py）
+    "fonttools>=4.50.0",
 ]

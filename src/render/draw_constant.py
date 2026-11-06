@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from typing import Final
 
+from .theme import LEGACY_FIELDS, current_theme
+
 # ============================================================================
 # 尺寸常量 / Dimension Constants
 # ============================================================================
@@ -96,41 +98,23 @@ class DrawConstant:
 # 颜色常量 / Color Constants (暗色主题)
 # ============================================================================
 
-class ThemeColor:
-    """Warframe 暗色主题色板 — 与现有 CardRenderer.COLORS 保持一致。"""
+class _ThemeColorMeta(type):
+    """把历史色板名映射到当前主题（``src/render/theme.py``）。"""
 
-    # 背景色
-    BG_DARK: Final[tuple[int, int, int]] = (26, 26, 46)          # #1a1a2e
-    BG_CARD: Final[tuple[int, int, int]] = (22, 33, 62)          # #16213e
-    BG_CARD_ALT: Final[tuple[int, int, int]] = (30, 45, 80)      # 交替卡片背景
+    def __getattr__(cls, name: str) -> tuple[int, int, int]:
+        field = LEGACY_FIELDS.get(name)
+        if field is None:
+            raise AttributeError(f"type object {cls.__name__!r} has no attribute {name!r}")
+        return getattr(current_theme().palette, field)
 
-    # 强调色
-    ACCENT: Final[tuple[int, int, int]] = (233, 69, 96)          # #e94560
-    ACCENT_BLUE: Final[tuple[int, int, int]] = (69, 133, 233)    # 蓝色强调
-    ACCENT_GREEN: Final[tuple[int, int, int]] = (69, 233, 150)   # 绿色强调
-    ACCENT_GOLD: Final[tuple[int, int, int]] = (255, 215, 0)     # 金色
 
-    # 文本颜色
-    TEXT_PRIMARY: Final[tuple[int, int, int]] = (255, 255, 255)
-    TEXT_SECONDARY: Final[tuple[int, int, int]] = (170, 170, 170)
-    TEXT_MUTED: Final[tuple[int, int, int]] = (120, 120, 120)
+class ThemeColor(metaclass=_ThemeColorMeta):
+    """历史色板名 → 当前主题的语义色。
 
-    # 功能色
-    REWARD_BG: Final[tuple[int, int, int]] = (15, 52, 96)       # 奖励标签背景
-    DIVIDER: Final[tuple[int, int, int]] = (60, 60, 90)          # 分割线
-    SUCCESS: Final[tuple[int, int, int]] = (69, 233, 150)
-    WARNING: Final[tuple[int, int, int]] = (255, 193, 7)
-    DANGER: Final[tuple[int, int, int]] = (233, 69, 96)
-    INFO: Final[tuple[int, int, int]] = (69, 133, 233)
-
-    # 循环图像颜色
-    CYCLE_WARM: Final[tuple[int, int, int]] = (255, 128, 0)
-    CYCLE_COLD: Final[tuple[int, int, int]] = (0, 180, 255)
-
-    # 表格颜色
-    TABLE_HEADER_BG: Final[tuple[int, int, int]] = (41, 128, 185)  # #2980b9
-    TABLE_EVEN_ROW: Final[tuple[int, int, int]] = (22, 33, 62)     # 与 BG_CARD 一致
-    TABLE_BORDER: Final[tuple[int, int, int]] = (60, 60, 90)
+    以前这里是一组硬编码 RGB，只在暗色下成立；现在按语义映射到 ``Palette``
+    字段，因此**未迁移的卡片也会跟随** ``dark`` / ``light`` / ``custom`` 切换。
+    下面保留的是与主题无关的固定色（时间紧急度、虚空层级、帮助图）。
+    """
 
     # 帮助图像
     HELP_HEADER_BG: Final[tuple[int, int, int]] = (41, 128, 185)

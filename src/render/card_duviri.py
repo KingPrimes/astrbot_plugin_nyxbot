@@ -1,61 +1,93 @@
 """双衍王境卡片渲染器
 
-重新设计的视觉布局，摒弃 Java 表格式：
-  - 情绪状态以独立展示卡呈现，各情绪独立配色，带彩色边框
-  - 普通/钢铁选择项以两张圆角卡片并列呈现，顶部彩色强调条
-  - 双层边框 + 看板娘立绘 + 底部署名
+版式：页头 + 键值（当前情绪 / 剩余时间）+ 左右两列选择项卡片 + 看板娘 + 署名。
+情绪按名称着色；选择项按「普通 / 钢铁之路」分列，两列等高。
 """
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PIL import Image, ImageFont
-
-from .draw_constant import ThemeColor
-from .font_manager import FontManager
-from .image_combiner import ImageCombiner
-from .standing import draw_standing
+from . import card_frame as frame
+from . import components as C
+from .card_size import CardSpec, CustomBlock, KvBlock, measure_card_size
+from .design import FONT, SPACE, adapt_color, font
+from .theme import current_theme
 
 if TYPE_CHECKING:
+    from PIL import Image
+
     from ..model.world_state.duvalier_cycle import DuvalierCycle
-    from ..model.world_state.endless_xp_choices import EndlessXpChoices
     from .card_renderer import CardRenderer
 
-# ---------------------------------------------------------------------------
-# 布局常量
-# ---------------------------------------------------------------------------
-
-_CANVAS_W = 1000
-_CANVAS_H = 680
-
-_CONTENT_MARGIN = 60
-_STANDING_ZONE = 280                # 右侧留给看板娘的区域
-_CONTENT_W = _CANVAS_W - _CONTENT_MARGIN - _STANDING_ZONE
-
-# 选择项卡片
-_COL_GAP = 30
-_CARD_W = (_CONTENT_W - _COL_GAP) // 2
-_LEFT_X = _CONTENT_MARGIN
-_RIGHT_X = _CONTENT_MARGIN + _CARD_W + _COL_GAP
-_CARD_HEADER_H = 42
-_CARD_RADIUS = 14
-_ITEM_H = 32
-_ITEM_PAD_TOP = 12
-_ITEM_PAD_LEFT = 20
-_MAX_ITEMS = 7
-
-# 情绪独立配色 — 与情绪名称一一对应
-_EMOTION_COLORS: dict[str, tuple[int, int, int]] = {
-    "悲伤": (74, 144, 217),
-    "恐惧": (155, 89, 182),
-    "喜悦": (241, 196, 15),
-    "愤怒": (231, 76, 60),
-    "嫉妒": (46, 204, 113),
+#: 情绪 → 语义色（会按主题校正对比度）。
+_EMOTION_COLORS: dict[str, str] = {
+    "悲伤": "#4A90D9",
+    "恐惧": "#9B59B6",
+    "喜悦": "#F1C40F",
+    "愤怒": "#E74C3C",
+    "嫉妒": "#2ECC71",
 }
 
-# 列强调色
-_COLOR_NORMAL = (255, 215, 0)
-_COLOR_HARD = (255, 107, 107)
+#: 区块内边距、行高（与绘制同口径）。
+_PAD = SPACE["lg"]
+_TITLE_OFFSET = SPACE["md"]
+_DIVIDER_OFFSET = _TITLE_OFFSET + FONT["base"] + SPACE["sm"]
+_ITEMS_OFFSET = _DIVIDER_OFFSET + SPACE["md"]
+_ITEM_H = FONT["sm"] + SPACE["md"]
+_MAX_ITEMS = 7
+
+
+def _split_choices(choices) -> tuple[list[str], list[str]]:
+    normal: list[str] = []
+    hard: list[str] = []
+    for choice in choices or []:
+        category = getattr(choice, "category", None)
+        if category is None:
+            continue
+        value = getattr(category, "value", category)
+        if value == "EXC_NORMAL":
+            normal.extend(choice.choices)
+        elif value == "EXC_HARD":
+            hard.extend(choice.choices)
+    return normal[:_MAX_ITEMS], hard[:_MAX_ITEMS]
+
+
+def _draw_column(page, x: int, y: int, w: int, h: int, title: str, accent, items: list[str]) -> None:
+    """一列选择项卡片：顶部强调条 + 标题 + 分割线 + 条目。"""
+    palette = page.palette
+    cb = page.cb
+    C.draw_grid_card(page, x, y, w, h)
+
+    cb.set_color(accent)
+    cb.draw_rounded_rect(x + 14, y + 2, w - 28, 4, radius=2, fill=accent)
+
+    title_font = font("base")
+    title_w = C.measure(title, title_font)
+    cb.set_color(accent).set_font(title_font)
+    cb.add_text(title, x + (w - title_w) // 2, y + _TITLE_OFFSET)
+
+    cb.set_color(palette.border)
+    cb.draw_line(x + _PAD, y + _DIVIDER_OFFSET, x + w - _PAD, y + _DIVIDER_OFFSET, width=1)
+
+    item_font = font("sm")
+    bullet = "• "
+    bullet_w = C.measure(bullet, item_font)
+    item_y = y + _ITEMS_OFFSET
+    if not items:
+        cb.set_color(palette.text_dim).set_font(item_font)
+        cb.add_text("暂无", x + _PAD, item_y)
+        return
+
+    for item in items:
+        cb.set_color(accent).set_font(item_font)
+        cb.add_text(bullet, x + _PAD, item_y)
+        cb.set_color(palette.text).set_font(item_font)
+        cb.add_text(
+            C.fit_text(item, w - _PAD * 2 - bullet_w, item_font),
+            x + _PAD + bullet_w,
+            item_y,
+        )
+        item_y += _ITEM_H
 
 
 def render_duviri_card(
@@ -65,174 +97,55 @@ def render_duviri_card(
     """绘制双衍王境卡片。
 
     Args:
-        renderer: CardRenderer 实例。
+        renderer: CardRenderer 实例（保留参数以兼容渲染入口）。
         duviri: 双衍王境情绪循环数据。
-
-    Returns:
-        PIL Image 对象。
     """
     if duviri is None:
         return renderer.create_text_image("当前没有双衍王境数据", 800, 120)
 
-    # ---- 字体 ----
-    title_font = FontManager.get_text_font(56)
-    emotion_font = FontManager.get_text_font(36)
-    header_font = FontManager.get_text_font(26)
-    body_font = FontManager.get_text_font(22)
-    label_font = FontManager.get_text_font(18)
-    FontManager.get_text_font(16)
+    theme = current_theme()
+    palette = theme.palette
 
-    # ---- 画布 ----
-    cb = ImageCombiner(_CANVAS_W, _CANVAS_H, ThemeColor.BG_DARK)
-    cb.draw_double_border()
+    emotion = duviri.state or "未知"
+    emotion_color = adapt_color(_EMOTION_COLORS.get(emotion, "#5B8DEF"), theme)
+    info_rows = [
+        ("当前情绪", emotion, emotion_color),
+        ("剩余时间", duviri.time_left or "未知", palette.amber),
+    ]
 
-    # ---- 标题 ----
-    cb.set_color(ThemeColor.ACCENT_BLUE).set_font(title_font)
-    cb.add_centered_text("双衍王境", 36)
-
-    # ---- 分割线 ----
-    cb.set_color(ThemeColor.DIVIDER)
-    cb.draw_line(_CONTENT_MARGIN, 108, _CANVAS_W - _CONTENT_MARGIN, 108, width=1)
-
-    # ---- 情绪展示卡 ----
-    emotion_color = _EMOTION_COLORS.get(duviri.state, ThemeColor.ACCENT_BLUE)
-
-    emotion_card_w = 420
-    emotion_card_h = 110
-    emotion_card_x = (_CANVAS_W - emotion_card_w) // 2
-    emotion_card_y = 130
-
-    cb.set_color(ThemeColor.BG_CARD)
-    cb.draw_rounded_rect(emotion_card_x, emotion_card_y, emotion_card_w, emotion_card_h, radius=14)
-    cb.draw_rounded_rect(
-        emotion_card_x, emotion_card_y, emotion_card_w, emotion_card_h,
-        radius=14, fill=None, outline=emotion_color, stroke_width=2,
+    normal_items, hard_items = _split_choices(duviri.choices)
+    item_font = font("sm")
+    bullet_w = C.measure("• ", item_font)
+    longest = max(
+        (C.measure(item, item_font) for item in normal_items + hard_items),
+        default=0,
     )
-
-    cb.set_color(ThemeColor.TEXT_MUTED).set_font(label_font)
-    cb.add_centered_text("当前情绪", emotion_card_y + 16)
-    cb.set_color(emotion_color).set_font(emotion_font)
-    cb.add_centered_text(duviri.state, emotion_card_y + 48)
-
-    # ---- 剩余时间 ----
-    time_y = emotion_card_y + emotion_card_h + 24
-    cb.set_color(ThemeColor.WARNING).set_font(body_font)
-    cb.add_centered_text(f"剩余时间: {duviri.time_left}", time_y)
-
-    # ---- 选择项卡片 ----
-    choices_start_y = time_y + 40
-    choices = duviri.choices or []
-
-    if choices:
-        _draw_choices_section(cb, choices, choices_start_y, header_font, body_font)
-    else:
-        cb.set_color(ThemeColor.TEXT_MUTED).set_font(body_font)
-        cb.add_centered_text("暂无选择项数据", choices_start_y + 40)
-
-    # ---- 看板娘（内容之后绘制，避免被遮挡） ----
-    draw_standing(cb, max_w=300, max_h=450)
-
-    # ---- 底部署名 ----
-    cb.draw_card_footer(_CANVAS_H, 40, 16)
-
-    return cb.to_image()
-
-
-# ---------------------------------------------------------------------------
-# 选择项绘制
-# ---------------------------------------------------------------------------
-
-def _draw_choices_section(
-    cb: ImageCombiner,
-    choices: list[EndlessXpChoices],
-    start_y: int,
-    header_font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
-    body_font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
-) -> None:
-    """绘制双列选择项卡片。"""
-    normal_items: list[str] = []
-    hard_items: list[str] = []
-
-    for c in choices:
-        if c.category is None:
-            continue
-        if c.category.value == "EXC_NORMAL":
-            normal_items.extend(c.choices)
-        elif c.category.value == "EXC_HARD":
-            hard_items.extend(c.choices)
-
-    # 截断超长列表
-    normal_items = normal_items[:_MAX_ITEMS]
-    hard_items = hard_items[:_MAX_ITEMS]
-
-    # 两列等高，取最大条目数
+    # 列宽由最长条目决定，夹在 [220, 360]，避免一行字把卡撑爆
+    column_w = max(220, min(360, longest + bullet_w + _PAD * 2 + SPACE["sm"]))
     max_count = max(len(normal_items), len(hard_items), 1)
-    card_h = _CARD_HEADER_H + _ITEM_PAD_TOP + max_count * _ITEM_H + 16
+    column_h = _ITEMS_OFFSET + max_count * _ITEM_H + SPACE["md"]
 
-    _draw_column_card(
-        cb, _LEFT_X, start_y, _CARD_W, card_h,
-        "普通", _COLOR_NORMAL, normal_items, header_font, body_font,
+    gap = SPACE["lg"]
+    size = measure_card_size(
+        CardSpec(
+            title="双衍王境",
+            blocks=[
+                KvBlock(info_rows),
+                CustomBlock(width=column_w * 2 + gap, height=column_h),
+            ],
+            standing="md",
+        )
     )
-    _draw_column_card(
-        cb, _RIGHT_X, start_y, _CARD_W, card_h,
-        "钢铁之路", _COLOR_HARD, hard_items, header_font, body_font,
-    )
 
+    page = C.new_page(theme, size.width, size.height)
+    y = C.draw_header(page, "双衍王境")
+    y = C.draw_kv(page, info_rows, y + SPACE["md"])
 
-def _draw_column_card(
-    cb: ImageCombiner,
-    x: int,
-    y: int,
-    w: int,
-    h: int,
-    title: str,
-    accent: tuple[int, int, int],
-    items: list[str],
-    header_font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
-    body_font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
-) -> None:
-    """绘制单列选择项卡片。
+    left_x = page.content_x
+    right_x = left_x + column_w + gap
+    _draw_column(page, left_x, y, column_w, column_h, "普通", palette.gold, normal_items)
+    _draw_column(page, right_x, y, column_w, column_h, "钢铁之路", palette.red, hard_items)
 
-    结构:
-      ┌──────────────────┐
-      │ ████ 强调条 ████ │  ← 顶部 4px 彩色条
-      │    标题 (居中)    │  ← 标题
-      │ ─── 分割线 ──── │
-      │ • 奖励项1        │
-      │ • 奖励项2        │
-      │   ...           │
-      └──────────────────┘
-    """
-    # 卡片背景
-    cb.set_color(ThemeColor.BG_CARD)
-    cb.draw_rounded_rect(x, y, w, h, radius=_CARD_RADIUS)
-
-    # 顶部强调条 — 彩色条带横跨卡片顶部
-    cb.set_color(accent)
-    cb.fill_rect(x + _CARD_RADIUS, y + 2, w - 2 * _CARD_RADIUS, 4)
-
-    # 标题 — 居中、彩色
-    cb.set_color(accent).set_font(header_font)
-    title_w_val = cb.get_string_width(title)
-    cb.add_text(title, x + (w - title_w_val) // 2, y + 18)
-
-    # 分割线
-    cb.set_color(ThemeColor.DIVIDER)
-    cb.draw_line(x + 24, y + _CARD_HEADER_H, x + w - 24, y + _CARD_HEADER_H, width=1)
-
-    # 奖励项
-    item_y = y + _CARD_HEADER_H + _ITEM_PAD_TOP
-    cb.set_font(body_font)
-
-    if not items:
-        cb.set_color(ThemeColor.TEXT_MUTED)
-        cb.add_text("暂无", x + _ITEM_PAD_LEFT, item_y + 10)
-    else:
-        for item in items:
-            # 小圆点前缀
-            cb.set_color(accent)
-            cb.add_text("•", x + _ITEM_PAD_LEFT, item_y + 3)
-            # 奖励名称
-            cb.set_color(ThemeColor.TEXT_PRIMARY)
-            cb.add_text(item, x + _ITEM_PAD_LEFT + 14, item_y + 3)
-            item_y += _ITEM_H
+    frame.draw_standing_block(page, y + column_h, "md")
+    frame.draw_footer_block(page)
+    return page.cb.to_image()

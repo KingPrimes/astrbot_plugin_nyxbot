@@ -1,4 +1,15 @@
 {
+  "wf_card_theme": {
+    "type": "string",
+    "description": "卡片主题",
+    "options": [
+      "dark",
+      "light",
+      "custom"
+    ],
+    "default": "dark",
+    "hint": "图片渲染的主体配色。dark=深色（默认，贴近游戏内 UI）；light=浅色（适合白天或浅色聊天背景）；custom=自定义，配色由渲染工作台保存（未配置时等同 dark）。"
+  },
   "wf_data_init_mode": {
     "description": "数据初始化模式",
     "type": "string",

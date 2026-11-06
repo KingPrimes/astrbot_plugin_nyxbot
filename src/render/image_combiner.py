@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 
 from PIL import Image, ImageDraw, ImageFont
 
-from .draw_constant import DrawConstant, LayoutConstants, ThemeColor
+from .draw_constant import LayoutConstants, ThemeColor
 from .font_manager import FontManager
 from .graphics_utils import (
     create_rounded_image,
@@ -736,17 +736,29 @@ class ImageCombiner:
         canvas_h: int,
         footer_offset: int = 55,
         footer_font_size: int = 20,
+        text: str | None = None,
     ) -> ImageCombiner:
         """绘制卡片底部居中署名 — 消除 20 个 card_*.py 中的重复样板。
+
+        署名文本与开关来自品牌设置（:mod:`src.render.branding`，工作台可改），
+        不再是写死的 ``DrawConstant.FOOTER_TEXT``；关闭署名时本方法不绘制任何内容。
 
         Args:
             canvas_h: 画布总高度。
             footer_offset: 页脚文字距画布底部的偏移量。
             footer_font_size: 页脚字体大小（默认 20）。
+            text: 显式指定文案（优先级最高；传空串表示这张卡不署名）。
         """
+        if text is None:
+            from .branding import signature_text
+
+            text = signature_text()
+        if not text:
+            return self
+
         footer_font = FontManager.get_text_font(footer_font_size)
         self.set_color(ThemeColor.TEXT_MUTED).set_font(footer_font)
-        return self.add_centered_text(DrawConstant.FOOTER_TEXT, canvas_h - footer_offset)
+        return self.add_centered_text(text, canvas_h - footer_offset)
 
     # ========================================================================
     # 工具方法

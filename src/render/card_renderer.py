@@ -22,9 +22,12 @@ from PIL import Image, ImageDraw, ImageFont
 if TYPE_CHECKING:
     from astrbot.api.message_components import BaseMessageComponent
 
+    from .design import Theme
+
 from ..wenum.faction import FactionEnum
 from ..wenum.mission_type import MissionTypeEnum
 from .draw_constant import ThemeColor, hex_to_rgb
+from .theme import current_theme
 from .font_manager import FontManager
 
 
@@ -35,25 +38,12 @@ class CardRenderer:
     具体绘制逻辑委托给各 card_*.py 中的独立函数。
     """
 
-    # Warframe 暗色主题色板（向后兼容）
-    COLORS = {
-        "bg_dark": ThemeColor.BG_DARK,
-        "bg_card": ThemeColor.BG_CARD,
-        "bg_card_alt": ThemeColor.BG_CARD_ALT,
-        "accent": ThemeColor.ACCENT,
-        "accent_blue": ThemeColor.ACCENT_BLUE,
-        "accent_green": ThemeColor.ACCENT_GREEN,
-        "accent_gold": ThemeColor.ACCENT_GOLD,
-        "text_primary": ThemeColor.TEXT_PRIMARY,
-        "text_secondary": ThemeColor.TEXT_SECONDARY,
-        "text_muted": ThemeColor.TEXT_MUTED,
-        "reward_bg": ThemeColor.REWARD_BG,
-        "divider": ThemeColor.DIVIDER,
-        "success": ThemeColor.SUCCESS,
-        "warning": ThemeColor.WARNING,
-        "danger": ThemeColor.DANGER,
-        "info": ThemeColor.INFO,
-    }
+    # 卡片主题（dark / light / custom）统一由 theme.THEME_MANAGER 提供，
+    # 历史常量请用 draw_constant.ThemeColor，它已是主题代理。
+    @property
+    def theme(self) -> "Theme":
+        """当前卡片主题 — 配置驱动，见 :mod:`src.render.theme`。"""
+        return current_theme()
 
     # 字体大小预设
     FONT_SIZES = {

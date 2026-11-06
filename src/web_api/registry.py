@@ -7,6 +7,7 @@ from __future__ import annotations
 from astrbot.api.star import Context
 
 from .data_admin import register_data_apis
+from .relic_studio import register_relic_studio_apis
 
 
 def register_web_apis(context: Context) -> None:
@@ -16,3 +17,4 @@ def register_web_apis(context: Context) -> None:
         context: AstrBot 上下文实例。
     """
     register_data_apis(context)
+    register_relic_studio_apis(context)

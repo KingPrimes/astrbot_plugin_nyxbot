@@ -1,24 +1,25 @@
 """遗物卡片渲染器
 
-采用 3 列卡片网格布局，镜像 Java DefaultDrawRelicsImage.java：
-  - 每卡使用独立 ImageCombiner 子画布（卡片内文字居中）
-  - 遗物名称居中 + 奖励列表稀有度着色
-  - 双层边框 + 看板娘立绘 + 底部署名
+版式：页头（``遗物查询``）+ 三列遗物卡 + 看板娘 + 署名。
 
-与 card_season_info / card_fissures / card_invasions 保持统一色彩主题。
+每张卡：遗物名（金色居中）+ 奖励清单（按铜 → 银 → 金 → 紫排序，稀有度着色）。
+卡片宽 = 最长一行（夹在 340~520），高 = 名称行 + 奖励行数累加，整张卡统一取最高的一张，
+这样三列网格不会出现高低不齐。
+
+看板娘占一个「虚拟格位」：末行没排满就落在空位里，排满了就另起一行的第一格，
+两种情况下都只向下溢出，不会压到卡片。
 """
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from PIL import ImageFont
-
-from ..wenum.rarity import RarityEnum
-from .draw_constant import LayoutConstants, ThemeColor
-from .font_manager import FontManager
-from .image_combiner import ImageCombiner
-from .standing import draw_standing_at
+from . import card_frame as frame
+from . import components as C
+from .card_size import CardSpec, CustomBlock, measure_card_size
+from .design import FONT, MAX_WIDTH, PAD, RGB, SPACE, font
+from .theme import current_theme
 
 if TYPE_CHECKING:
     from PIL import Image
@@ -26,129 +27,86 @@ if TYPE_CHECKING:
     from ..model.export.relics import Relics
     from .card_renderer import CardRenderer
 
-
-# ---------------------------------------------------------------------------
-# 布局常量
-# ---------------------------------------------------------------------------
-
-_CANVAS_W = 1900
-_CONTENT_X, _CONTENT_W = LayoutConstants.get_content_bounds(_CANVAS_W)
-
-_COLS = 3
-_COL_GAP = 20
-_CARD_W = (_CONTENT_W - (_COLS - 1) * _COL_GAP) // _COLS  # 580
-_CARD_H = 480
-_CARD_RADIUS = 14
-_CARD_PAD = 20
-_ROW_GAP = 16
-
-_COL_X = (
-    _CONTENT_X,                                          # Col 0: 60
-    _CONTENT_X + _CARD_W + _COL_GAP,                     # Col 1: 660
-    _CONTENT_X + 2 * (_CARD_W + _COL_GAP),               # Col 2: 1260
-)
-
-_TITLE_Y = 60
-_CONTENT_START_Y = 175
-_FOOTER_OFFSET = 50
-
-# 看板娘尺寸（等比放大，_STANDING_H 略大于 _CARD_H 使立绘自然延伸）
-_STANDING_W = 360
-_STANDING_H = 530
-
-# 奖励稀有度颜色（镜像 Java getRarityColor）
-_RARITY_COLORS: dict[str, tuple[int, int, int]] = {
-    "COMMON": ThemeColor.VOID_T2,       # #75562B 棕色
-    "UNCOMMON": ThemeColor.VOID_T3,     # #B3B3B3 银色
-    "RARE": ThemeColor.VOID_T4,         # #C1BE39 金色
-    "LEGENDARY": ThemeColor.ACCENT_GOLD,
-}
+#: 每行列数。
+_COLUMNS = 3
+#: 列间距 / 行间距。
+_GAP = SPACE["lg"]
+#: 卡片内边距。
+_CARD_PAD = SPACE["lg"]
+#: 卡片宽下限 / 上限。
+_MIN_CARD_W = 340
+_MAX_CARD_W = 520
+#: 单条奖励行高。
+_REWARD_LINE_H = FONT["base"] + SPACE["xs"]
 
 
-# ---------------------------------------------------------------------------
-# 辅助函数
-# ---------------------------------------------------------------------------
+@dataclass(frozen=True)
+class _RelicCard:
+    """一张遗物卡的绘制文案。"""
 
-def _rarity_sort_order(rarity_str: str | None) -> int:
-    """稀有度排序权重：Common(0) → Uncommon(1) → Rare(2) → Legendary(3)。"""
-    if not rarity_str:
-        return 99
-    try:
-        return RarityEnum[rarity_str].tier
-    except (KeyError, ValueError):
-        return RarityEnum.from_en_name(rarity_str).tier
+    name: str
+    rewards: list[tuple[str, RGB]]
+    height: int
 
 
-def _get_rarity_color(rarity_str: str | None) -> tuple[int, int, int]:
-    """将稀有度字符串映射为显示颜色。"""
-    if not rarity_str:
-        return ThemeColor.TEXT_SECONDARY
-    return _RARITY_COLORS.get(rarity_str.upper(), ThemeColor.TEXT_SECONDARY)
+def _rarity_color(rarity: str | None, palette) -> RGB:
+    """稀有度 → 主题色板（未知名按常见处理）。"""
+    return {
+        0: palette.rarity_common,
+        1: palette.rarity_uncommon,
+        2: palette.rarity_rare,
+        3: palette.rarity_legendary,
+    }[C.rarity_rank(rarity)]
 
 
-def _draw_one_relic_card(
-    relic: Relics,
-    name_font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
-    reward_font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
-) -> Image.Image:
-    """绘制单张遗物卡片 — 使用独立 ImageCombiner 子画布。
-
-    镜像 Java drawRelicCard()：每卡独立画布 → 叠加到主画布。
-    卡片内文字使用 add_centered_text 自然居中。
-
-    Args:
-        relic: Relics 模型对象（含 prefetch 的 relic_rewards）。
-        name_font: 名称字体。
-        reward_font: 奖励字体。
-
-    Returns:
-        PIL Image 对象（_CARD_W × _CARD_H）。
-    """
-    card_cb = ImageCombiner(_CARD_W, _CARD_H, ThemeColor.BG_CARD)
-
-    # 圆角边框（直接使用 Pillow API，绕开 ImageCombiner 的 fill=None→白色回退 bug）
-    card_cb._draw.rounded_rectangle(
-        [(0, 0), (_CARD_W - 1, _CARD_H - 1)],
-        radius=_CARD_RADIUS,
-        fill=None,
-        outline=ThemeColor.DIVIDER,
-        width=2,
-    )
-
-    # 遗物名称（居中）
+def _build_card(relic: Relics, palette) -> _RelicCard:
+    """把一个遗物转成绘制文案。"""
     name = relic.name or relic.uniqueName or "未知遗物"
-    card_cb.set_color(ThemeColor.ACCENT_GOLD).set_font(name_font)
-    card_cb.add_centered_text(name, 55)
-
-    # 奖励列表（铜→银→金，每行 55px，稀有度着色）
     rewards = sorted(
         relic.relic_rewards,
-        key=lambda r: (_rarity_sort_order(r.rarity), r.rewardName or ""),
+        key=lambda reward: (C.rarity_rank(reward.rarity), reward.rewardName or ""),
     )
-    reward_y = 115
-    for reward in rewards:
-        reward_name = reward.get_reward_name()
-        rarity_color = _get_rarity_color(reward.rarity)
-        card_cb.set_color(rarity_color).set_font(reward_font)
-        card_cb.add_centered_text(reward_name, reward_y)
-        reward_y += 55
-
-    return card_cb.to_image()
+    lines = [
+        (reward.get_reward_name(), _rarity_color(reward.rarity, palette)) for reward in rewards
+    ]
+    height = _CARD_PAD * 2 + FONT["lg"] + SPACE["md"] + len(lines) * _REWARD_LINE_H
+    return _RelicCard(name=name, rewards=lines, height=height)
 
 
-# ---------------------------------------------------------------------------
-# 主渲染函数
-# ---------------------------------------------------------------------------
+def _center_text(page, text: str, text_font, color: RGB, x: int, width: int, y: int) -> None:
+    """在 ``[x, x+width)`` 内水平居中绘制一行。"""
+    shown = C.fit_text(text, width, text_font)
+    page.cb.set_color(color).set_font(text_font)
+    page.cb.add_text(shown, x + (width - C.measure(shown, text_font)) // 2, y)
+
+
+def _draw_card(page, card: _RelicCard, x: int, y: int, width: int, height: int) -> None:
+    """画一张遗物卡（名称居中 + 奖励逐行居中）。"""
+    palette = page.palette
+    C.draw_grid_card(page, x, y, width, height)
+
+    inner_w = width - _CARD_PAD * 2
+    name_font = font("lg", bold=True)
+    _center_text(
+        page, card.name, name_font, palette.gold, x + _CARD_PAD, inner_w, y + _CARD_PAD
+    )
+
+    cursor_y = y + _CARD_PAD + FONT["lg"] + SPACE["md"]
+    reward_font = font("base")
+    for text, color in card.rewards:
+        _center_text(page, text, reward_font, color, x + _CARD_PAD, inner_w, cursor_y)
+        cursor_y += _REWARD_LINE_H
+
 
 def render_relic_card(
     renderer: CardRenderer,
     relics: list[Relics],
 ) -> Image.Image:
-    """绘制遗物信息卡片 — 3 列网格 + 双层边框 + 看板娘 + 底部署名。
+    """绘制遗物信息卡片。
 
     Args:
-        renderer: CardRenderer 实例。
-        relics: Relics 模型列表（已 prefetch relic_rewards）。
+        renderer: CardRenderer 实例（保留参数以兼容渲染入口）。
+        relics: Relics 模型列表（已 prefetch ``relic_rewards``）。
 
     Returns:
         PIL Image 对象。
@@ -156,75 +114,70 @@ def render_relic_card(
     if not relics:
         return renderer.create_text_image("未找到遗物数据", 800, 120)
 
-    # ---- 字体 ----
-    title_font = FontManager.get_text_font(64)
-    name_font = FontManager.get_text_font(42)
-    reward_font = FontManager.get_text_font(32)
-    FontManager.get_text_font(26)
+    theme = current_theme()
+    palette = theme.palette
+    cards = [_build_card(relic, palette) for relic in relics]
+    subtitle = f"共 {len(cards)} 个遗物"
 
-    # ---- 布局计算 ----
-    n = len(relics)
-    rows = math.ceil(n / _COLS)
-    last_row_full = n % _COLS == 0
+    # ---- 卡片尺寸：宽取最长一行，高取最高的一张（网格才齐）----
+    name_font = font("lg", bold=True)
+    reward_font = font("base")
+    intrinsic = 0
+    for card in cards:
+        intrinsic = max(intrinsic, C.measure(card.name, name_font))
+        for text, _color in card.rewards:
+            intrinsic = max(intrinsic, C.measure(text, reward_font))
+    # 三列布局时单卡不能超过「内容宽 ÷ 3」，否则最后一列会被画布裁掉
+    max_card_w = (MAX_WIDTH - PAD * 2 - (_COLUMNS - 1) * _GAP) // _COLUMNS
+    card_w = max(_MIN_CARD_W, min(_MAX_CARD_W, max_card_w, intrinsic + _CARD_PAD * 2))
+    card_h = max(card.height for card in cards)
 
-    # 看板娘始终在 Col 2：末行满则追加占位行
-    if last_row_full:
-        total_rows = rows + 1
-        standing_card_row = rows
-    else:
-        total_rows = rows
-        standing_card_row = rows - 1
+    # ---- 看板娘占一个虚拟格位 ----
+    slot_w = card_w - _CARD_PAD * 2
+    cell = frame.standing_cell_size(slot_w, card_h * 2)
+    reserved = 1 if cell[1] else 0
+    extra_h = max(0, cell[1] - card_h) if cell[1] else 0
 
-    cards_h = total_rows * _CARD_H + (total_rows - 1) * _ROW_GAP
-    content_end = _CONTENT_START_Y + cards_h
-    canvas_h = max(content_end + _FOOTER_OFFSET + 30, 600)
+    total_slots = len(cards) + reserved
+    grid_rows = math.ceil(total_slots / _COLUMNS)
+    grid_w = card_w * _COLUMNS + (_COLUMNS - 1) * _GAP
+    grid_h = grid_rows * card_h + (grid_rows - 1) * _GAP
 
-    # ---- 画布 ----
-    cb = ImageCombiner(_CANVAS_W, canvas_h, ThemeColor.BG_DARK)
+    size = measure_card_size(
+        CardSpec(
+            title="遗物查询",
+            subtitle=subtitle,
+            blocks=[CustomBlock(width=grid_w, height=grid_h + extra_h)],
+            standing=None,
+        )
+    )
 
-    # ---- 双层边框 ----
-    cb.draw_default_double_border()
+    page = C.new_page(theme, size.width, size.height)
+    y = C.draw_header(page, "遗物查询", subtitle)
 
-    # ---- 标题 ----
-    cb.set_color(ThemeColor.ACCENT_GOLD).set_font(title_font)
-    cb.add_centered_text("遗物查询", _TITLE_Y)
+    grid_x = page.content_x + max(0, (page.content_w - grid_w) // 2)
+    for index, card in enumerate(cards):
+        row, column = divmod(index, _COLUMNS)
+        _draw_card(page, card, grid_x + column * (card_w + _GAP), y + row * (card_h + _GAP), card_w, card_h)
 
-    # ---- 分割线 ----
-    cb.draw_content_divider(_TITLE_Y + 68, _CONTENT_X, _CONTENT_W)
-
-    # ---- 遗物卡片（3 列网格） ----
-    for i, relic in enumerate(relics):
-        row = i // _COLS
-        col = i % _COLS
-        card_x = _COL_X[col]
-        card_y = _CONTENT_START_Y + row * (_CARD_H + _ROW_GAP)
-        card_img = _draw_one_relic_card(relic, name_font, reward_font)
-        cb.draw_image(card_img, card_x, card_y)
-
-    # ---- 看板娘（始终在 Col 2 位置） ----
-    standing_x = _COL_X[2] + (_CARD_W - _STANDING_W) // 2
-    standing_y = _CONTENT_START_Y + standing_card_row * (_CARD_H + _ROW_GAP)
-    draw_standing_at(cb, standing_x, standing_y, _STANDING_W, _STANDING_H)
-
-    # ---- 底部署名 ----
-    cb.draw_card_footer(canvas_h, _FOOTER_OFFSET, 26)
-
-    return cb.to_image()
+    if reserved:
+        row, column = divmod(len(cards), _COLUMNS)
+        frame.draw_standing_in_cell(
+            page,
+            grid_x + column * (card_w + _GAP) + _CARD_PAD,
+            y + row * (card_h + _GAP),
+            slot_w,
+            card_h * 2,
+        )
+    frame.draw_footer_block(page)
+    return page.cb.to_image()
 
 
 # ---------------------------------------------------------------------------
 # 使用说明卡（/遗物 无参数时展示）
 # ---------------------------------------------------------------------------
 
-_HELP_W = 1300
-_HELP_TITLE_Y = 52
-_HELP_DIVIDER_Y = 124
-_HELP_TOP = 160
-_HELP_ROW_H = 92
-_HELP_ROW_GAP = 12
-_HELP_STANDING_W = 280
-_HELP_STANDING_H = 360
-
+#: 用法条目：(标签, 示例指令, 说明)。
 _HELP_ROWS: tuple[tuple[str, str, str], ...] = (
     ("按遗物名", "/遗物 中纪 A1", "精确查这一个遗物，只出 1 张卡"),
     ("按奖励", "/遗物 Frost Prime", "列出含该奖励的所有遗物（如 13 条）"),
@@ -232,76 +185,89 @@ _HELP_ROWS: tuple[tuple[str, str, str], ...] = (
     ("按别名", "/核桃 后纪 S5", "/核桃 是 /遗物 的别名，用法相同"),
 )
 
+#: 只写档位时的提示。
 _HELP_TIERS = "古纪 / 前纪 / 中纪 / 后纪 / 安魂"
 
 
 def render_relic_help_card(renderer: CardRenderer) -> Image.Image:
-    """绘制 `/遗物` 使用说明卡片。
+    """绘制 `/遗物` 使用说明卡片：四条用法 + 「只写档位会被拒绝」提示。
 
     Args:
-        renderer: CardRenderer 实例（保持与其他卡片一致的资源入口）。
+        renderer: CardRenderer 实例（保留参数以兼容渲染入口）。
 
     Returns:
         PIL Image 对象。
     """
-    content_x, content_w = LayoutConstants.get_content_bounds(_HELP_W)
-    row_w = content_w - _HELP_STANDING_W - 60
+    theme = current_theme()
+    palette = theme.palette
 
-    rows_h = len(_HELP_ROWS) * (_HELP_ROW_H + _HELP_ROW_GAP)
-    warn_y = _HELP_TOP + rows_h + 8
-    warn_h = 96
-    canvas_h = warn_y + warn_h + 90
+    label_font = font("sm")
+    cmd_font = font("md")
+    desc_font = font("base")
+    label_w = max(C.measure(label, label_font) for label, _cmd, _desc in _HELP_ROWS)
+    body_x = _CARD_PAD + label_w + SPACE["3xl"]
+    body_w = max(
+        max(C.measure(cmd, cmd_font), C.measure(desc, desc_font))
+        for _label, cmd, desc in _HELP_ROWS
+    )
 
-    title_font = FontManager.get_text_font(36)
-    label_font = FontManager.get_text_font(24)
-    cmd_font = FontManager.get_text_font(26)
-    desc_font = FontManager.get_text_font(20)
+    row_h = FONT["md"] + SPACE["xs"] + FONT["base"] + SPACE["lg"]
+    warn_h = FONT["sm"] + SPACE["sm"] + FONT["base"] + SPACE["md"] * 2
+    warn_title = "只写档位会被拒绝"
+    warn_text = f"{_HELP_TIERS} 只是档位，请补上编号（如 中纪 A1）"
+    panel_w = max(
+        body_x + body_w + _CARD_PAD,
+        _CARD_PAD * 2 + C.measure(warn_title, label_font) + SPACE["3xl"] + C.measure(warn_text, desc_font),
+    )
+    panel_h = (
+        _CARD_PAD * 2
+        + len(_HELP_ROWS) * (row_h + SPACE["sm"])
+        + warn_h
+    )
 
-    cb = ImageCombiner(_HELP_W, canvas_h, ThemeColor.BG_DARK)
-    cb.draw_default_double_border()
-
-    # ---- 标题 ----
-    cb.set_color(ThemeColor.ACCENT_BLUE).set_font(title_font)
-    cb.add_centered_text("遗物查询使用说明", _HELP_TITLE_Y)
-    cb.draw_content_divider(_HELP_DIVIDER_Y, content_x, content_w)
-
-    # ---- 用法条目 ----
-    y = _HELP_TOP
-    for label, command, desc in _HELP_ROWS:
-        cb.set_color(ThemeColor.BG_CARD)
-        cb.draw_rounded_rect(
-            content_x, y, row_w, _HELP_ROW_H, radius=10, fill=ThemeColor.BG_CARD
+    size = measure_card_size(
+        CardSpec(
+            title="遗物查询使用说明",
+            blocks=[CustomBlock(width=panel_w, height=panel_h)],
+            standing="md",
+            header_gap=SPACE["md"],
         )
-
-        cb.set_color(ThemeColor.ACCENT_GOLD).set_font(label_font)
-        cb.add_text(label, content_x + 24, y + 32)
-
-        cb.set_color(ThemeColor.TEXT_PRIMARY).set_font(cmd_font)
-        cb.add_text(command, content_x + 170, y + 14)
-
-        cb.set_color(ThemeColor.TEXT_SECONDARY).set_font(desc_font)
-        cb.add_text(desc, content_x + 170, y + 52)
-
-        y += _HELP_ROW_H + _HELP_ROW_GAP
-
-    # ---- 警示：只给档位会被拒绝 ----
-    cb.set_color(ThemeColor.BG_CARD_ALT)
-    cb.draw_rounded_rect(
-        content_x, warn_y, row_w, warn_h, radius=10, fill=ThemeColor.BG_CARD_ALT
     )
-    cb.set_color(ThemeColor.ACCENT).set_font(label_font)
-    cb.add_text("只写档位会被拒绝", content_x + 24, warn_y + 18)
-    cb.set_color(ThemeColor.TEXT_SECONDARY).set_font(desc_font)
-    cb.add_text(_HELP_TIERS + " 只是档位，请补上编号（如 中纪 A1）", content_x + 24, warn_y + 56)
 
-    # ---- 看板娘 + 署名 ----
-    draw_standing_at(
-        cb,
-        content_x + row_w + 40,
-        _HELP_TOP,
-        _HELP_STANDING_W,
-        _HELP_STANDING_H,
+    page = C.new_page(theme, size.width, size.height)
+    y = C.draw_header(page, "遗物查询使用说明")
+
+    top = y + SPACE["md"]
+    row_w = max(panel_w, page.content_w)
+    cursor_y = top + _CARD_PAD
+
+    for label, command, desc in _HELP_ROWS:
+        C.draw_grid_card(page, page.content_x, cursor_y, row_w, row_h)
+        page.cb.set_color(palette.gold).set_font(label_font)
+        page.cb.add_text(
+            label, page.content_x + _CARD_PAD, cursor_y + (row_h - FONT["sm"]) // 2
+        )
+        page.cb.set_color(palette.text).set_font(cmd_font)
+        page.cb.add_text(command, page.content_x + body_x, cursor_y + SPACE["sm"])
+        page.cb.set_color(palette.text_muted).set_font(desc_font)
+        page.cb.add_text(
+            desc,
+            page.content_x + body_x,
+            cursor_y + SPACE["sm"] + FONT["md"] + SPACE["xs"],
+        )
+        cursor_y += row_h + SPACE["sm"]
+
+    # 警示：只写档位会被拒绝
+    C.draw_grid_card(page, page.content_x, cursor_y, row_w, warn_h)
+    page.cb.set_color(palette.amber).set_font(label_font)
+    page.cb.add_text(warn_title, page.content_x + _CARD_PAD, cursor_y + SPACE["md"])
+    page.cb.set_color(palette.text_muted).set_font(desc_font)
+    page.cb.add_text(
+        warn_text,
+        page.content_x + _CARD_PAD,
+        cursor_y + SPACE["md"] + FONT["sm"] + SPACE["sm"],
     )
-    cb.draw_card_footer(canvas_h, 50, 22)
 
-    return cb.to_image()
+    frame.draw_standing_block(page, top + panel_h, "md")
+    frame.draw_footer_block(page)
+    return page.cb.to_image()

@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>遗物查询 · 渲染样板</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="dot"></span>
+      遗物查询 · 渲染样板
+    </div>
+    <div class="status" id="status">加载中…</div>
+  </header>
+
+  <main>
+    <aside class="panel search">
+      <div class="search-row">
+        <input id="q" type="search" placeholder="遗物名，例如 中纪 / 后纪 H3" autocomplete="off" />
+        <button id="search" class="primary">查询</button>
+      </div>
+      <div class="row-meta" id="result-meta">—</div>
+      <ul id="results" class="results"></ul>
+      <div class="search-actions">
+        <button id="select-all" class="ghost">全选</button>
+        <button id="select-none" class="ghost">清空</button>
+      </div>
+    </aside>
+
+    <section class="panel preview">
+      <div class="preview-head">
+        <span id="preview-meta">尚未渲染</span>
+        <div class="actions">
+          <button id="render" class="primary">重新渲染</button>
+          <button id="save" class="ghost">保存版式</button>
+          <button id="reset" class="ghost">恢复默认</button>
+          <button id="export" class="ghost">导出 JSON</button>
+        </div>
+      </div>
+      <div class="canvas" id="canvas">
+        <div class="placeholder" id="placeholder">左侧选择遗物，右侧调版式，预览会自动刷新</div>
+        <img id="shot" alt="遗物卡预览" hidden />
+      </div>
+    </section>
+
+    <aside class="panel controls">
+      <h3>版式参数</h3>
+      <label class="field">主题
+        <select id="theme">
+          <option value="dark">深色 dark</option>
+          <option value="light">浅色 light</option>
+          <option value="custom">自定义 custom</option>
+        </select>
+      </label>
+      <label class="field">列数 <b id="columns-val">3</b>
+        <input id="columns" type="range" min="2" max="4" step="1" value="3" />
+      </label>
+      <label class="field">最多遗物 <b id="maxItems-val">20</b>
+        <input id="maxItems" type="range" min="1" max="40" step="1" value="20" />
+      </label>
+      <label class="field">每题奖励 <b id="rewardsPerCard-val">6</b>
+        <input id="rewardsPerCard" type="range" min="1" max="6" step="1" value="6" />
+      </label>
+      <label class="field">奖励名换行
+        <select id="rewardLines">
+          <option value="1" selected>1 行（超出省略）</option>
+          <option value="2">2 行（换行显示）</option>
+        </select>
+      </label>
+      <label class="check"><input id="showDucats" type="checkbox" checked /> 显示杜卡德</label>
+
+      <h3>看板娘</h3>
+      <label class="check"><input id="standingEnabled" type="checkbox" checked /> 显示看板娘</label>
+      <label class="check"><input id="standingSeasonal" type="checkbox" checked /> 跟随季节换装</label>
+      <label class="field">尺寸
+        <select id="standingSize">
+          <option value="sm">小 sm（200×300）</option>
+          <option value="md" selected>中 md（280×420）</option>
+          <option value="lg">大 lg（360×540）</option>
+        </select>
+      </label>
+
+      <h3>署名</h3>
+      <label class="check"><input id="footerEnabled" type="checkbox" checked /> 显示署名</label>
+      <label class="field">文本
+        <input id="footerText" type="text" maxlength="120" placeholder="Posted by: KingPrimes" />
+      </label>
+
+      <h3>区块</h3>
+      <div id="blocks" class="blocks"></div>
+      <p class="tip">区块顺序固定为 页头 → 信息条 → 网格 → 看板娘 → 页脚；后续工作台会支持拖拽排序。</p>
+
+      <details class="global">
+        <summary>全局默认（其他卡片）</summary>
+        <label class="field">署名文本
+          <input id="globalSignature" type="text" maxlength="120" placeholder="Posted by: KingPrimes" />
+        </label>
+        <label class="check"><input id="globalSignatureEnabled" type="checkbox" checked /> 显示署名</label>
+        <label class="check"><input id="globalStanding" type="checkbox" checked /> 显示看板娘</label>
+        <label class="check"><input id="globalStandingSeasonal" type="checkbox" checked /> 跟随季节换装</label>
+        <button id="saveBranding" class="ghost">保存全局设置</button>
+        <p class="tip">作用于尚未迁移到版式系统的卡片；遗物卡以上面的版式设置为准。</p>
+      </details>
+    </aside>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>
