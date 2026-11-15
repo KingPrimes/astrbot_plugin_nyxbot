@@ -33,7 +33,12 @@ from ..config.config import (
     get_wf_help_logo_url,
 )
 from ..help import build_help_sections
-from ..help.buttons import build_help_buttons, command_from_action_id, is_help_button
+from ..help.buttons import (
+    build_help_buttons,
+    buttons_truncated,
+    command_from_action_id,
+    is_help_button,
+)
 from ..help.catalog import find_help_entry
 from ..help.dispatch import chain_has_media, resolve_command_handler
 from ..help.format import resolve_help_format
@@ -54,11 +59,18 @@ async def wf_help(
         # 链接菜单开启时按钮只收无参数指令（参数指令由链接承载，点击自动
         # 填入发送框），链接关闭时按钮回退为全量（参数指令仅提示用法）
         inline_links = get_wf_help_inline_links()
+        include_params = not inline_links
         buttons = (
-            build_help_buttons(sections, include_params=not inline_links)
+            build_help_buttons(sections, include_params=include_params)
             if get_wf_help_buttons()
             else []
         )
+        # 键盘装不下时（兜底模式 18 条目占 7 行 > QQ 5 行上限）正文回退
+        # 完整分节列表，保证被截断的指令至少有文字说明——内容不缺
+        compact = bool(buttons) and not inline_links
+        if compact and buttons_truncated(sections, buttons, include_params):
+            compact = False
+            logger.warning("帮助按钮超出键盘行数上限，正文回退为完整分节列表")
         logo_url = get_wf_help_logo_url()
         logo_size = get_wf_help_logo_size()
         if logo_url and parse_logo_size(logo_size) is None:
@@ -68,7 +80,7 @@ async def wf_help(
             )
         text = format_help_markdown(
             sections,
-            compact=bool(buttons) and not inline_links,
+            compact=compact,
             logo_url=logo_url,
             logo_size=logo_size,
             link_menu=inline_links,

@@ -27,11 +27,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import astrbot.api.message_components as Comp
+from astrbot.api import logger
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from .catalog import HelpSection
+    from .catalog import HelpEntry, HelpSection
 
 #: 帮助按钮 id 前缀：``nyxbot:help:<指令名>``。
 #: 回调按前缀判断归属，避免误吃其它插件/功能的按钮点击。
@@ -73,7 +74,7 @@ def _is_long_label(command: str) -> bool:
     return len(command) > LONG_LABEL_THRESHOLD and not command.isdigit()
 
 
-def _make_button(entry) -> Comp.Button:
+def _make_button(entry: HelpEntry) -> Comp.Button:
     """按条目构建一个按钮 / Build one button for an entry.
 
     样式按能力区分：参数指令用成功色（仅 ``include_params`` 兜底模式
@@ -91,6 +92,36 @@ def _make_button(entry) -> Comp.Button:
     )
 
 
+def count_button_eligible(
+    sections: Sequence[HelpSection], include_params: bool = False
+) -> int:
+    """统计应进按钮的条目数 / Count entries eligible for a button slot.
+
+    与 :func:`build_help_buttons` 的筛选口径一致（``include_params`` 决定
+    参数指令是否计入），供调用方判断键盘是否装下了全部条目。
+    """
+    return sum(
+        1
+        for section in sections
+        for entry in section.entries
+        if entry.button and (include_params or not entry.arg_hint)
+    )
+
+
+def buttons_truncated(
+    sections: Sequence[HelpSection],
+    rows: Sequence[Comp.ActionRow],
+    include_params: bool = False,
+) -> bool:
+    """按钮是否因键盘行数上限被截断 / Whether the keyboard dropped entries.
+
+    ``True`` 表示有应进按钮的指令没有按钮位——调用方应让正文覆盖这些
+    指令（回退完整分节列表），避免它们在帮助消息里彻底不可见。
+    """
+    placed = sum(len(row.buttons) for row in rows)
+    return placed < count_button_eligible(sections, include_params)
+
+
 def build_help_buttons(
     sections: Sequence[HelpSection], include_params: bool = False
 ) -> list[Comp.ActionRow]:
@@ -103,7 +134,8 @@ def build_help_buttons(
       时（链接菜单关闭的兜底场景）参数指令也进按钮，点击只回用法提示。
     - **宽度分组**：长标签（>2 字，数字除外）一行 2 列，其余一行 4 列；
       短组在前保持目录开头的顺序。总行数受 QQ 5 行上限约束，超出截断
-      （默认 12 按钮只占 4 行，不会触发）。
+      并打告警日志（兜底模式 18 条目会占 7 行，必截断——调用方应据
+      :func:`buttons_truncated` 回退完整正文，保证内容不缺）。
 
     Args:
         sections: :func:`src.help.catalog.build_help_sections` 的返回值。
@@ -137,4 +169,13 @@ def build_help_buttons(
                     fallback_text=FALLBACK_TEXT,
                 )
             )
+
+    if len(rows) > MAX_ROWS:
+        dropped = count_button_eligible(sections, include_params) - sum(
+            len(row.buttons) for row in rows[:MAX_ROWS]
+        )
+        logger.warning(
+            f"帮助按钮超出 QQ 键盘 {MAX_ROWS} 行上限，{dropped} 个指令未获按钮；"
+            "正文应回退完整分节列表避免内容缺失"
+        )
     return rows[:MAX_ROWS]
