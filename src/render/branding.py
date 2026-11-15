@@ -1,9 +1,8 @@
 """Branding / 品牌设置（署名 + 看板娘）
 
-两条渲染路径需要同一份「署名文案」和「看板娘开关」：
-
-* 旧路径：``ImageCombiner.draw_card_footer()``（20 张未迁移卡片）
-* 新路径：``card_frame`` 的页脚与看板娘绘制
+渲染路径需要同一份「署名文案」和「看板娘开关」——由 ``card_frame`` 的
+页脚与看板娘绘制统一消费（审查 P2-7：旧路径 ``ImageCombiner.draw_card_footer``
+已随无调用删除）。
 
 因此这些值既不能写死在 :class:`DrawConstant`（现在是 ``Final`` 常量），
 也不适合塞进 ``_conf_schema.json``（插件配置只保留主题切换）。折中做法：
