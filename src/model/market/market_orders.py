@@ -109,5 +109,9 @@ class Orders(BaseModelWithAlias):
     req_mastery_rank: int = Field(default=0, alias="reqMasteryRank")
     trading_tax: int = Field(default=0, alias="tradingTax")
     orders: list[OrderWithUser] = Field(default_factory=list)
-    whispers: list[WhisperEntry] = Field(default_factory=list)
-    """与 orders 一一对应的私聊语句（/w <序号> 取用）。"""
+    whispers: list[WhisperEntry | None] = Field(default_factory=list)
+    """与 orders 等长对齐的私聊语句（/w <序号> 按表格行号取用）。
+
+    卖家未公开游戏名的订单占位 ``None``：序号永远等于表格行号，
+    按钮标签与取句内容不会因过滤而错位。
+    """

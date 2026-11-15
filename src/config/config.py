@@ -185,13 +185,70 @@ class PluginConfig:
 
     @property
     def qq_markdown_enabled(self) -> bool:
-        """QQ 官方机器人优先使用 Markdown 消息格式。
+        """是否以 Markdown 发送帮助与市场订单（设置项「使用 Markdown 进行回复」）。
+
+        键名保留 ``qq_markdown_enabled`` 以兼容老配置。作用范围（2026-11-16
+        用户拍板：其余指令一律图片回复）：
+
+        - 帮助消息（内联指令链接菜单依赖它，见 ``src/markdown/help.py``）；
+        - 市场订单查询 WM（表格 + 序号取句按钮，见 ``src/markdown/market_orders.py``）。
+
+        平台能不能渲染由 ``util.markdown_utils.MARKDOWN_CAPABLE_PLATFORMS``
+        判定，两者合成最终发送方式（Markdown 或图片）。
 
         默认与 ``_conf_schema.json`` 一致为 ``False``（审查 P2-8：两处
         必须同值，schema 的默认值会被 AstrBot 落盘，代码回退值仅在
         键缺失时兜底，两者对立会造成语义混乱）。
         """
         return bool(self.get("qq_markdown_enabled", False))
+
+    @property
+    def wf_help_buttons(self) -> bool:
+        """帮助消息是否附带可点击按钮。
+
+        QQ 官方机器人的内联键盘属于独立权限，与 Markdown 权限分开开通；
+        被平台拒绝时关掉此项即可回到「只有文本 / 图片」的帮助。
+        """
+        return bool(self.get("wf_help_buttons", True))
+
+    @property
+    def wf_help_inline_links(self) -> bool:
+        """帮助 Markdown 是否使用内联指令链接菜单。
+
+        菜单项是 ``mqqapi://aio/inlinecmd`` 客户端链接（同类 QQ 机器人
+        验证过的成熟做法）：点击后把指令填入发送框，不依赖内联键盘权限；
+        若平台拒绝含链接的消息，关闭此项回退为纯文本列表。
+        """
+        return bool(self.get("wf_help_inline_links", True))
+
+    @property
+    def wf_whisper_buttons(self) -> bool:
+        """市场订单卡片是否附带序号取句按钮（与帮助按钮互相独立）。
+
+        WM 的 Markdown 表格下方按钮：点击回复对应表格行号的私聊语句，
+        长按复制进游戏；此前复用 ``wf_help_buttons``，2026-11-16 评审
+        指出语义耦合后拆分为独立开关。
+        """
+        return bool(self.get("wf_whisper_buttons", True))
+
+    @property
+    def wf_help_logo_url(self) -> str:
+        """帮助消息顶部的项目图标 URL；空串表示不带图标。
+
+        QQ 官方 Markdown 的图片只支持公网 URL（开放平台会下载转存），
+        本地文件路径无效；默认取插件仓库内 logo 的 jsDelivr 地址。
+        """
+        return str(self.get("wf_help_logo_url", "")).strip()
+
+    @property
+    def wf_help_logo_size(self) -> str:
+        """顶部图片的显示尺寸（「宽x高」，如 256x256）。
+
+        QQ 按 ``#宽px #高px`` 固定框显示图片，比例不一致会被居中裁切；
+        大小不设上限（实测 256x256 正常）。默认 ``256x256`` 对应方形
+        ``logo.png``（512x512 二倍图）。
+        """
+        return str(self.get("wf_help_logo_size", "256x256")).strip()
 
     @property
     def card_theme(self) -> str:
@@ -271,3 +328,28 @@ def get_db_debug() -> bool:
 def get_qq_markdown_enabled() -> bool:
     """获取 QQ 官方机器人 Markdown 消息格式开关。"""
     return _get_default_config().qq_markdown_enabled
+
+
+def get_wf_help_buttons() -> bool:
+    """获取帮助消息是否附带可点击按钮。"""
+    return _get_default_config().wf_help_buttons
+
+
+def get_wf_help_inline_links() -> bool:
+    """获取帮助菜单是否使用 mqqapi 内联指令链接。"""
+    return _get_default_config().wf_help_inline_links
+
+
+def get_wf_whisper_buttons() -> bool:
+    """获取市场订单卡片是否附带序号取句按钮。"""
+    return _get_default_config().wf_whisper_buttons
+
+
+def get_wf_help_logo_url() -> str:
+    """获取帮助消息顶部的项目图标 URL（空串 = 不带图标）。"""
+    return _get_default_config().wf_help_logo_url
+
+
+def get_wf_help_logo_size() -> str:
+    """获取帮助顶部图片的显示尺寸（「宽x高」）。"""
+    return _get_default_config().wf_help_logo_size

@@ -11,16 +11,26 @@
 
 物品名可以含空格（如 ``Frost Prime Set``），因此参数不能交给框架按空格
 绑定形参，改为读原始文本后自己解析（见 ``util.command_args``）。
+
+结果展示（2026-11-16 起分两路）：
+
+- 开关 ``qq_markdown_enabled`` 开启且平台支持 Markdown → **Markdown 表格**
+  + 序号取句按钮（点击回复私聊语句，长按复制进游戏，与 ``/w 序号`` 一致）；
+- 其余情况 → 图片卡片（``card_market_orders``）。模糊匹配候选列表
+  仍为图片卡片。
 """
 from __future__ import annotations
 
 import re
 
+import astrbot.api.message_components as Comp
 from astrbot.api import logger
 from astrbot.api.event import AstrMessageEvent
 
 from ...registry import wf
+from ..config.config import get_qq_markdown_enabled, get_wf_whisper_buttons
 from ..init import init_ready
+from ..markdown.market_orders import format_orders_markdown
 from ..render.card_market_orders import (
     render_market_orders_card,
     render_market_orders_possible_items_card,
@@ -30,6 +40,8 @@ from ..service.market_orders import MarketOrdersService
 from ..service import whisper as whisper_service
 from ..service.smart_match import remember_candidates, resolve_selection
 from ..util.command_args import command_args, normalize_whitespace
+from ..util.markdown_utils import supports_markdown
+from ..util.whisper_buttons import build_whisper_buttons
 
 # 平台关键字 → 内部平台标识（对齐 Go marketPlatformKeywords，按长度降序，
 # 避免 "PC" 抢先命中 "SWITCH" 之类的前缀）
@@ -141,12 +153,41 @@ async def wf_market_orders(self, event: AstrMessageEvent):
         yield event.plain_result(f"未找到匹配的物品: {keyword}")
         return
 
-    whisper_service.remember(
+    # 缓存本次结果并取回结果指纹：拼进取句按钮的回调数据后，旧卡片的
+    # 按钮在新查询覆盖缓存时能被识别并提示重查，而不是悄悄返回新语句
+    token = whisper_service.remember(
         event.unified_msg_origin,
         str(event.get_sender_id() or ""),
         "WM",
         result.result.whispers,
     )
+
+    # Markdown 路径（开关 + 平台能力，与帮助消息同一判定）：
+    # 表格正文 + 序号取句按钮；平台 / 开关不满足时仍走图片卡片
+    if get_qq_markdown_enabled() and supports_markdown(event):
+        # whispers 与 orders 等长对齐（占位 None）：按钮序号 = 表格行号，
+        # 标签价格与点击回的私聊语句永远指向同一订单
+        whispers = result.result.whispers
+        buttons = (
+            build_whisper_buttons(
+                [
+                    (index + 1, order.platinum)
+                    for index, (order, whisper) in enumerate(
+                        zip(result.result.orders, whispers)
+                    )
+                    if whisper is not None
+                ],
+                token=token,
+            )
+            if get_wf_whisper_buttons() and any(w is not None for w in whispers)
+            else []
+        )
+        text = format_orders_markdown(result.result, with_buttons=bool(buttons))
+        chain: list = [Comp.Plain(text), *buttons]
+        # 显式置位：不依赖平台默认，行为可预测
+        yield event.chain_result(chain).use_markdown(True)
+        return
+
     chain = await CardRenderer.render_card_to_chain_result(
         render_market_orders_card, result.result
     )

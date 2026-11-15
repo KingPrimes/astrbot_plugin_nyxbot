@@ -196,10 +196,10 @@ class MarketOrdersService:
         trading_tax: int | None = None
     ) -> Orders:
         """从 OrdersItems 模型构建 Orders 渲染模型（含私聊语句）。"""
+        # 与 orders 等长对齐：卖家未公开游戏名的订单占位 None，
+        # 序号（表格行号 / 按钮序号 / /w 参数）三方永远指向同一订单
         whispers = [
-            entry
-            for order in order_users
-            if (entry := order_whisper(order, item.name, item.enName))
+            order_whisper(order, item.name, item.enName) for order in order_users
         ]
         return Orders(
             name=item.name or "",

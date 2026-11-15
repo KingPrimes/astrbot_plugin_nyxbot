@@ -11,8 +11,13 @@ from .config import (
     get_qq_markdown_enabled,
     get_wf_command_prefix,
     get_wf_data_source_cdn,
+    get_wf_help_buttons,
+    get_wf_help_inline_links,
+    get_wf_help_logo_size,
+    get_wf_help_logo_url,
     get_wf_notification_retention_hours,
     get_wf_update_interval,
+    get_wf_whisper_buttons,
     normalize_data_init_mode,
 )
 
@@ -28,6 +33,11 @@ __all__ = [
     "get_qq_markdown_enabled",
     "get_wf_command_prefix",
     "get_wf_data_source_cdn",
+    "get_wf_help_buttons",
+    "get_wf_help_inline_links",
+    "get_wf_help_logo_size",
+    "get_wf_help_logo_url",
     "get_wf_notification_retention_hours",
     "get_wf_update_interval",
+    "get_wf_whisper_buttons",
 ]
