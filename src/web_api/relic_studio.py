@@ -1,6 +1,7 @@
-"""Relic studio API / 遗物查询工作台后端（样板）
+"""Relic studio API / 遗物渲染后端
 
-三个端点，够一个「查询 → 预览 → 调版式」的闭环：
+后台已不再提供渲染工作台页面，这组接口保留为遗物查询与渲染能力入口，
+供外部调用或后续页面复用。三个端点构成「查询 → 预览 → 调版式」的闭环：
 
 ===== ============================================ ==========================
 GET   ``/relic-studio/search?q=&limit=``           关键词查遗物（含奖励与杜卡德）
@@ -242,14 +243,10 @@ def register_relic_studio_apis(context: Context) -> None:
 
 
 def _resolve_theme(name: str):
-    """按名字取主题；custom 读数据目录配置。"""
-    from ..render.theme import build_theme, load_custom_theme, normalize_mode
+    """按名字取内置主题；未知值回退 dark。"""
+    from ..render.theme import build_theme, normalize_mode
 
-    mode = normalize_mode(name)
-    if mode != "custom":
-        return build_theme(mode)
-    payload = load_custom_theme()
-    return build_theme("custom", payload.get("base", "dark"), payload.get("colors"))
+    return build_theme(normalize_mode(name))
 
 
 def _encode(image) -> bytes:

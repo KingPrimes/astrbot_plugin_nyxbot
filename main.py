@@ -41,7 +41,7 @@ class NyxBotPlugin(Star):
         self.apply_theme_config()
 
     def apply_theme_config(self) -> None:
-        """把 ``wf_card_theme`` / ``wf_card_theme_custom`` 应用到渲染层。
+        """把 ``wf_card_theme``（dark / light）应用到渲染层。
 
         配置保存后 AstrBot 会重载插件，``__init__`` 会再走一次，因此这里
         既是初始化入口，也是配置变更入口；渲染层读的是
@@ -81,7 +81,7 @@ class NyxBotPlugin(Star):
             await get_engine()
 
             # 注册数据管理 API（Plugin Pages 后端）
-            register_web_apis(cast(Context, self.context))
+            register_web_apis(cast(Context, self.context), self._config)
             logger.info("数据管理 API 已注册")
 
             tasks: list = [bootstrap_data(mode=mode)]

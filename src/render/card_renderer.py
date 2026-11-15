@@ -38,7 +38,7 @@ class CardRenderer:
     具体绘制逻辑委托给各 card_*.py 中的独立函数。
     """
 
-    # 卡片主题（dark / light / custom）统一由 theme.THEME_MANAGER 提供，
+    # 卡片主题（dark / light）统一由 theme.THEME_MANAGER 提供，
     # 历史常量请用 draw_constant.ThemeColor，它已是主题代理。
     @property
     def theme(self) -> "Theme":

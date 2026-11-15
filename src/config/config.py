@@ -188,6 +188,13 @@ class PluginConfig:
         """QQ 官方机器人优先使用 Markdown 消息格式。"""
         return bool(self.get("qq_markdown_enabled", True))
 
+    @property
+    def card_theme(self) -> str:
+        """图片样式模式（dark / light）。"""
+        from ..render.theme import DEFAULT_MODE, normalize_mode
+
+        return normalize_mode(self._config.get("wf_card_theme"), DEFAULT_MODE)
+
     # --- Representation / 表示 ---
 
     def __repr__(self) -> str:
@@ -213,12 +220,17 @@ def get_wf_update_interval() -> int:
     return _get_default_config().wf_update_interval
 
 
-    @property
-    def card_theme(self) -> str:
-        """卡片主题模式（dark / light / custom）。"""
-        from ..render.theme import DEFAULT_MODE, normalize_mode
+def reload_plugin_config() -> PluginConfig:
+    """重新读取配置文件，返回刷新后的单例。
 
-        return normalize_mode(self._config.get("wf_card_theme"), DEFAULT_MODE)
+    Web 设置页保存后调用，让 ``get_xxx()`` 这类读取立即看到新值；
+    启动期读取的配置项仍需重载插件才会生效。
+    """
+    config = _get_default_config()
+    config.reload()
+    logger.debug("插件配置已重新加载")
+    return config
+
 
 def get_data_init_mode() -> str:
     """获取数据初始化模式（auto / always / never / offline）。"""

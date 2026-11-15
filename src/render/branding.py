@@ -8,7 +8,7 @@
 因此这些值既不能写死在 :class:`DrawConstant`（现在是 ``Final`` 常量），
 也不适合塞进 ``_conf_schema.json``（插件配置只保留主题切换）。折中做法：
 
-* 文件放在插件数据目录（``render_branding.json``），由渲染工作台读写；
+* 文件放在插件数据目录（``render_branding.json``），通过后端 API 读写；
 * 插件配置里可选地放一行路径覆盖（``wf_card_branding_file``），默认不填；
 * 读取带 mtime 缓存，绘制热路径不会反复读盘；
 * 文件缺失 / 损坏 / 字段非法时，逐项回退到内置默认值，不影响渲染。

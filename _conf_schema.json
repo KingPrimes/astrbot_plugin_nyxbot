@@ -4,11 +4,10 @@
     "description": "卡片主题",
     "options": [
       "dark",
-      "light",
-      "custom"
+      "light"
     ],
     "default": "dark",
-    "hint": "图片渲染的主体配色。dark=深色（默认，贴近游戏内 UI）；light=浅色（适合白天或浅色聊天背景）；custom=自定义，配色由渲染工作台保存（未配置时等同 dark）。"
+    "hint": "卡片渲染的主体配色。dark=暗色（默认，贴近游戏内 UI）；light=亮色（适合白天或浅色聊天背景）。修改后需重载插件生效。"
   },
   "wf_data_init_mode": {
     "description": "数据初始化模式",
