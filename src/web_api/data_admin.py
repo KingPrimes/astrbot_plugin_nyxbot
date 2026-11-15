@@ -9,6 +9,7 @@ from typing import Any
 
 from astrbot.api import logger
 
+from ..util import get_plugin_name
 from ..util.alias_cache import invalidate_alias_cache
 from ..util.search_index import invalidate as invalidate_search_index
 from astrbot.api.star import Context
@@ -53,7 +54,9 @@ from ..service import (
 )
 from ..service.data_admin import DataAdminService
 
-PLUGIN_NAME = "astrbot_plugin_nyxbot"
+#: 路由前缀：与 ``settings.py`` 同源（metadata.yaml 的 name），缺失时兜底。
+#: 审查 P2-3：不要硬编码插件名，否则改元数据后两组接口前缀会分叉。
+PLUGIN_NAME = get_plugin_name() or "astrbot_plugin_nyxbot"
 
 _INDEXED_MODELS = frozenset(
     {"alias", "orders_items", "riven_items", "lich_sister_weapons",
