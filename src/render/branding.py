@@ -21,6 +21,7 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -113,7 +114,11 @@ def normalize_branding(payload: Mapping[str, Any] | None) -> dict[str, Any]:
 
 
 def load_branding() -> dict[str, Any]:
-    """读取品牌设置（带 mtime 缓存；文件缺失返回默认值）。"""
+    """读取品牌设置（带 mtime 缓存；文件缺失返回默认值）。
+
+    返回缓存 dict 的**深拷贝**（审查 P2-12）：调用方误改返回值不会污染
+    全局缓存。配置很小，深拷贝开销可忽略。
+    """
     global _cache
 
     path = branding_path()
@@ -124,7 +129,7 @@ def load_branding() -> dict[str, Any]:
 
     key = (str(path), stat.st_mtime_ns, stat.st_size)
     if _cache is not None and _cache[0] == key:
-        return _cache[1]
+        return deepcopy(_cache[1])
 
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -134,7 +139,7 @@ def load_branding() -> dict[str, Any]:
 
     resolved = normalize_branding(payload if isinstance(payload, Mapping) else None)
     _cache = (key, resolved)
-    return resolved
+    return deepcopy(resolved)
 
 
 def save_branding(payload: Mapping[str, Any] | None) -> dict[str, Any]:
