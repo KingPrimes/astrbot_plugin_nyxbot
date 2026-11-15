@@ -213,7 +213,7 @@ def remember(
     session: str,
     sender: str,
     source: str,
-    entries: list[WhisperEntry],
+    entries: list[WhisperEntry | None],
 ) -> None:
     """记住本次卡片的私聊语句，供 ``/w <序号>`` 取用。
 
@@ -221,7 +221,8 @@ def remember(
         session: 会话标识（``unified_msg_origin``）。
         sender: 发送者 ID —— 群聊里不同人的卡片不能互相覆盖。
         source: 来源指令（``WM`` / ``WR`` / ``CD`` / ``XT``），仅用于提示。
-        entries: 与卡片行一一对应的语句。
+        entries: 与卡片行**等长对齐**的语句列表；没有语句的行占位 ``None``，
+            保证序号（表格行号 / 按钮序号）与内容一一对应，不会因过滤错位。
     """
     now = time.time()
     if entries:
@@ -230,19 +231,22 @@ def remember(
         _picks.pop(key, None)
 
 
-def peek(session: str, sender: str) -> tuple[str, list[WhisperEntry]] | None:
+def peek(session: str, sender: str) -> tuple[str, list[WhisperEntry | None]] | None:
     """查看当前缓存的（来源, 语句列表），过期返回 None。"""
-    pick = _picks.get(_key(session, sender))
-    if pick is None:
+    current = _picks.get(_key(session, sender))
+    if current is None:
         return None
-    if pick.expire_at < time.time():
+    if current.expire_at < time.time():
         _picks.pop(_key(session, sender), None)
         return None
-    return pick.source, pick.entries
+    return current.source, current.entries
 
 
-def pop(session: str, sender: str, index: int) -> WhisperEntry | None:
-    """取第 ``index`` 条（从 1 开始）；越界或过期返回 None。"""
+def pick(session: str, sender: str, index: int) -> WhisperEntry | None:
+    """读取第 ``index`` 条（从 1 开始）；越界、过期或占位行返回 ``None``。
+
+    只读不消费：同一序号在 TTL 内可反复获取（按钮可重复点击）。
+    """
     current = peek(session, sender)
     if current is None:
         return None
@@ -289,16 +293,21 @@ def reply_for(session: str, sender: str, raw: str) -> str:
         return f"「{head}」不是序号。\n{USAGE}"
 
     index = int(head)
-    total = count(session, sender)
-    if total == 0:
+    current = peek(session, sender)
+    if current is None or not current[1]:
         return (
             "还没有可用的私聊信息，请先查询：/WM 物品名 或 /WR 武器名"
             "（结果 2 分钟内有效）"
         )
 
-    entry = pop(session, sender, index)
+    cached = current[1]
+    if not 1 <= index <= len(cached):
+        return f"序号超出范围：共 {len(cached)} 条，请回 1~{len(cached)}"
+
+    entry = cached[index - 1]
     if entry is None:
-        return f"序号超出范围：共 {total} 条，请回 1~{total}"
+        # 与 orders 等长对齐的占位行：该行卖家未公开游戏名
+        return "该行的卖家未公开游戏名，没有可复制的私聊语句。"
 
     result = entry.text
     if entry.status == "offline":
@@ -306,11 +315,11 @@ def reply_for(session: str, sender: str, raw: str) -> str:
     return result
 
 
-def log_summary(entries: list[WhisperEntry], source: str) -> None:
+def log_summary(entries: list[WhisperEntry | None], source: str) -> None:
     """打一条调试日志，便于排障时确认生成了多少条、语言分布。"""
-    if not entries:
-        return
     langs: dict[str, int] = {}
     for entry in entries:
+        if entry is None:
+            continue
         langs[entry.lang] = langs.get(entry.lang, 0) + 1
-    logger.debug(f"{source} 私聊语句 {len(entries)} 条，语言分布 {langs}")
+    logger.debug(f"{source} 私聊语句 {len(entries)} 行，语言分布 {langs}")

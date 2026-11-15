@@ -163,12 +163,20 @@ async def wf_market_orders(self, event: AstrMessageEvent):
     # Markdown 路径（开关 + 平台能力，与帮助消息同一判定）：
     # 表格正文 + 序号取句按钮；平台 / 开关不满足时仍走图片卡片
     if get_qq_markdown_enabled() and supports_markdown(event):
+        # whispers 与 orders 等长对齐（占位 None）：按钮序号 = 表格行号，
+        # 标签价格与点击回的私聊语句永远指向同一订单
         whispers = result.result.whispers
         buttons = (
             build_whisper_buttons(
-                len(whispers), [order.platinum for order in result.result.orders]
+                [
+                    (index + 1, order.platinum)
+                    for index, (order, whisper) in enumerate(
+                        zip(result.result.orders, whispers)
+                    )
+                    if whisper is not None
+                ]
             )
-            if get_wf_help_buttons() and whispers
+            if get_wf_help_buttons() and any(w is not None for w in whispers)
             else []
         )
         text = format_orders_markdown(result.result, with_buttons=bool(buttons))

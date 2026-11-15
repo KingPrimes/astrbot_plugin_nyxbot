@@ -1,12 +1,14 @@
 """市场卡片私聊语句快捷按钮 / Whisper quick-pick buttons
 
-MD 版市场订单卡片底部的序号按钮：点击后机器人回复对应序号的私聊语句
-（与 ``/w 序号`` 完全一致，走 ``whisper_service`` 的同一份 2 分钟缓存），
-用户长按复制粘贴进游戏。QQ 没有真正的"复制到剪贴板"按钮能力，
-「点击 → 回文本 → 长按复制」是最接近的交互。
+MD 版市场订单卡片底部的序号按钮：点击后机器人回复对应**表格行号**的
+私聊语句（与 ``/w 行号`` 完全一致，走 ``whisper_service`` 的同一份
+2 分钟缓存），用户长按复制粘贴进游戏。QQ 没有真正的"复制到剪贴板"
+按钮能力，「点击 → 回文本 → 长按复制」是最接近的交互。
 
-按钮 id 前缀 ``nyxbot:w:``，回调数据 ``{"cmd": "w", "n": "<序号>"}``；
-点击路由见 ``wf_whisper`` 的 ``button_action`` 处理器。
+按钮 id 前缀 ``nyxbot:w:``，回调数据 ``{"cmd": "w", "n": "<行号>"}``；
+点击路由见 ``wf_whisper`` 的 ``button_action`` 处理器。行号与 Markdown
+表格 / 图片卡片最左列一致（对齐 ``orders`` 全量编号），只为有私聊语句的
+行出按钮——卖家未公开游戏名的占位行不出按钮，序号也不会错位。
 CD/XT/WR 的 MD 版可直接复用本构建器。
 """
 from __future__ import annotations
@@ -30,32 +32,32 @@ FALLBACK_TEXT = "点击按钮获取对应序号的私聊语句（2 分钟内有�
 
 
 def build_whisper_buttons(
-    count: int, prices: Sequence[int | None]
+    rows: Sequence[tuple[int, int | None]],
 ) -> list[Comp.ActionRow]:
     """生成序号取句按钮行 / Build the whisper pick buttons.
 
     Args:
-        count: 按钮数量（与缓存里的私聊语句条数一致，保证点击必有结果）。
-        prices: 各序号对应的价格（拼进标签，免去来回对照列表）；
-            不足或为 ``None`` 时标签退化为纯序号。
+        rows: ``(表格行号, 价格)`` 对——只为**有私聊语句**的行出按钮；
+            行号即卡片表格的行号（点击回该行的私聊语句），价格拼进标签
+            免去来回对照，为 ``None`` 时标签退化为纯行号。
 
     Returns:
-        ``ActionRow`` 列表（每行 :data:`BUTTONS_PER_ROW` 个）；当前 AstrBot
-        不支持按钮组件时返回空列表。
+        ``ActionRow`` 列表（每行 :data:`BUTTONS_PER_ROW` 个，总按钮数不超过
+        ``MAX_ROWS * BUTTONS_PER_ROW``）；当前 AstrBot 不支持按钮组件时
+        返回空列表。
     """
-    if count <= 0 or not hasattr(Comp, "ActionRow") or not hasattr(Comp, "Button"):
+    if not rows or not hasattr(Comp, "ActionRow") or not hasattr(Comp, "Button"):
         return []
 
-    capped = min(count, MAX_ROWS * BUTTONS_PER_ROW)
+    capped = rows[: MAX_ROWS * BUTTONS_PER_ROW]
     buttons: list[Comp.Button] = []
-    for index in range(capped):
-        price = prices[index] if index < len(prices) else None
-        label = f"{index + 1}·{price}p" if price is not None else str(index + 1)
+    for row_number, price in capped:
+        label = f"{row_number}·{price}p" if price is not None else str(row_number)
         buttons.append(
             Comp.Button(
-                id=f"{WHISPER_BUTTON_PREFIX}{index + 1}",
+                id=f"{WHISPER_BUTTON_PREFIX}{row_number}",
                 label=label,
-                action=Comp.Button.CallbackAction(data={"cmd": "w", "n": str(index + 1)}),
+                action=Comp.Button.CallbackAction(data={"cmd": "w", "n": str(row_number)}),
                 style=Comp.Button.Style.PRIMARY,
             )
         )
