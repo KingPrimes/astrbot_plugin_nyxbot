@@ -58,9 +58,33 @@
     "default": false
   },
   "qq_markdown_enabled": {
-    "description": "QQ 官方机器人优先使用 Markdown 消息格式",
+    "description": "使用 Markdown 进行回复",
     "type": "bool",
-    "hint": "开启后，QQ 官方平台文本消息将以 Markdown 格式发送（加粗、链接等排版更美观）",
+    "hint": "开启后帮助消息与市场订单查询（WM）以 Markdown 发送（帮助的内联指令链接菜单、WM 的表格与取句按钮都依赖它）；其余指令一律以图片卡片回复。平台不支持时自动降级。QQ 官方群聊/单聊的自定义 Markdown 已对全部机器人开放（频道场景仍需内邀）。",
     "default": false
+  },
+  "wf_help_buttons": {
+    "description": "帮助消息附带可点击按钮",
+    "type": "bool",
+    "hint": "开启后帮助消息下方会出现指令按钮，点一下直接查询。QQ 官方机器人的按钮（内联键盘）是独立权限，与 Markdown 分开开通；被平台拒绝时关闭此项即可回到纯文本帮助。",
+    "default": true
+  },
+  "wf_help_logo_url": {
+    "description": "帮助消息顶部的项目图标",
+    "type": "string",
+    "hint": "QQ 官方 Markdown 的图片只支持公网 URL（开放平台会下载转存该资源），本地路径无效；留空则不携带图标。默认为仓库内 banner.png（透明底、logo 居中）的 jsDelivr 地址。",
+    "default": "https://testingcf.jsdelivr.net/gh/KingPrimes/astrbot_plugin_nyxbot@master/banner.png"
+  },
+  "wf_help_logo_size": {
+    "description": "帮助顶部图标的显示尺寸",
+    "type": "string",
+    "hint": "格式为「宽x高」，需与图片比例一致，否则会被平台居中裁切；大小不设上限，按需调整。默认 440x110 对应 banner.png（4:1 横幅）；方形 logo 建议 256x256 或更大（已实测 256x256 正常显示）。",
+    "default": "440x110"
+  },
+  "wf_help_inline_links": {
+    "description": "帮助菜单可点击指令链接",
+    "type": "bool",
+    "hint": "开启后需要参数的指令以 mqqapi 内联链接列在帮助正文（点击自动把指令填入发送框，补上参数发送即可），无参数指令由下方按钮直接查询；关闭后参数指令回退为按钮（点击仅提示用法）。",
+    "default": true
   }
 }

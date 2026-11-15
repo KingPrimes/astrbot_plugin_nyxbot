@@ -345,8 +345,24 @@
             "hint": "Notification records older than this many hours are cleaned up automatically."
           },
           "qq_markdown_enabled": {
-            "label": "Markdown on QQ official bots",
-            "hint": "Send text messages as Markdown on QQ official bots for richer formatting."
+            "label": "Reply with Markdown",
+            "hint": "Sends the help message and market order queries (WM) as Markdown (needed for inline command links, tables and pick buttons); all other commands reply with image cards. Falls back automatically on platforms without Markdown support."
+          },
+          "wf_help_buttons": {
+            "label": "Buttons in help message",
+            "hint": "Shows command buttons under the help message; one tap runs the query. QQ official bots need the separate keyboard permission — turn this off if it is rejected."
+          },
+          "wf_help_logo_url": {
+            "label": "Logo in help message",
+            "hint": "QQ official Markdown images require a public URL (the platform re-hosts it); leave empty to hide the logo."
+          },
+          "wf_help_logo_size": {
+            "label": "Logo display size",
+            "hint": "Format WxH, matching the image aspect ratio or it gets center-cropped; no size cap. Use 440x110 for the banner, 256x256 or larger for a square logo."
+          },
+          "wf_help_inline_links": {
+            "label": "Clickable command links in help",
+            "hint": "Commands that need arguments appear as mqqapi links in the help body — tap to pre-fill the command, then add your argument. Argument-free commands run from buttons. Turn off to fall back to argument buttons (usage hint only)."
           },
           "db_debug": {
             "label": "Database debug log",

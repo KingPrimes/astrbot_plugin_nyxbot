@@ -37,6 +37,22 @@ def _patch_module(func):
     return func
 
 
+def _button_action_filter(action_id: str | None = None):
+    """取得 ``filter.button_action``，低版本 AstrBot 缺失时退化为空装饰器。
+
+    按钮交互是较新的框架能力；缺失时帮助消息仍然能发文本，
+    只是没有按钮，插件不应因此加载失败。
+    """
+    factory = getattr(filter, "button_action", None)
+    if factory is None:
+        logger.warning(
+            "当前 AstrBot 不支持按钮交互（filter.button_action 缺失），"
+            "帮助消息将不带按钮。"
+        )
+        return lambda func: func
+    return factory(action_id)
+
+
 def _load_prefix_from_config() -> str:
     """Try to load wf_command_prefix from the plugin config file.
 
@@ -100,6 +116,17 @@ class _PatchedRegisteringCommandable:
             )(func)
         return decorator
 
+    def button_action(self, action_id: str | None = None):
+        """Register a button-click handler with module path patching.
+
+        注册按钮回调处理器并自动修补模块路径。按钮回调不归属指令组，
+        因此无论前缀如何都注册为全局（按 action_id 匹配）。
+        """
+        def decorator(func):
+            _patch_module(func)
+            return _button_action_filter(action_id)(func)
+        return decorator
+
 
 class _PatchedTopLevelCommandable:
     """When prefix is empty, registers commands as top-level commands.
@@ -139,6 +166,16 @@ class _PatchedTopLevelCommandable:
             return filter.custom_filter(
                 custom_type_filter, *args, **kwargs
             )(func)
+        return decorator
+
+    def button_action(self, action_id: str | None = None):
+        """Register a button-click handler with module path patching.
+
+        注册按钮回调处理器并自动修补模块路径（与指令前缀无关）。
+        """
+        def decorator(func):
+            _patch_module(func)
+            return _button_action_filter(action_id)(func)
         return decorator
 
 
