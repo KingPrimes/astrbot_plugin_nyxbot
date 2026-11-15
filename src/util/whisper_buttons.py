@@ -17,6 +17,8 @@ from typing import TYPE_CHECKING
 
 import astrbot.api.message_components as Comp
 
+from .framework_caps import BUTTONS_AVAILABLE
+
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
@@ -46,10 +48,10 @@ def build_whisper_buttons(
 
     Returns:
         ``ActionRow`` 列表（每行 :data:`BUTTONS_PER_ROW` 个，总按钮数不超过
-        ``MAX_ROWS * BUTTONS_PER_ROW``）；当前 AstrBot 不支持按钮组件时
-        返回空列表。
+        ``MAX_ROWS * BUTTONS_PER_ROW``）；当前 AstrBot 不支持按钮（组件或
+        回调装饰器任一缺失）时返回空列表。
     """
-    if not rows or not hasattr(Comp, "ActionRow") or not hasattr(Comp, "Button"):
+    if not rows or not BUTTONS_AVAILABLE:
         return []
 
     capped = rows[: MAX_ROWS * BUTTONS_PER_ROW]

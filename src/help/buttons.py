@@ -29,6 +29,8 @@ from typing import TYPE_CHECKING
 import astrbot.api.message_components as Comp
 from astrbot.api import logger
 
+from ..util.framework_caps import BUTTONS_AVAILABLE
+
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
@@ -143,9 +145,11 @@ def build_help_buttons(
 
     Returns:
         ``ActionRow`` 列表（最多 :data:`MAX_ROWS` 行）；当前 AstrBot 不支持
-        按钮组件时返回空列表，调用方退化为纯文本帮助。
+        按钮（组件或回调装饰器任一缺失）时返回空列表，调用方退化为纯文本
+        帮助——能力探测统一取自 ``src.util.framework_caps``，避免与
+        ``registry`` 的回调注册探测不同步而发出死按钮。
     """
-    if not hasattr(Comp, "ActionRow") or not hasattr(Comp, "Button"):
+    if not BUTTONS_AVAILABLE:
         return []
 
     # 先摊平再分组切块：行数/每行数量都由上限决定，不依赖分节边界

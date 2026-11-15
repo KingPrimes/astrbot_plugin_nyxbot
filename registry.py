@@ -25,6 +25,8 @@ from astrbot.api import logger
 from astrbot.api.event import AstrMessageEvent, filter
 from astrbot.core.utils.astrbot_path import get_astrbot_config_path
 
+from .src.util.framework_caps import BUTTON_ACTION_AVAILABLE
+
 MAIN_MODULE = __name__.rsplit(".", 1)[0] + ".main"
 
 
@@ -41,16 +43,18 @@ def _button_action_filter(action_id: str | None = None):
     """取得 ``filter.button_action``，低版本 AstrBot 缺失时退化为空装饰器。
 
     按钮交互是较新的框架能力；缺失时帮助消息仍然能发文本，
-    只是没有按钮，插件不应因此加载失败。
+    只是没有按钮，插件不应因此加载失败。能力探测结果统一取自
+    ``src.util.framework_caps``（构建按钮的一侧用同一个标志，
+    避免出现「组件在、回调装饰器缺」的版本发出点了没反应的死按钮）。
     """
-    factory = getattr(filter, "button_action", None)
-    if factory is None:
+    if not BUTTON_ACTION_AVAILABLE:
         logger.warning(
             "当前 AstrBot 不支持按钮交互（filter.button_action 缺失），"
             "帮助消息将不带按钮。"
         )
         return lambda func: func
-    return factory(action_id)
+    # BUTTON_ACTION_AVAILABLE 为真时 filter.button_action 必然存在
+    return filter.button_action(action_id)
 
 
 def _load_prefix_from_config() -> str:
