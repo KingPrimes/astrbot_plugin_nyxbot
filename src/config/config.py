@@ -185,8 +185,13 @@ class PluginConfig:
 
     @property
     def qq_markdown_enabled(self) -> bool:
-        """QQ 官方机器人优先使用 Markdown 消息格式。"""
-        return bool(self.get("qq_markdown_enabled", True))
+        """QQ 官方机器人优先使用 Markdown 消息格式。
+
+        默认与 ``_conf_schema.json`` 一致为 ``False``（审查 P2-8：两处
+        必须同值，schema 的默认值会被 AstrBot 落盘，代码回退值仅在
+        键缺失时兜底，两者对立会造成语义混乱）。
+        """
+        return bool(self.get("qq_markdown_enabled", False))
 
     @property
     def card_theme(self) -> str:
