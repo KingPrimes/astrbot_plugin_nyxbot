@@ -197,7 +197,7 @@ class MarketClient:
                 log_templates={
                     RetryLogLevel.WARNING:  (
                         "获取Market 可交易物品数据失败（第 {attempt}/{max_retries} 次），"
-                        "{retry_delay} 秒后重试...",
+                        "{retry_delay} 秒后重试..."
                     ),
                     RetryLogLevel.ERROR: "获取Market 可交易物品数据失败，已重试 {max_retries} 次，放弃",
                 },
@@ -349,7 +349,7 @@ class MarketClient:
                 log_templates={
                     RetryLogLevel.WARNING:  (
                         "获取 赤毒幻纹 数据失败（第 {attempt}/{max_retries} 次），"
-                        "{retry_delay} 秒后重试...",
+                        "{retry_delay} 秒后重试..."
                     ),
                     RetryLogLevel.ERROR: "获取 赤毒幻纹 数据失败，已重试 {max_retries} 次，放弃",
                 },
@@ -394,7 +394,7 @@ class MarketClient:
                     log_templates={
                         RetryLogLevel.WARNING:  (
                             "获取 信条幻纹 数据失败（第 {attempt}/{max_retries} 次），"
-                            "{retry_delay} 秒后重试...",
+                            "{retry_delay} 秒后重试..."
                         ),
                         RetryLogLevel.ERROR: "获取 信条幻纹 数据失败，已重试 {max_retries} 次，放弃",
                     },
@@ -438,7 +438,7 @@ class MarketClient:
                         log_templates={
                             RetryLogLevel.WARNING:  (
                                 "获取 赤毒武器 数据失败（第 {attempt}/{max_retries} 次），"
-                                "{retry_delay} 秒后重试...",
+                                "{retry_delay} 秒后重试..."
                             ),
                             RetryLogLevel.ERROR: "获取 赤毒武器 数据失败，已重试 {max_retries} 次，放弃",
                         },
@@ -484,7 +484,7 @@ class MarketClient:
                     log_templates={
                         RetryLogLevel.WARNING:  (
                             "获取 信条武器 数据失败（第 {attempt}/{max_retries} 次），"
-                            "{retry_delay} 秒后重试...",
+                            "{retry_delay} 秒后重试..."
                         ),
                         RetryLogLevel.ERROR: "获取 信条武器 数据失败，已重试 {max_retries} 次，放弃",
                     },
@@ -535,7 +535,7 @@ class MarketClient:
                         log_templates={
                             RetryLogLevel.WARNING:  (
                                 "获取 紫卡武器 数据失败（第 {attempt}/{max_retries} 次），"
-                                "{retry_delay} 秒后重试...",
+                                "{retry_delay} 秒后重试..."
                             ),
                             RetryLogLevel.ERROR: "获取 紫卡武器 数据失败，已重试 {max_retries} 次，放弃",
                         },
