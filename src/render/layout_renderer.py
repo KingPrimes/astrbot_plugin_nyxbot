@@ -235,7 +235,8 @@ def render_relic_layout(
     """按版式渲染遗物卡。
 
     Args:
-        relics: 已摊平的遗物数据，字段见 ``web_api.relic_studio._load_relics``。
+        relics: 已摊平的遗物数据，每项含 ``uniqueName`` / ``name`` /
+            ``rewards``（``name`` / ``rarity`` / ``ducats``）/ ``rareCount``。
         layout: 版式（会先过 :func:`normalize_layout`）。
         theme: 主题；默认取当前主题。
 
