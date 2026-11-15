@@ -364,6 +364,10 @@
             "label": "Clickable command links in help",
             "hint": "Commands that need arguments appear as mqqapi links in the help body — tap to pre-fill the command, then add your argument. Argument-free commands run from buttons. Turn off to fall back to argument buttons (usage hint only)."
           },
+          "wf_whisper_buttons": {
+            "label": "Whisper pick buttons on market orders",
+            "hint": "Show numbered buttons under the WM orders Markdown table — tap to get the seller's whisper text (copy into the game). Independent of the help-message buttons option."
+          },
           "db_debug": {
             "label": "Database debug log",
             "hint": "Log Tortoise ORM SQL queries. Enable only while debugging. Takes effect after reload."

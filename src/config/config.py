@@ -222,6 +222,16 @@ class PluginConfig:
         return bool(self.get("wf_help_inline_links", True))
 
     @property
+    def wf_whisper_buttons(self) -> bool:
+        """市场订单卡片是否附带序号取句按钮（与帮助按钮互相独立）。
+
+        WM 的 Markdown 表格下方按钮：点击回复对应表格行号的私聊语句，
+        长按复制进游戏；此前复用 ``wf_help_buttons``，2026-11-16 评审
+        指出语义耦合后拆分为独立开关。
+        """
+        return bool(self.get("wf_whisper_buttons", True))
+
+    @property
     def wf_help_logo_url(self) -> str:
         """帮助消息顶部的项目图标 URL；空串表示不带图标。
 
@@ -328,6 +338,11 @@ def get_wf_help_buttons() -> bool:
 def get_wf_help_inline_links() -> bool:
     """获取帮助菜单是否使用 mqqapi 内联指令链接。"""
     return _get_default_config().wf_help_inline_links
+
+
+def get_wf_whisper_buttons() -> bool:
+    """获取市场订单卡片是否附带序号取句按钮。"""
+    return _get_default_config().wf_whisper_buttons
 
 
 def get_wf_help_logo_url() -> str:

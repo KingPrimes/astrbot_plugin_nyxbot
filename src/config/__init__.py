@@ -17,6 +17,7 @@ from .config import (
     get_wf_help_logo_url,
     get_wf_notification_retention_hours,
     get_wf_update_interval,
+    get_wf_whisper_buttons,
     normalize_data_init_mode,
 )
 
@@ -38,4 +39,5 @@ __all__ = [
     "get_wf_help_logo_url",
     "get_wf_notification_retention_hours",
     "get_wf_update_interval",
+    "get_wf_whisper_buttons",
 ]

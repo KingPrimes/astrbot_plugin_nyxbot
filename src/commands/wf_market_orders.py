@@ -28,7 +28,7 @@ from astrbot.api import logger
 from astrbot.api.event import AstrMessageEvent
 
 from ...registry import wf
-from ..config.config import get_qq_markdown_enabled, get_wf_help_buttons
+from ..config.config import get_qq_markdown_enabled, get_wf_whisper_buttons
 from ..init import init_ready
 from ..markdown.market_orders import format_orders_markdown
 from ..render.card_market_orders import (
@@ -179,7 +179,7 @@ async def wf_market_orders(self, event: AstrMessageEvent):
                 ],
                 token=token,
             )
-            if get_wf_help_buttons() and any(w is not None for w in whispers)
+            if get_wf_whisper_buttons() and any(w is not None for w in whispers)
             else []
         )
         text = format_orders_markdown(result.result, with_buttons=bool(buttons))
