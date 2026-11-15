@@ -30,7 +30,8 @@ from astrbot.api import logger
 #: 品牌设置文件名（插件数据目录）。
 BRANDING_FILENAME = "render_branding.json"
 
-#: 看板娘尺寸档位 → (最大宽, 最大高)。与 ``standing.STANDING_MAX_*`` 同一量级。
+#: 看板娘尺寸档位 → (最大宽, 最大高)。**全仓唯一定义**（standing / card_frame
+#: 均从这里取，审查 P2-2）。
 STANDING_SIZES: dict[str, tuple[int, int]] = {
     "sm": (200, 300),
     "md": (280, 420),

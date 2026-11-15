@@ -77,7 +77,8 @@ _SEASON_ALIASES: dict[str, str] = {
 # 已废弃：仅为兼容外部引用保留。是否换季请走品牌设置（branding.standing_seasonal()）。
 SEASONAL_STANDING = True
 
-# 尺寸档位（与 branding.STANDING_SIZES 同一份，供版式层引用）
+# 尺寸档位：指向 branding 的唯一定义（审查 P2-2：全仓只保留一份字面量，
+# card_frame 等版式层一律从这里或 branding 取，不再复制）。
 STANDING_SIZES = branding.STANDING_SIZES
 
 # 模块级缓存：按编号缓存立绘，避免每次渲染都从磁盘读取

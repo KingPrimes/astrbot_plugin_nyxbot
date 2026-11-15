@@ -22,18 +22,12 @@ from . import components as C
 from .branding import signature_text, standing_size as _branding_standing_size
 from .design import SPACE
 from .standing import (
+    STANDING_SIZES,
     draw_standing_at,
     pick_standing_image,
     resize_fit,
     standing_index_for_season,
 )
-
-#: 看板娘尺寸档位（与 branding.STANDING_SIZES 同一份）。
-STANDING_SIZES: dict[str, tuple[int, int]] = {
-    "sm": (200, 300),
-    "md": (280, 420),
-    "lg": (360, 540),
-}
 
 
 def resolve_standing_size(size: str | None = None) -> tuple[int, int]:
