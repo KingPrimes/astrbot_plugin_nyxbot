@@ -14,8 +14,8 @@
 | 5 | 冬季 |
 
 默认所有卡片都会跟随本机当前日期自动换季。是否启用、是否换季、用多大尺寸
-由 :mod:`src.render.branding` 的品牌设置决定（数据目录 ``render_branding.json``，
-后端配置可改），模块常量 ``SEASONAL_STANDING`` 仅作为读不到配置时的兜底。
+由 :mod:`src.render.branding` 的品牌设置决定（数据目录 ``render_branding.json``），
+模块常量 ``SEASONAL_STANDING`` 仅作为读不到配置时的兜底。
 """
 from __future__ import annotations
 

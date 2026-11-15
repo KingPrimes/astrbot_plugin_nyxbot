@@ -740,8 +740,9 @@ class ImageCombiner:
     ) -> ImageCombiner:
         """绘制卡片底部居中署名 — 消除 20 个 card_*.py 中的重复样板。
 
-        署名文本与开关来自品牌设置（:mod:`src.render.branding`，工作台可改），
-        不再是写死的 ``DrawConstant.FOOTER_TEXT``；关闭署名时本方法不绘制任何内容。
+        署名文本与开关来自品牌设置（:mod:`src.render.branding`，数据目录
+        ``render_branding.json``），不再是写死的 ``DrawConstant.FOOTER_TEXT``；
+        关闭署名时本方法不绘制任何内容。
 
         Args:
             canvas_h: 画布总高度。

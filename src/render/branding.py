@@ -3,13 +3,12 @@
 两条渲染路径需要同一份「署名文案」和「看板娘开关」：
 
 * 旧路径：``ImageCombiner.draw_card_footer()``（20 张未迁移卡片）
-* 新路径：版式渲染器（``layout_renderer``）的 ``standing`` / ``footer`` 块
+* 新路径：``card_frame`` 的页脚与看板娘绘制
 
 因此这些值既不能写死在 :class:`DrawConstant`（现在是 ``Final`` 常量），
 也不适合塞进 ``_conf_schema.json``（插件配置只保留主题切换）。折中做法：
 
-* 文件放在插件数据目录（``render_branding.json``），通过后端 API 读写；
-* 插件配置里可选地放一行路径覆盖（``wf_card_branding_file``），默认不填；
+* 文件放在插件数据目录（``render_branding.json``），由 :func:`save_branding` 写入；
 * 读取带 mtime 缓存，绘制热路径不会反复读盘；
 * 文件缺失 / 损坏 / 字段非法时，逐项回退到内置默认值，不影响渲染。
 
@@ -136,7 +135,7 @@ def load_branding() -> dict[str, Any]:
 
 
 def save_branding(payload: Mapping[str, Any] | None) -> dict[str, Any]:
-    """保存品牌设置（工作台写入口）。返回落盘后的归一化结果。"""
+    """保存品牌设置并返回落盘后的归一化结果（当前无页面入口，供脚本或后续接口调用）。"""
     global _cache
 
     resolved = normalize_branding(payload if isinstance(payload, Mapping) else None)
