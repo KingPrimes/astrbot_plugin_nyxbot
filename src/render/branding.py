@@ -49,12 +49,20 @@ DEFAULT_BRANDING: dict[str, Any] = {
 #: mtime 缓存：(路径, mtime_ns, size) → 已归一化的配置
 _cache: tuple[tuple[str, int, int], dict[str, Any]] | None = None
 
+#: 路径缓存。热路径（署名/看板娘）每张卡会取多次，路径在进程内不变，
+#: 首次计算后固定，避免每次都走 data_path → plugin_name 一层。
+_BRANDING_PATH: Path | None = None
+
 
 def branding_path() -> Path:
     """品牌设置文件路径（插件数据目录）。"""
-    from ..util.data_path import get_public_data_path
+    global _BRANDING_PATH
 
-    return Path(get_public_data_path()) / BRANDING_FILENAME
+    if _BRANDING_PATH is None:
+        from ..util.data_path import get_public_data_path
+
+        _BRANDING_PATH = Path(get_public_data_path()) / BRANDING_FILENAME
+    return _BRANDING_PATH
 
 
 def _as_bool(value: Any, fallback: bool) -> bool:
@@ -142,8 +150,9 @@ def save_branding(payload: Mapping[str, Any] | None) -> dict[str, Any]:
 
 def reset_cache() -> None:
     """清缓存（测试用）。"""
-    global _cache
+    global _cache, _BRANDING_PATH
     _cache = None
+    _BRANDING_PATH = None
 
 
 def signature_text() -> str:
