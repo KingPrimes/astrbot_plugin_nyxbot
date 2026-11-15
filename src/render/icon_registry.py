@@ -315,7 +315,12 @@ class IconRegistry:
     # ------------------------------------------------------------ 查询
 
     def get(self, token: str | int) -> IconEntry | None:
-        """按主键 / 别名 / 码位 / 字形字符查询，找不到返回 ``None``。"""
+        """按主键 / 别名 / 码位 / 字形字符查询，找不到返回 ``None``。
+
+        码位串非法（如 ``U+ZZZZ`` / ``0xZZ``）同样返回 ``None`` 而不是抛
+        ``ValueError``（审查 P2-11：与文档串保持一致；需要强校验用
+        :meth:`require`）。
+        """
         if isinstance(token, int):
             return self._by_codepoint.get(token)
 
@@ -323,10 +328,12 @@ class IconRegistry:
         if not raw:
             return None
         lowered = raw.lower()
-        if lowered.startswith("u+"):
-            return self._by_codepoint.get(int(lowered[2:], 16))
-        if lowered.startswith("0x"):
-            return self._by_codepoint.get(int(lowered, 16))
+        if lowered.startswith(("u+", "0x")):
+            try:
+                codepoint = int(lowered[2:] if lowered.startswith("u+") else lowered, 16)
+            except ValueError:
+                return None
+            return self._by_codepoint.get(codepoint)
         if len(raw) == 1 and ord(raw) >= 0xE000:
             return self._by_codepoint.get(ord(raw))
         return self._by_alias.get(lowered) or self._by_key.get(raw)
