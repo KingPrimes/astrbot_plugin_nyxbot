@@ -145,9 +145,15 @@ async def wf_help_button(
     # context.send_message 主动发送（私聊直发，群聊依赖平台主动消息权限）。
     # 纯文本产出仍走互动回复，点击即达。
     results: list[MessageEventResult] = []
-    async for result in handler(self, event):
-        if result is not None:
-            results.append(result)
+    try:
+        async for result in handler(self, event):
+            if result is not None:
+                results.append(result)
+    except Exception:
+        # 兜底：部分指令处理函数不自捕获异常，别让按钮点击零回复
+        logger.warning(f"帮助按钮触发指令执行失败: {command}", exc_info=True)
+        yield event.plain_result("指令执行出错，请稍后重试，或直接手动发送指令。")
+        return
 
     if not results:
         return

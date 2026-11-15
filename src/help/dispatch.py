@@ -27,6 +27,13 @@ if TYPE_CHECKING:
 #: currently ignore media"），剩下的空 Markdown 还会被平台拒收。
 _MEDIA_COMPONENT_NAMES = ("Image", "Record", "Video", "File", "Node", "Nodes")
 
+#: 模块级构建一次：组件类在进程生命周期内不变，避免每次调用重建元组。
+_MEDIA_COMPONENTS: tuple[type, ...] = tuple(
+    component
+    for name in _MEDIA_COMPONENT_NAMES
+    if (component := getattr(Comp, name, None)) is not None
+)
+
 #: 指令名 → ``(指令模块, 处理函数)``。
 #: 只收录**无需参数**的指令：需要参数的指令点按钮时只回用法提示，
 #: 不在这里登记（登记了也用不上）。键必须与 ``src/help/catalog.py``
@@ -52,10 +59,7 @@ def chain_has_media(chain: Sequence[object]) -> bool:
 
     互动回复不能带媒体，判断结果决定按钮产出走互动回复还是主动发送。
     """
-    media = tuple(
-        getattr(Comp, name) for name in _MEDIA_COMPONENT_NAMES if hasattr(Comp, name)
-    )
-    return any(isinstance(component, media) for component in chain)
+    return any(isinstance(component, _MEDIA_COMPONENTS) for component in chain)
 
 
 def resolve_command_handler(command: str) -> Callable | None:
