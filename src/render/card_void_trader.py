@@ -2,6 +2,9 @@
 
 版式：页头 + 信息条（位置 / 剩余时间）+ 商品表格（商品 / 杜卡币 / 星币）
 + 看板娘 + 署名。价格列用 icon_registry 的货币图标，颜色取调色板的货币身份色。
+
+商品清单可能很长：画布高度有上限（``DEFAULT_MAX_HEIGHT``），放不下的行
+**主动截断并附提示行**（审查 R8），不让商品悄悄画到画布外。
 """
 from __future__ import annotations
 
@@ -19,6 +22,41 @@ if TYPE_CHECKING:
 
     from ..model.world_state import VoidTrader
     from .card_renderer import CardRenderer
+
+
+def _fit_rows(
+    rows: list[list[tuple]],
+    columns: list[C.Column],
+    chips: list[tuple[str, str]],
+    hidden_noun: str,
+) -> list[list[tuple]]:
+    """把表格行裁剪到画布高度上限内，被裁时附「还有 N 件未展示」提示行。
+
+    用零行卡探测固定开销（页头 / 信息条 / 表头 / 看板娘 / 页脚），
+    得出可容纳的行数预算——不写死行数上限，主题或档位变化自动跟随。
+    """
+    from .card_size import DEFAULT_MAX_HEIGHT
+
+    probe = measure_card_size(
+        CardSpec(
+            title="虚空商人",
+            blocks=[ChipsBlock(chips), TableBlock(columns=columns, rows=[])],
+            standing="md",
+        )
+    )
+    row_h = C.table_height(1) - C.table_height(0)
+    max_rows = max(1, (DEFAULT_MAX_HEIGHT - probe.height) // row_h)
+    if len(rows) <= max_rows:
+        return rows
+
+    hidden = len(rows) - (max_rows - 1)
+    muted = current_theme().palette.text_dim
+    hint_row = [
+        (f"… 还有 {hidden} {hidden_noun}未展示", muted),
+        ("", muted),
+        ("", muted),
+    ]
+    return rows[: max_rows - 1] + [hint_row]
 
 
 def _item_name(raw: str | None) -> str:
@@ -73,10 +111,11 @@ def render_void_trader_card(
                 ),
             ]
         )
+    chips = [("位置", location), ("剩余", time_left)]
     if not rows:
         rows = [[("暂无商品", palette.text_muted), ("—", palette.text_dim), ("—", palette.text_dim)]]
-
-    chips = [("位置", location), ("剩余", time_left)]
+    else:
+        rows = _fit_rows(rows, columns, chips, "件")
     size = measure_card_size(
         CardSpec(
             title="虚空商人",

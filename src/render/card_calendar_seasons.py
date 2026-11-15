@@ -182,6 +182,36 @@ def render_calendar_seasons_card(
         ("版本", str(calendar.version) if calendar.version is not None else "未知"),
     ]
 
+    # ---- CodeRabbit R7：画布高度有上限，放不下的月份整月跳过并显式提示 ----
+    # 不让超出的月份卡画到画布外（图返回了却看不到内容）。
+    from .card_size import DEFAULT_MAX_HEIGHT
+
+    hint_h = FONT["sm"] + SPACE["xs"]
+    probe = measure_card_size(
+        CardSpec(
+            title="1999日历季节信息",
+            blocks=[
+                ChipsBlock(chips),
+                CustomBlock(width=month_w * 2 + gap, height=0),
+            ],
+            standing="md",
+            standing_season=calendar.season,
+        )
+    )
+    grid_budget = DEFAULT_MAX_HEIGHT - probe.height - hint_h
+    kept: list[tuple[int, int, int, int]] = []
+    dropped: list[int] = []
+    col_bottom = [0, 0]
+    for month, column, _offset_y, height in placements:
+        bottom = col_bottom[column] + height
+        if bottom > grid_budget and kept:
+            dropped.append(month)
+            continue
+        kept.append((month, column, col_bottom[column], height))
+        col_bottom[column] = bottom + gap
+    placements = kept
+    grid_h = max((bottom - gap for bottom in col_bottom), default=0)
+
     size = measure_card_size(
         CardSpec(
             title="1999日历季节信息",
@@ -211,6 +241,15 @@ def render_calendar_seasons_card(
             height,
         )
 
-    frame.draw_standing_block(page, y + grid_h, "md", season=calendar.season)
+    bottom_y = y + grid_h
+    if dropped:
+        names = "、".join(f"{month}月" for month in dropped[:6])
+        if len(dropped) > 6:
+            names += " 等"
+        page.cb.set_color(theme.palette.text_dim).set_font(font("sm"))
+        page.cb.add_text(f"… {names}内容较长，未在本图展示", grid_x, bottom_y)
+        bottom_y += hint_h
+
+    frame.draw_standing_block(page, bottom_y, "md", season=calendar.season)
     frame.draw_footer_block(page)
     return page.cb.to_image()
