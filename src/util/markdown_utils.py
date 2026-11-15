@@ -14,23 +14,26 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from astrbot.api.event import AstrMessageEvent
 
-#: 能把 Markdown 文本渲染成富文本的平台（AstrBot 平台名）。
+#: 能走本插件 Markdown 路径的平台（AstrBot 平台名）。
 #:
-#: 只收录**有明确依据**的平台，未知平台一律视为不支持——宁可发图，
-#: 也不要把 ``**`` / ``#`` 原样甩给用户：
+#: **只收录 qq_official / qq_official_webhook**，未知平台一律视为不支持——
+#: 宁可发图，也不要把排版原件甩给用户：
 #:
+#: - 本插件的 Markdown 形态是 QQ 官方专属的：帮助正文用 ``mqqapi://aio/inlinecmd``
+#:   内联指令链接（点击填入 QQ 发送框）、``#宽px #高px`` 图片语法，WM 用
+#:   QQ 方言的管道表格与内联键盘按钮——telegram / discord 虽能渲染基础
+#:   Markdown，但链接点不动、表格不渲染、按钮被丢弃（2026-11-16 Sourcery
+#:   评审指出，此前误收 telegram / discord）；
 #: - ``qq_official`` / ``qq_official_webhook``：适配器按 ``msg_type=2`` 发送
-#:   ``markdown.content``，Markdown 权限需内邀开通（``docs/qq-official-bot.md``
-#:   §5.2 / §7.1），未开通时由适配器回退纯文本。
-#: - ``telegram``：适配器先经 ``telegramify_markdown`` 转换，再以
-#:   ``parse_mode="MarkdownV2"`` 发送。
-#: - ``discord``：客户端自身渲染 Markdown，正文即富文本。
+#:   ``markdown.content``（``docs/qq-official-bot.md`` §5.2 / §7.1），
+#:   未开通 Markdown 权限时由适配器回退纯文本。
+#:
+#: 若未来为其他平台做专属排版，应另建平台专属格式化器并扩充此表，
+#: 而不是直接把 QQ 形态发出去。
 MARKDOWN_CAPABLE_PLATFORMS: frozenset[str] = frozenset(
     {
         "qq_official",
         "qq_official_webhook",
-        "telegram",
-        "discord",
     }
 )
 
