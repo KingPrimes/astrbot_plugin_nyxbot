@@ -32,12 +32,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-try:
-    from astrbot.api import logger
-except ImportError:  # 离线渲染 / 单测环境没有 AstrBot
-    import logging
-
-    logger = logging.getLogger(__name__)
+from astrbot.api import logger
 
 from .design import Theme, get_theme
 

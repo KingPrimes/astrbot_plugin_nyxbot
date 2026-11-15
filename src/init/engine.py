@@ -161,7 +161,10 @@ async def get_engine():
             _engine_lock = asyncio.Lock()
         async with _engine_lock:
             if not _tortoise_initialized:
-                # 根据配置开关控制 Tortoise ORM 的 SQL 日志输出
+                # 根据配置开关控制 Tortoise ORM 的 SQL 日志输出。
+                # 注意：这里的 logging.getLogger 调的是**框架/第三方库**的 logger
+                #（tortoise 自身走标准 logging 体系），只调整其级别，不用于本插件
+                # 输出日志；插件自身的日志一律走 astrbot.api.logger。
                 if get_db_debug():
                     logging.getLogger("tortoise.db_client").setLevel(logging.DEBUG)
                     logging.getLogger("tortoise").setLevel(logging.DEBUG)

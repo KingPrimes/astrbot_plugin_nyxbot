@@ -25,12 +25,7 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
-try:
-    from astrbot.api import logger
-except ImportError:  # 离线渲染 / 单测环境没有 AstrBot
-    import logging
-
-    logger = logging.getLogger(__name__)
+from astrbot.api import logger
 
 #: 品牌设置文件名（插件数据目录）。
 BRANDING_FILENAME = "render_branding.json"
