@@ -15,6 +15,8 @@ from dataclasses import dataclass
 
 from PIL import Image, ImageDraw, ImageFont
 
+from astrbot.api import logger
+
 from .design import (
     FONT,
     INNER_PAD,
@@ -127,7 +129,12 @@ def measure_header(title: str, subtitle: str = "") -> int:
 
 
 def measure_column(index: int, column: Column, rows: list[list[tuple]]) -> int:
-    """单列的自然宽度：表头 / 最宽单元格（含图标）取大，再加左右内边距。"""
+    """单列的自然宽度：表头 / 最宽单元格（含图标）取大，再加左右内边距。
+
+    容错约定（与 :func:`draw_table` 一致）：行比列短时跳过缺失的单元格
+    （``index >= len(row)`` 不参与测量），不视为错误——测量与绘制两侧
+    对「行不完整」的假设必须相同。
+    """
     cell_font = font("md", bold=True) if column.bold else font("md")
     widest = measure(column.title, font("base"))
     for row in rows:
@@ -477,6 +484,11 @@ def draw_table(
 
     Returns:
         表格底部 y。
+
+    容错约定（与 :func:`measure_column` 一致）：数据来自游戏 API，
+    字段随时可能缺失——行比列短时只画已有的单元格（缺列留空），
+    行比列长时多出的单元格忽略；两种情况记一条 warning，但**不抛异常**，
+    不让一张卡因为少一个单元格而整卡崩溃。
     """
     palette = page.palette
     cb = page.cb
@@ -488,6 +500,14 @@ def draw_table(
     row_h = FONT["md"] + SPACE["2xl"] + SPACE["xs"]
     header_font = font("base")
     row_font = font("md")
+
+    # 行列数不匹配只记一次日志（数据来自上游，渲染不能因此中断）
+    mismatched = sum(1 for row in rows if len(row) != len(columns))
+    if mismatched:
+        logger.warning(
+            f"draw_table 行列数不匹配（{mismatched}/{len(rows)} 行），"
+            "缺失单元格留空、多余单元格忽略"
+        )
 
     # 表头
     cb.set_color(palette.surface_alt)
@@ -514,7 +534,7 @@ def draw_table(
             )
         cb.set_font(row_font)
         x = x0
-        for cell, col, width in zip(row, columns, widths, strict=True):
+        for cell, col, width in zip(row, columns, widths):
             text, color = cell[0], cell[1]
             icon = cell[2] if len(cell) > 2 else None
             icon_tint = cell[3] if len(cell) > 3 else None
