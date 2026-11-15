@@ -308,6 +308,7 @@
           "too_long": "内容过长",
           "unknown_key": "未知配置项",
           "invalid_bool": "请选择开启或关闭",
+          "invalid_prefix": "前缀只能包含字母、数字、下划线（0~16 位）",
           "generic": "该配置项不合法"
         },
         "groups": {

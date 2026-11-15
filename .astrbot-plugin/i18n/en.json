@@ -308,6 +308,7 @@
           "too_long": "Value is too long",
           "unknown_key": "Unknown option",
           "invalid_bool": "Choose on or off",
+          "invalid_prefix": "Prefix may only contain letters, digits and underscores (0-16 chars)",
           "generic": "Invalid value"
         },
         "groups": {

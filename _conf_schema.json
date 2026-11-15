@@ -48,7 +48,7 @@
   "wf_command_prefix": {
     "description": "Warframe 助手指令前缀",
     "type": "string",
-    "hint": "指令组前缀，为空时指令无需前缀即可触发。例如设为 wf 则通过 /wf help 触发，留空则通过 /help 触发。修改后需重载插件生效。",
+    "hint": "指令组前缀，为空时指令无需前缀即可触发。例如设为 wf 则通过 /wf help 触发，留空则通过 /help 触发。仅允许字母、数字、下划线，0~16 位（如 wf、wf_bot）。修改后需重载插件生效。",
     "default": ""
   },
   "db_debug": {

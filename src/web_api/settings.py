@@ -12,6 +12,9 @@
 from __future__ import annotations
 
 import inspect
+import os
+import re
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -138,11 +141,25 @@ def _coerce(key: str, item: dict[str, Any], raw: Any) -> tuple[Any, str | None]:
         return None, "invalid_option"
     if len(text) > 2048:
         return None, "too_long"
+    if key == "wf_command_prefix" and not _COMMAND_PREFIX_RE.match(text):
+        return None, "invalid_prefix"
     return text, None
 
 
+#: 指令前缀字符集：字母 / 数字 / 下划线，0~16 位（空串 = 无前缀）。
+#: 含空格、斜杠或中文会破坏 ``filter.command_group(prefix)`` 的指令注册，
+#: 表现为「保存成功但插件重载后指令全部失效」。
+_COMMAND_PREFIX_RE = re.compile(r"^[A-Za-z0-9_]{0,16}$")
+
+
 def _write_config_file(values: dict[str, Any]) -> None:
-    """没有 AstrBotConfig 时直接改配置文件（保留其它未知键）。"""
+    """没有 AstrBotConfig 时直接改配置文件（保留其它未知键）。
+
+    审查 P1-4：配置文件是插件设置的唯一持久化载体，直接覆盖写盘一旦
+    中途断电 / 崩溃，会留下截断的 JSON，下次启动解析失败、配置全丢。
+    改为「同目录临时文件 + fsync + ``os.replace``」原子替换，
+    任何时刻磁盘上都有一份完整配置。
+    """
     path = _config_file_path()
     data: dict[str, Any] = {}
     if path.is_file():
@@ -153,10 +170,29 @@ def _write_config_file(values: dict[str, Any]) -> None:
     data.update(values)
 
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        orjson.dumps(data, option=orjson.OPT_INDENT_2 | orjson.OPT_NON_STR_KEYS).decode(),
-        encoding="utf-8",
-    )
+    payload = orjson.dumps(
+        data, option=orjson.OPT_INDENT_2 | orjson.OPT_NON_STR_KEYS
+    ).decode()
+
+    tmp_name: str | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            "w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as tmp:
+            tmp_name = tmp.name
+            tmp.write(payload)
+            tmp.flush()
+            os.fsync(tmp.fileno())
+        os.replace(tmp_name, path)  # 同目录替换是原子操作（POSIX rename / Windows ReplaceFile）
+        tmp_name = None
+    finally:
+        if tmp_name is not None:  # replace 失败时清理残留临时文件
+            Path(tmp_name).unlink(missing_ok=True)
 
 
 async def _persist(config: Any, values: dict[str, Any]) -> None:
