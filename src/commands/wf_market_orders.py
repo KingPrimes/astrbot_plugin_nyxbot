@@ -153,7 +153,9 @@ async def wf_market_orders(self, event: AstrMessageEvent):
         yield event.plain_result(f"未找到匹配的物品: {keyword}")
         return
 
-    whisper_service.remember(
+    # 缓存本次结果并取回结果指纹：拼进取句按钮的回调数据后，旧卡片的
+    # 按钮在新查询覆盖缓存时能被识别并提示重查，而不是悄悄返回新语句
+    token = whisper_service.remember(
         event.unified_msg_origin,
         str(event.get_sender_id() or ""),
         "WM",
@@ -174,7 +176,8 @@ async def wf_market_orders(self, event: AstrMessageEvent):
                         zip(result.result.orders, whispers)
                     )
                     if whisper is not None
-                ]
+                ],
+                token=token,
             )
             if get_wf_help_buttons() and any(w is not None for w in whispers)
             else []

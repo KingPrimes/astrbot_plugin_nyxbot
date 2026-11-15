@@ -32,7 +32,7 @@ FALLBACK_TEXT = "点击按钮获取对应序号的私聊语句（2 分钟内有�
 
 
 def build_whisper_buttons(
-    rows: Sequence[tuple[int, int | None]],
+    rows: Sequence[tuple[int, int | None]], token: str = ""
 ) -> list[Comp.ActionRow]:
     """生成序号取句按钮行 / Build the whisper pick buttons.
 
@@ -40,6 +40,9 @@ def build_whisper_buttons(
         rows: ``(表格行号, 价格)`` 对——只为**有私聊语句**的行出按钮；
             行号即卡片表格的行号（点击回该行的私聊语句），价格拼进标签
             免去来回对照，为 ``None`` 时标签退化为纯行号。
+        token: 结果指纹（``whisper_service.remember`` 的返回值）——拼进
+            回调数据，旧卡片的按钮在新查询覆盖缓存后可被识别并提示
+            重新查询，而不是悄悄返回新结果的语句。
 
     Returns:
         ``ActionRow`` 列表（每行 :data:`BUTTONS_PER_ROW` 个，总按钮数不超过
@@ -57,7 +60,9 @@ def build_whisper_buttons(
             Comp.Button(
                 id=f"{WHISPER_BUTTON_PREFIX}{row_number}",
                 label=label,
-                action=Comp.Button.CallbackAction(data={"cmd": "w", "n": str(row_number)}),
+                action=Comp.Button.CallbackAction(
+                    data={"cmd": "w", "n": str(row_number), "k": token}
+                ),
                 style=Comp.Button.Style.PRIMARY,
             )
         )

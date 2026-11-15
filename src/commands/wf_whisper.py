@@ -53,12 +53,17 @@ async def wf_whisper_button(
     if not action_id.startswith(WHISPER_BUTTON_PREFIX):
         return  # 不是市场取句按钮，不接管
 
-    # 序号优先取回调数据，缺失时从按钮 id 里恢复
+    # 行号优先取回调数据，缺失时从按钮 id 里恢复；结果指纹用于识别
+    # 旧卡片的按钮（缓存已被新查询覆盖时提示重新查询）
     index = action_id.removeprefix(WHISPER_BUTTON_PREFIX).strip()
     data = interaction.data
-    if isinstance(data, dict) and isinstance(data.get("n"), str):
-        index = data["n"].strip() or index
+    token: str | None = None
+    if isinstance(data, dict):
+        if isinstance(data.get("n"), str):
+            index = data["n"].strip() or index
+        if isinstance(data.get("k"), str):
+            token = data["k"] or None
 
     session = event.unified_msg_origin
     sender = str(event.get_sender_id() or "")
-    yield event.plain_result(whisper_service.reply_for(session, sender, index))
+    yield event.plain_result(whisper_service.reply_for(session, sender, index, token))

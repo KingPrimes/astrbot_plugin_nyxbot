@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import time
+import uuid
 from dataclasses import dataclass
 
 from astrbot.api import logger
@@ -199,10 +200,15 @@ def lich_whisper(
 class _Pick:
     expire_at: float
     source: str
-    entries: list[WhisperEntry]
+    entries: list[WhisperEntry | None]
+    #: 结果指纹：按钮回调携带它取句，旧卡片的按钮不会读到新查询的缓存
+    token: str = ""
 
 
 _picks: dict[str, _Pick] = {}
+
+#: 结果指纹长度（uuid4 截断）：同一会话 2 分钟 TTL 内区分新旧查询足够。
+_TOKEN_LEN = 8
 
 
 def _key(session: str, sender: str) -> str:
@@ -214,8 +220,8 @@ def remember(
     sender: str,
     source: str,
     entries: list[WhisperEntry | None],
-) -> None:
-    """记住本次卡片的私聊语句，供 ``/w <序号>`` 取用。
+) -> str:
+    """记住本次卡片的私聊语句，供 ``/w <序号>`` 与取句按钮取用。
 
     Args:
         session: 会话标识（``unified_msg_origin``）。
@@ -223,23 +229,32 @@ def remember(
         source: 来源指令（``WM`` / ``WR`` / ``CD`` / ``XT``），仅用于提示。
         entries: 与卡片行**等长对齐**的语句列表；没有语句的行占位 ``None``，
             保证序号（表格行号 / 按钮序号）与内容一一对应，不会因过滤错位。
+
+    Returns:
+        本次结果的结果指纹（token）：新查询会覆盖旧缓存，把它拼进按钮
+        回调数据后，旧卡片的按钮就能被识别并提示重新查询，而不是悄悄
+        返回新结果的语句。
     """
     now = time.time()
+    token = uuid.uuid4().hex[:_TOKEN_LEN]
     if entries:
-        _picks[_key(session, sender)] = _Pick(now + PICK_TTL, source, list(entries))
+        _picks[_key(session, sender)] = _Pick(
+            now + PICK_TTL, source, list(entries), token
+        )
     for key in [k for k, pick in _picks.items() if pick.expire_at < now]:
         _picks.pop(key, None)
+    return token
 
 
-def peek(session: str, sender: str) -> tuple[str, list[WhisperEntry | None]] | None:
-    """查看当前缓存的（来源, 语句列表），过期返回 None。"""
+def peek(session: str, sender: str) -> _Pick | None:
+    """查看当前缓存项（含来源、语句列表与结果指纹），过期返回 None。"""
     current = _picks.get(_key(session, sender))
     if current is None:
         return None
     if current.expire_at < time.time():
         _picks.pop(_key(session, sender), None)
         return None
-    return current.source, current.entries
+    return current
 
 
 def pick(session: str, sender: str, index: int) -> WhisperEntry | None:
@@ -250,7 +265,7 @@ def pick(session: str, sender: str, index: int) -> WhisperEntry | None:
     current = peek(session, sender)
     if current is None:
         return None
-    _source, entries = current
+    entries = current.entries
     if not 1 <= index <= len(entries):
         return None
     return entries[index - 1]
@@ -259,7 +274,7 @@ def pick(session: str, sender: str, index: int) -> WhisperEntry | None:
 def count(session: str, sender: str) -> int:
     """当前缓存的语句条数（无缓存返回 0）。"""
     current = peek(session, sender)
-    return len(current[1]) if current else 0
+    return len(current.entries) if current else 0
 
 
 def clear() -> None:
@@ -273,13 +288,19 @@ USAGE = (
 )
 
 
-def reply_for(session: str, sender: str, raw: str) -> str:
-    """把 ``/w`` 的参数解析成回复文本（纯函数，便于单测）。
+def reply_for(
+    session: str, sender: str, raw: str, token: str | None = None
+) -> str:
+    """把 ``/w`` 的参数（或按钮回调）解析成回复文本（纯函数，便于单测）。
 
     Args:
         session: 会话标识。
         sender: 发送者 ID。
         raw: 指令之后的文本，如 ``"3"``。
+        token: 结果指纹——按钮回调携带按钮所属卡片查询时的指纹；与当前
+            缓存不一致说明该按钮来自被新查询覆盖的旧卡片，直接回提示
+            而不是悄悄返回新结果的语句。``None``（``/w`` 指令）不校验，
+            总是读最新缓存。
 
     Returns:
         要回复给用户的文本（可能含提示）。
@@ -294,13 +315,16 @@ def reply_for(session: str, sender: str, raw: str) -> str:
 
     index = int(head)
     current = peek(session, sender)
-    if current is None or not current[1]:
+    if current is None or not current.entries:
         return (
             "还没有可用的私聊信息，请先查询：/WM 物品名 或 /WR 武器名"
             "（结果 2 分钟内有效）"
         )
 
-    cached = current[1]
+    if token is not None and current.token != token:
+        return "这是旧卡片的按钮，结果已被新的查询覆盖，请重新发送指令后再取。"
+
+    cached = current.entries
     if not 1 <= index <= len(cached):
         return f"序号超出范围：共 {len(cached)} 条，请回 1~{len(cached)}"
 
