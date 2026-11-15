@@ -138,11 +138,14 @@ async def wf_help_button(
         return
 
     logger.debug(f"帮助按钮触发指令: {command}")
-    # 先收齐产出再决定投递方式：互动回复带不了媒体（AstrBot 会把媒体组件整个
-    # 丢掉，剩下的空 Markdown 还会被 QQ 以「无效 markdown content」拒收）。
-    # 带媒体的产出改走两段式投递：优先 event.send() 走事件上下文被动回复
-    # （群聊同样可用，不受主动消息限制）；被动发送异常时回退
-    # context.send_message 主动发送（私聊直发，群聊依赖平台主动消息权限）。
+    # 先收齐产出再决定投递方式：互动回复带不了媒体——qq_official 适配器的
+    # Interaction 分支会无条件丢弃媒体组件（v4.29.4 源码 + 2026-11-16 真机
+    # 日志证实），剩余的空 Markdown 被 QQ 以「无效 markdown content」拒收，
+    # 适配器内部的主动发送回退同样失败并在约 10 秒重试后抛异常。
+    # 因此带媒体的产出**直接走 context.send_message 主动发送**（富媒体上传
+    # msg_type=7，c2c / 群聊均支持）；不要用 event.send()——它在按钮互动
+    # 事件上是结构性错误路径（Sourcery #8 建议的「用 msg_id 被动回复」
+    # 在该适配器上不可行，互动回复对媒体的支持是框架级缺失）。
     # 纯文本产出仍走互动回复，点击即达。
     results: list[MessageEventResult] = []
     try:
@@ -170,24 +173,17 @@ async def wf_help_button(
         )
         delivered = False
         try:
-            # 被动回复：走事件自身上下文（群聊可用）；失败不中断，回退主动发送
-            await event.send(chain)
-            delivered = True
+            delivered = bool(
+                await self.context.send_message(event.unified_msg_origin, chain)
+            )
         except Exception as exc:
-            logger.debug(f"被动回复失败，回退主动发送（{command}）: {exc}")
-        if not delivered:
-            try:
-                delivered = bool(
-                    await self.context.send_message(event.unified_msg_origin, chain)
-                )
-            except Exception as exc:
-                logger.warning(
-                    f"帮助按钮结果投递失败（{command}）: {exc}", exc_info=True
-                )
-                yield event.plain_result(
-                    "查询结果发送失败，可能被主动消息限制拦截，请直接发送指令查看。"
-                )
-                return
+            logger.warning(
+                f"帮助按钮结果投递失败（{command}）: {exc}", exc_info=True
+            )
+            yield event.plain_result(
+                "查询结果发送失败，可能被主动消息限制拦截，请直接发送指令查看。"
+            )
+            return
         if not delivered:
             logger.warning(f"帮助按钮结果投递失败：未找到会话所属平台（{command}）")
             yield event.plain_result("查询结果发送失败，请直接发送指令查看。")
