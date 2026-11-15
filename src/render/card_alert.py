@@ -1,174 +1,179 @@
 """警报卡片渲染器
 
-采用 HTML 卡片列表式布局：
-  - 居中标题 + 双层装饰边框
-  - 横板两列并排，每条警报为独立卡片（圆角背景 + 徽章式标签）
-  - 奇数条：看板娘填补右侧空位
-  - 偶数条：看板娘置于底部右侧，不遮挡数据
-  - Footer 署名
+版式：页头（``警报``）+ 两列警报卡 + 看板娘 + 署名。
+
+每张卡三行：
+
+1. 节点（粗体）+ 剩余时间（琥珀色，右对齐）；
+2. 任务类型 + 派系图标 + 派系名（各按自身颜色）；
+3. 奖励（金色，星币 + 最多 5 件物品，超宽截断）。
+
+卡片宽 = 三行里最宽的一行（夹在 400~560），高 = 三行行高之和（120）。
+奇数条时最后一格空着，看板娘填进去；偶数条走流式块。
 """
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from PIL import Image, ImageFont
-
-from .draw_constant import LayoutConstants, ThemeColor
-from .font_manager import FontManager
-from .image_combiner import ImageCombiner
-from .standing import draw_standing_at
+from . import card_frame as frame
+from . import components as C
+from .card_size import CardSpec, CustomBlock, measure_card_size
+from .design import FONT, RGB, SPACE, font, semantic_color
+from .theme import current_theme
 
 if TYPE_CHECKING:
+    from PIL import Image
+
     from ..model.world_state import Alert
     from .card_renderer import CardRenderer
 
-
-# ---------------------------------------------------------------------------
-# 布局常量
-# ---------------------------------------------------------------------------
-
-_CANVAS_W = 1200
-_CONTENT_X, _CONTENT_W = LayoutConstants.get_content_bounds(_CANVAS_W)
-
-_COLS = 2                          # 每行列数
-_COL_GAP = 20                      # 列间距
-_CARD_W = (_CONTENT_W - _COL_GAP) // _COLS  # 480
-
-# 列 X 坐标
-_COL_X = (
-    _CONTENT_X,                     # 左列 = 60
-    _CONTENT_X + _CARD_W + _COL_GAP,  # 右列 = 560
-)
-
-_TITLE_Y = 70
-_CONTENT_START_Y = 170
-
-# 每条警报卡片
-_CARD_H = 150
-_ROW_GAP = 16                      # 行间距
-_CARD_PAD = 20                     # 卡片内边距
-_CARD_RADIUS = 14
-
-# 看板娘 — 奇数（填补右列空位）/ 偶数（底部右侧）
-_STANDING_ODD_W = 310
-_STANDING_ODD_H = 360
-_STANDING_EVEN_W = 260
-_STANDING_EVEN_H = 390
-
-_FOOTER_OFFSET = 60               # 署名距底部距离
+#: 每行列数。
+_COLUMNS = 2
+#: 列间距 / 行间距。
+_GAP = SPACE["lg"]
+#: 卡片内边距。
+_CARD_PAD = SPACE["lg"]
+#: 卡片宽下限 / 上限。
+_MIN_CARD_W = 400
+_MAX_CARD_W = 560
+#: 卡片高 = 上下内边距 + 三行行高 + 两处行间呼吸（与 ``_draw_card`` 同口径）。
+_CARD_H = _CARD_PAD * 2 + FONT["md"] + SPACE["md"] + FONT["md"] + SPACE["sm"] + FONT["base"]
 
 
-# ---------------------------------------------------------------------------
-# 辅助
-# ---------------------------------------------------------------------------
+@dataclass(frozen=True)
+class _AlertRow:
+    """一条警报的绘制文案。"""
 
-def _build_reward_text(alert: Alert) -> str:
-    """构建单行奖励文本 — 对应 Java 的 credits+"星币" + items。"""
-    mi = alert.mission_info
-    if mi is None:
-        return ""
-    reward = mi.mission_reward
+    node: str
+    eta: str
+    mission: str
+    mission_color: RGB
+    faction: str
+    faction_color: RGB
+    icon: str
+    reward: str
+
+
+def _reward_text(alert: Alert) -> str:
+    """奖励单行文本：星币 + 最多 5 件物品（数量 > 1 时带 ×N）。"""
+    info = alert.mission_info
+    reward = info.mission_reward if info is not None else None
     if reward is None:
         return ""
 
     segments: list[str] = []
-
     if reward.credits and reward.credits > 0:
-        segments.append(f"{reward.credits}星币")
-
+        segments.append(f"{reward.credits} 星币")
     if reward.counted_items:
-        item_texts: list[str] = []
-        for item in reward.counted_items[:5]:
-            if item.count > 1:
-                item_texts.append(f"{item.name}×{item.count}")
-            else:
-                item_texts.append(item.name)
-        segments.append("  ".join(item_texts))
-
-    return "  ".join(segments) if segments else ""
+        items = [
+            f"{item.name}×{item.count}" if item.count > 1 else item.name
+            for item in reward.counted_items[:5]
+        ]
+        segments.append("  ".join(items))
+    return "   ".join(segment for segment in segments if segment)
 
 
-def _draw_one_card(
-    cb: ImageCombiner,
-    alert: Alert,
-    card_x: int,
-    card_y: int,
-    renderer: CardRenderer,
-    location_font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
-    badge_font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
-    body_font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
-    time_font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
-) -> None:
-    """绘制单张警报卡片。"""
-    mi = alert.mission_info
-    inner_x = card_x + _CARD_PAD
-    inner_w = _CARD_W - _CARD_PAD * 2
+def _build_row(alert: Alert, theme) -> _AlertRow:
+    """把一条 ``Alert`` 转成绘制文案。"""
+    palette = theme.palette
+    info = alert.mission_info
 
-    # 卡片背景
-    cb.set_color(ThemeColor.BG_CARD)
-    cb.draw_rounded_rect(card_x, card_y, _CARD_W, _CARD_H, radius=_CARD_RADIUS)
+    node = (info.location if info and info.location else "") or "未知节点"
 
-    # 行 1: 地点（左） + 剩余时间（右）
-    location = mi.location if mi and mi.location else "未知节点"
-    cb.set_color(ThemeColor.TEXT_PRIMARY).set_font(location_font)
-    cb.add_text(location, inner_x, card_y + 20)
-
-    eta = alert.time_left or "未知"
-    cb.set_color(ThemeColor.WARNING).set_font(time_font)
-    eta_w = cb.get_string_width(eta)
-    cb.add_text(eta, inner_x + inner_w - eta_w, card_y + 22)
-
-    # 行 2: 任务类型 + 派系 + 奖励（颜色直接作用于文字，无背景方框）
-    badge_y = card_y + 64
-    cursor_x = inner_x
-
-    # 任务类型（有色文字）
-    if mi and mi.mission_type:
-        mt_display = mi.mission_type.display_name
-        mt_color = renderer.resolve_mission_type_color(mi.mission_type)
+    mission_type = info.mission_type if info is not None else None
+    if mission_type is not None:
+        mission = mission_type.display_name
+        mission_color = semantic_color(mission_type.color, theme, palette.text_muted)
     else:
-        mt_display = "未知"
-        mt_color = ThemeColor.TEXT_SECONDARY
+        mission, mission_color = "未知任务", palette.text_muted
 
-    cb.set_color(mt_color).set_font(badge_font)
-    cb.add_text(mt_display, cursor_x, badge_y + 3)
-    cursor_x += cb.get_string_width(mt_display) + 10
-
-    # 派系（有色文字）
-    if mi and mi.faction:
-        faction_name = mi.faction.display_name
-        _, faction_color = renderer.resolve_faction_icon_and_color(mi.faction)
+    faction = info.faction if info is not None else None
+    icon = getattr(faction, "icon", "") or ""
+    if faction is not None and icon:
+        faction_name = faction.display_name
+        faction_color = semantic_color(faction.color, theme, palette.text_muted)
     else:
-        faction_name = "未知"
-        faction_color = ThemeColor.TEXT_SECONDARY
+        icon = ""
+        faction_name = faction.display_name if faction is not None else "未知派系"
+        faction_color = palette.text_muted
 
-    cb.set_color(faction_color).set_font(badge_font)
-    cb.add_text(faction_name, cursor_x, badge_y + 3)
-    cursor_x += cb.get_string_width(faction_name) + 14
-
-    # 奖励文字
-    reward_text = _build_reward_text(alert)
-    if reward_text:
-        cb.set_color(ThemeColor.ACCENT_GOLD).set_font(body_font)
-        max_reward_w = inner_x + inner_w - cursor_x - 6
-        reward_w = cb.get_string_width(reward_text)
-        if reward_w > max_reward_w:
-            while reward_w > max_reward_w and len(reward_text) > 3:
-                reward_text = reward_text[:-4] + ".."
-                reward_w = cb.get_string_width(reward_text)
-        cb.add_text(reward_text, cursor_x, badge_y + 1)
+    return _AlertRow(
+        node=node,
+        eta=alert.time_left or "未知",
+        mission=mission,
+        mission_color=mission_color,
+        faction=faction_name,
+        faction_color=faction_color,
+        icon=icon,
+        reward=_reward_text(alert),
+    )
 
 
-# ---------------------------------------------------------------------------
-# 主渲染函数
-# ---------------------------------------------------------------------------
+def _row_width(row: _AlertRow, body_font, small_font) -> int:
+    """单张卡最宽的一行（不含内边距）。"""
+    line1 = C.measure(row.node, font("md", bold=True)) + SPACE["xl"] + C.measure(row.eta, body_font)
+    line2 = C.measure(row.mission, body_font) + SPACE["md"]
+    if row.icon:
+        line2 += FONT["md"] + SPACE["sm"]
+    line2 += C.measure(row.faction, body_font)
+    line3 = C.measure(row.reward, small_font)
+    return max(line1, line2, line3)
+
+
+def _draw_card(page, row: _AlertRow, x: int, y: int, width: int) -> None:
+    """画一张警报卡。"""
+    palette = page.palette
+    cb = page.cb
+    C.draw_grid_card(page, x, y, width, _CARD_H)
+
+    body_font = font("md")
+    small_font = font("base")
+    inner_w = width - _CARD_PAD * 2
+
+    # 行 1：节点（左）+ 剩余时间（右）
+    eta_w = C.measure(row.eta, body_font)
+    node_font = font("md", bold=True)
+    cb.set_color(palette.text).set_font(node_font)
+    cb.add_text(
+        C.fit_text(row.node, inner_w - eta_w - SPACE["lg"], node_font),
+        x + _CARD_PAD,
+        y + _CARD_PAD,
+    )
+    cb.set_color(palette.amber).set_font(body_font)
+    cb.add_text(row.eta, x + width - _CARD_PAD - eta_w, y + _CARD_PAD)
+
+    # 行 2：任务类型 + 派系图标 + 派系名
+    line2_y = y + _CARD_PAD + FONT["md"] + SPACE["md"]
+    cursor = x + _CARD_PAD
+    cb.set_color(row.mission_color).set_font(body_font)
+    cb.add_text(row.mission, cursor, line2_y)
+    cursor += C.measure(row.mission, body_font) + SPACE["md"]
+
+    if row.icon:
+        cb.set_color(row.faction_color).set_font(C.icon_font(FONT["md"]))
+        cb.add_text(row.icon, cursor, line2_y)
+        cursor += FONT["md"] + SPACE["sm"]
+
+    cb.set_color(row.faction_color).set_font(body_font)
+    cb.add_text(C.fit_text(row.faction, x + width - _CARD_PAD - cursor, body_font), cursor, line2_y)
+
+    # 行 3：奖励
+    if row.reward:
+        cb.set_color(palette.gold).set_font(small_font)
+        cb.add_text(
+            C.fit_text(row.reward, inner_w, small_font),
+            x + _CARD_PAD,
+            line2_y + FONT["md"] + SPACE["sm"],
+        )
+
 
 def render_alert_card(renderer: CardRenderer, alerts: list[Alert]) -> Image.Image:
-    """绘制警报信息卡片 — 两列并排，看板娘位置按奇偶自适应。
+    """绘制警报信息卡片。
 
     Args:
-        renderer: CardRenderer 实例。
+        renderer: CardRenderer 实例（保留参数以兼容渲染入口）。
         alerts: Alert 模型列表。
 
     Returns:
@@ -177,71 +182,62 @@ def render_alert_card(renderer: CardRenderer, alerts: list[Alert]) -> Image.Imag
     if not alerts:
         return renderer.create_text_image("当前没有活跃的警报", 800, 120)
 
-    # ---- 字体 ----
-    title_font = FontManager.get_text_font(56)
-    location_font = FontManager.get_text_font(28)
-    badge_font = FontManager.get_text_font(22)
-    body_font = FontManager.get_text_font(24)
-    time_font = FontManager.get_text_font(20)
-    FontManager.get_text_font(20)
+    theme = current_theme()
+    rows = [_build_row(alert, theme) for alert in alerts]
+    subtitle = f"共 {len(rows)} 条警报"
 
-    # ---- 布局计算 ----
-    n = len(alerts)
-    rows = math.ceil(n / _COLS)
-    cards_h = rows * _CARD_H + (rows - 1) * _ROW_GAP
-    is_odd = n % _COLS != 0
-    last_row_y = _CONTENT_START_Y + (rows - 1) * (_CARD_H + _ROW_GAP)
+    # ---- 卡片宽：三行里最宽的一行，夹在 [400, 560] ----
+    body_font = font("md")
+    small_font = font("base")
+    intrinsic = max(_row_width(row, body_font, small_font) for row in rows)
+    card_w = max(_MIN_CARD_W, min(_MAX_CARD_W, intrinsic + _CARD_PAD * 2))
 
-    # ---- 画布高度（看板娘位置不同，高度不同） ----
-    if is_odd:
-        # 看板娘填补右列空位，从最后一行 Y 开始向下延伸
-        standing_h = _STANDING_ODD_H
-        content_end = _CONTENT_START_Y + cards_h
-        canvas_h = max(content_end, last_row_y + standing_h + _FOOTER_OFFSET + 10)
+    count = len(rows)
+    grid_rows = math.ceil(count / _COLUMNS)
+    grid_w = card_w * _COLUMNS + _GAP
+    grid_h = grid_rows * _CARD_H + (grid_rows - 1) * _GAP
+
+    # ---- 奇数条：最后一格空着 → 看板娘填进去，允许向下溢出 ----
+    empty_slot = count % _COLUMNS != 0
+    slot_w = card_w - _CARD_PAD * 2
+    slot = frame.standing_cell_size(slot_w, _CARD_H * 2) if empty_slot else (0, 0)
+    extra_h = max(0, slot[1] - _CARD_H) if slot[1] else 0
+    standing = None if slot[1] else "md"
+
+    size = measure_card_size(
+        CardSpec(
+            title="警报",
+            subtitle=subtitle,
+            blocks=[CustomBlock(width=grid_w, height=grid_h + extra_h)],
+            standing=standing,
+        )
+    )
+
+    page = C.new_page(theme, size.width, size.height)
+    y = C.draw_header(page, "警报", subtitle)
+
+    grid_x = page.content_x + max(0, (page.content_w - grid_w) // 2)
+    for index, row in enumerate(rows):
+        row_index, column = divmod(index, _COLUMNS)
+        _draw_card(
+            page,
+            row,
+            grid_x + column * (card_w + _GAP),
+            y + row_index * (_CARD_H + _GAP),
+            card_w,
+        )
+
+    if slot[1]:
+        slot_y = y + (grid_rows - 1) * (_CARD_H + _GAP)
+        frame.draw_standing_in_cell(
+            page,
+            grid_x + (count % _COLUMNS) * (card_w + _GAP) + _CARD_PAD,
+            slot_y,
+            slot_w,
+            _CARD_H * 2,
+        )
     else:
-        # 看板娘在卡片下方，右侧
-        standing_h = _STANDING_EVEN_H
-        content_end = _CONTENT_START_Y + cards_h
-        canvas_h = content_end + standing_h + _FOOTER_OFFSET + 20
+        frame.draw_standing_block(page, y + grid_h, "md")
 
-    # ---- 画布 ----
-    cb = ImageCombiner(_CANVAS_W, canvas_h, ThemeColor.BG_DARK)
-
-    # ---- 双层装饰边框 ----
-    cb.draw_default_double_border()
-
-    # ---- 标题 ----
-    cb.set_color(ThemeColor.ACCENT_BLUE).set_font(title_font)
-    cb.add_centered_text("警报", _TITLE_Y)
-
-    # ---- 分割线（标题下方，与卡片区域等宽） ----
-    cb.draw_content_divider(_TITLE_Y + 68, _CONTENT_X, _CONTENT_W)
-
-    # ---- 警报卡片（两列网格） ----
-    for i, alert in enumerate(alerts):
-        row = i // _COLS
-        col = i % _COLS
-        card_x = _COL_X[col]
-        card_y = _CONTENT_START_Y + row * (_CARD_H + _ROW_GAP)
-        _draw_one_card(cb, alert, card_x, card_y, renderer,
-                       location_font, badge_font, body_font, time_font)
-
-    # ---- 看板娘 ----
-    if is_odd:
-        # 奇数：填补最后一行右侧空位
-        standing_x = _COL_X[1] + (_CARD_W - _STANDING_ODD_W) // 2
-        draw_standing_at(cb, standing_x, last_row_y,
-                         _STANDING_ODD_W, _STANDING_ODD_H)
-    else:
-        # 偶数：卡片下方偏右，不遮挡左侧卡片投影
-        standing_x = _CONTENT_X + _CONTENT_W - _STANDING_EVEN_W - 20
-        draw_standing_at(cb, standing_x, content_end + 10,
-                         _STANDING_EVEN_W, _STANDING_EVEN_H)
-
-    # ---- 底部署名 ----
-    cb.draw_card_footer(canvas_h, 60)
-
-    return cb.to_image()
-
-
-# ---------------------------------------------------------------------------
+    frame.draw_footer_block(page)
+    return page.cb.to_image()

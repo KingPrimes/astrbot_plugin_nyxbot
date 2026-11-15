@@ -1,48 +1,42 @@
 """Market 杜卡币卡片渲染器 — 迁移自 Java DefaultDrawMarketDucatsImage
 
-布局：
-  - 1680px 宽，双列布局（当天 | 每小时）
-  - 每列 5 个字段：名称 / 杜卡币 / 杜卡币/白金 / 均价 / 库存
-  - 深色表头 + 斑马纹行 + 看板娘立绘
+版式：页头 + 左右并排两张表（当天 / 每小时）+ 看板娘 + 署名。
+每张表 5 列：名称 / 杜卡币 / 杜卡币-白金 / 均价 / 库存；
+行色按排名从「金/银」渐变到弱化色，与旧版一致。
 """
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PIL import Image
-
-from .draw_constant import ThemeColor, lerp_color
-from .font_manager import FontManager
-from .image_combiner import ImageCombiner
-from .standing import draw_standing
+from . import card_frame as frame
+from . import components as C
+from .card_size import CardSpec, CustomBlock, measure_card_size
+from .design import FONT, SPACE, font
+from .draw_constant import lerp_color
+from .theme import current_theme
 
 if TYPE_CHECKING:
+    from PIL import Image
+
     from ..model.market import DucatItem
     from .card_renderer import CardRenderer
 
-_CANVAS_W = 1680
-_MARGIN = 48
-_COL_W = (_CANVAS_W - 3 * _MARGIN) // 2
-_ROW_H = 60
-_HEADER_H = 60
-_TITLE_H = 96
-_FOOTER_H = 48
-
-# 列字段 X 偏移（相对于列起始 x）
-_COL_NAME = 12
-_COL_DUCATS = 264
-_COL_DPP = 372
-_COL_WA = 540
-_COL_VOL = 648
-
-# 排名渐变色终点
-_RANK_END_COLOR = ThemeColor.TEXT_MUTED  # (120, 120, 120)
+#: 双表并排时至少需要的宽度（两张表各约 320 + 间隙）。
+MIN_TABLE_AREA_W = 650
 
 
-def _row_baseline(draw, row_y: int, row_h: int, font) -> int:
-    """计算在行高内垂直居中的文本基线 Y 坐标。"""
-    bbox = draw.textbbox((0, 0), "Ay", font=font)
-    return int(row_y + row_h / 2 - (bbox[1] + bbox[3]) / 2)
+def _fmt(value: float | None, digits: int = 2) -> str:
+    return f"{value:.{digits}f}" if value is not None else "N/A"
+
+
+def _row_values(item: DucatItem) -> list[str]:
+    return [
+        item.item_name or "未知物品",
+        str(item.ducats) if item.ducats is not None else "N/A",
+        _fmt(item.ducats_per_platinum_wa),
+        _fmt(item.wa_price),
+        str(item.volume) if item.volume is not None else "N/A",
+    ]
 
 
 def render_market_ducats_card(
@@ -54,134 +48,81 @@ def render_market_ducats_card(
     """绘制 Market 杜卡币卡片 — 镜像 Java drawMarketDucatsImage()。
 
     Args:
-        renderer: CardRenderer 实例。
+        renderer: CardRenderer 实例（保留参数以兼容渲染入口）。
         day_items: 当天数据列表。
         hour_items: 每小时数据列表。
         title: 标题（"金垃圾" 或 "银垃圾"）。
-
-    Returns:
-        PIL Image 对象。
     """
     if not day_items and not hour_items:
         return renderer.create_text_image(f"当前没有{title}数据", 800, 120)
 
-    max_rows = max(len(day_items), len(hour_items), 1)
-    content_h = _HEADER_H * 2 + max_rows * _ROW_H
-    canvas_h = _TITLE_H + content_h + _FOOTER_H + 120
+    theme = current_theme()
+    palette = theme.palette
 
-    title_font = FontManager.get_text_font(58)
-    subtitle_font = FontManager.get_text_font(26)
-    header_font = FontManager.get_text_font(22)
-    row_font = FontManager.get_text_font(20)
-    FontManager.get_text_font(22)
+    columns = [
+        C.Column("名称", 2.4, "left", 120),
+        C.Column("杜卡币", 1.0, "right", 80),
+        C.Column("杜卡币/白金", 1.4, "right", 100),
+        C.Column("均价", 1.0, "right", 80),
+        C.Column("库存", 0.9, "right", 70),
+    ]
 
-    cb = ImageCombiner(_CANVAS_W, canvas_h, ThemeColor.BG_DARK)
-    cb.draw_double_border(12, ThemeColor.TABLE_BORDER, ThemeColor.DIVIDER, 2)
+    rank_start = palette.gold if "金" in title else palette.rarity_uncommon
 
-    # --- 标题 ---
-    current_y = _TITLE_H
-    cb.set_color(ThemeColor.ACCENT_GOLD).set_font(title_font)
-    cb.add_centered_text(title, current_y - 68)
+    def build_rows(items: list[DucatItem]) -> list[list[tuple]]:
+        total = max(len(items), 1)
+        rows: list[list[tuple]] = []
+        for index, item in enumerate(items):
+            # 排名渐变：整行统一颜色，越靠后越弱化
+            t = index / max(total - 1, 1)
+            color = lerp_color(rank_start, palette.text_muted, t)
+            rows.append([(value, color) for value in _row_values(item)])
+        return rows
 
-    left_x = _MARGIN
-    right_x = _MARGIN + _COL_W + _MARGIN
-    current_y += 30
+    day_rows = build_rows(day_items)
+    hour_rows = build_rows(hour_items)
+    max_rows = max(len(day_rows), len(hour_rows), 1)
 
-    # --- 副标题行（当天 / 每小时）---
-    cb.set_color(ThemeColor.BG_CARD)
-    cb.fill_rect(left_x, current_y, _COL_W, _HEADER_H)
-    cb.fill_rect(right_x, current_y, _COL_W, _HEADER_H)
-    cb.set_color(ThemeColor.TEXT_PRIMARY).set_font(subtitle_font)
-    sub_baseline = _row_baseline(cb.draw, current_y, _HEADER_H, subtitle_font)
-    sub_cx = _COL_W // 2
-    cb.add_text("当天", left_x + sub_cx - cb.get_string_width("当天") // 2, sub_baseline)
-    cb.add_text("每小时", right_x + sub_cx - cb.get_string_width("每小时") // 2, sub_baseline)
+    # 审查 P2-9：左右双表用**合并数据**测一次，列宽向量共用，列边界才对齐
+    combined_rows = day_rows + hour_rows
+    natural = C.measure_table(columns, combined_rows)
+    gap = SPACE["xl"]
+    label_h = FONT["sm"] + SPACE["sm"]
+    size = measure_card_size(
+        CardSpec(
+            title=title,
+            blocks=[
+                CustomBlock(
+                    width=natural * 2 + gap,
+                    height=label_h + C.table_height(max_rows),
+                )
+            ],
+            standing="sm",
+            extra_width=MIN_TABLE_AREA_W,
+        )
+    )
 
-    current_y += _HEADER_H + 12
+    content_w = size.content_width
+    half_w = (content_w - gap) // 2
+    right_x = C.content_left() + half_w + gap
 
-    # --- 表头行（字段名）---
-    cb.set_color(ThemeColor.BG_CARD)
-    cb.fill_rect(left_x, current_y, _COL_W, _HEADER_H)
-    cb.fill_rect(right_x, current_y, _COL_W, _HEADER_H)
-    cb.set_color(ThemeColor.TEXT_PRIMARY).set_font(header_font)
+    page = C.new_page(theme, size.width, size.height)
+    y = C.draw_header(page, title)
 
-    _draw_header(cb, left_x, current_y)
-    _draw_header(cb, right_x, current_y)
+    cb = page.cb
+    cb.set_color(palette.text_muted).set_font(font("sm"))
+    cb.add_text("当天", C.content_left(), y)
+    cb.add_text("每小时", right_x, y)
 
-    current_y += _HEADER_H + 6
+    table_y = y + label_h
+    shared_widths = C.distribute_columns(columns, combined_rows, half_w)
+    left_bottom = C.draw_table(
+        page, columns, day_rows, table_y, x=C.content_left(), width=half_w, widths=shared_widths
+    )
+    right_bottom = C.draw_table(
+        page, columns, hour_rows, table_y, x=right_x, width=half_w, widths=shared_widths
+    )
 
-    # 排名渐变色起点
-    rank_start_color = ThemeColor.ACCENT_GOLD if "金" in title else (192, 192, 192)  # 亮银色
-
-    # --- 数据行 ---
-    for i in range(max_rows):
-        if i < len(day_items):
-            _draw_row(cb, day_items[i], left_x, current_y, i, max_rows, row_font, rank_start_color)
-        else:
-            _draw_empty_row(cb, left_x, current_y, i)
-
-        if i < len(hour_items):
-            _draw_row(cb, hour_items[i], right_x, current_y, i, max_rows, row_font, rank_start_color)
-        else:
-            _draw_empty_row(cb, right_x, current_y, i)
-
-        current_y += _ROW_H
-
-    # --- 看板娘 ---
-    draw_standing(cb, max_w=190, max_h=260)
-
-    # --- 底部署名 ---
-    cb.draw_card_footer(canvas_h, _FOOTER_H, 22)
-
-    return cb.to_image()
-
-
-def _draw_header(cb: ImageCombiner, x: int, y: int) -> None:
-    """绘制单列表头字段。"""
-    baseline_y = _row_baseline(cb.draw, y, _HEADER_H, cb.current_font)
-    cb.add_text("名称", x + _COL_NAME, baseline_y)
-    cb.add_text("杜卡币", x + _COL_DUCATS, baseline_y)
-    cb.add_text("杜卡币/白金", x + _COL_DPP, baseline_y)
-    cb.add_text("均价", x + _COL_WA, baseline_y)
-    cb.add_text("库存", x + _COL_VOL, baseline_y)
-
-
-def _draw_row(
-    cb: ImageCombiner,
-    item: DucatItem,
-    x: int,
-    y: int,
-    idx: int,
-    total: int,
-    font,
-    rank_start_color: tuple[int, int, int],
-) -> None:
-    """绘制单行数据，交替行背景色，排名渐变色。"""
-    if idx % 2 == 1:
-        cb.set_color(ThemeColor.BG_CARD_ALT)
-        cb.fill_rect(x, y, _COL_W, _ROW_H)
-
-    name = item.item_name or "未知物品"
-    ducats_str = str(item.ducats) if item.ducats is not None else "N/A"
-    dpp_str = f"{item.ducats_per_platinum_wa:.2f}" if item.ducats_per_platinum_wa is not None else "N/A"
-    wa_str = f"{item.wa_price:.2f}" if item.wa_price is not None else "N/A"
-    vol_str = str(item.volume) if item.volume is not None else "N/A"
-
-    baseline_y = _row_baseline(cb.draw, y, _ROW_H, font)
-
-    # 排名渐变色：整行统一
-    t = idx / max(total - 1, 1)
-    rank_color = lerp_color(rank_start_color, _RANK_END_COLOR, t)
-    cb.set_color(rank_color).set_font(font)
-    cb.add_text(name, x + _COL_NAME, baseline_y)
-    cb.add_text(ducats_str, x + _COL_DUCATS, baseline_y)
-    cb.add_text(dpp_str, x + _COL_DPP, baseline_y)
-    cb.add_text(wa_str, x + _COL_WA, baseline_y)
-    cb.add_text(vol_str, x + _COL_VOL, baseline_y)
-
-
-def _draw_empty_row(cb: ImageCombiner, x: int, y: int, idx: int) -> None:
-    """绘制空白行。"""
-    if idx % 2 == 1:
-        cb.set_color(ThemeColor.BG_CARD_ALT)
-        cb.fill_rect(x, y, _COL_W, _ROW_H)
+    frame.draw_standing_block(page, max(left_bottom, right_bottom), "sm")
+    frame.draw_footer_block(page)
+    return page.cb.to_image()

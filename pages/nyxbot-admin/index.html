@@ -2,102 +2,193 @@
 <html lang="zh-CN" data-theme="dark">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="color-scheme" content="dark light" />
   <title>NyxBot 数据管理</title>
   <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
-  <!-- 侧边栏：模型列表 -->
-  <aside id="sidebar">
-    <div class="sidebar-header">
-      <h2>📊 NyxBot</h2>
-      <p class="sidebar-subtitle">数据管理中心</p>
-    </div>
-    <div class="sidebar-search">
-      <input
-        type="text"
-        id="model-filter"
-        placeholder="过滤模型..."
-        autocomplete="off"
-      />
-    </div>
-    <nav id="model-list">
-      <div class="loading-message">加载模型列表中...</div>
-    </nav>
-  </aside>
+  <!-- 图标精灵：统一 24 栅格、1.75 描边，禁止用字符当图标 -->
+  <svg class="sprite" aria-hidden="true" focusable="false">
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 15.5-6.2L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 21v-5h5"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-save" viewBox="0 0 24 24"><path d="M5 12.5 9.5 17 19 7.5"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.9 19.3a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.7 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.7 8.9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9v.09a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1Z"/></symbol>
+    <symbol id="i-database" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></symbol>
+    <symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+    <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  </svg>
 
-  <!-- 主内容区 -->
-  <main id="main-content">
-    <!-- 顶部工具栏 -->
-    <header id="toolbar">
-      <div class="toolbar-left">
-        <h1 id="current-model-title">选择一个模型</h1>
-        <span id="record-count" class="record-count"></span>
+  <div class="app">
+    <!-- 侧边栏：按功能模块分组折叠的模型导航 + 系统入口 -->
+    <aside class="sidebar" id="sidebar" aria-label="数据模型导航">
+      <header class="sidebar-head">
+        <div class="sidebar-brand">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <div class="brand-text">
+            <b data-i18n="sidebar.title">NyxBot 数据管理</b>
+            <span id="sidebar-subtitle">数据管理中心</span>
+          </div>
+          <button class="btn drawer-close" data-size="icon" data-variant="ghost" id="drawer-close" type="button" aria-label="收起模型列表" data-i18n-aria="sidebar.close">
+            <svg class="ico" aria-hidden="true"><use href="#i-x"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <div class="sidebar-search">
+        <div class="input-wrap">
+          <svg class="ico" aria-hidden="true"><use href="#i-search"/></svg>
+          <input class="input" id="model-filter" type="search" placeholder="搜索数据模型…" autocomplete="off" aria-label="搜索数据模型" />
+        </div>
       </div>
-      <div class="toolbar-right">
-        <button id="sync-btn" class="btn btn-secondary" disabled title="从数据源同步">
-          🔄 同步
+
+      <nav class="model-list" id="model-list" aria-label="数据模型列表">
+        <div class="model-state" id="model-state">
+          <span class="spinner"></span> 正在加载模型列表…
+        </div>
+      </nav>
+
+      <div class="sidebar-system">
+        <div class="sidebar-system-label" id="sidebar-system-label" data-i18n="sidebar.system">系统</div>
+        <button class="model-item" id="settings-entry" type="button">
+          <svg class="ico" aria-hidden="true"><use href="#i-gear"/></svg>
+          <span class="grow" data-i18n="sidebar.settings">插件设置</span>
         </button>
-        <button id="create-btn" class="btn btn-primary" disabled>
-          ➕ 新增记录
+      </div>
+
+      <footer class="sidebar-foot" id="model-summary">—</footer>
+    </aside>
+
+    <div class="scrim" id="scrim" hidden></div>
+
+    <main class="admin-main">
+      <header class="admin-head">
+        <button class="btn sidebar-toggle" data-size="icon" data-variant="ghost" id="sidebar-toggle" type="button" aria-label="打开模型列表" aria-expanded="false" data-i18n-aria="sidebar.open">
+          <svg class="ico" aria-hidden="true"><use href="#i-menu"/></svg>
         </button>
-      </div>
-    </header>
+        <div class="head-main">
+          <p class="crumb"><span id="crumb-root" data-i18n="crumb.root">后台数据管理</span> <span class="crumb-sep" aria-hidden="true">/</span> <b id="crumb-model">—</b></p>
+          <div class="head-line">
+            <h2 id="current-model-title">正在载入…</h2>
+            <span class="count" id="record-count">—</span>
+          </div>
+          <p class="head-meta" id="page-summary">选择左侧模型以查看数据</p>
+        </div>
 
-    <!-- 数据表格容器 -->
-    <div id="table-container">
-      <div id="table-placeholder" class="placeholder-message">
-        👈 请从左侧选择一个模型开始管理数据
-      </div>
-    </div>
+        <div class="head-actions" id="data-actions">
+          <button class="btn" id="refresh-btn" type="button" disabled>
+            <svg class="ico" aria-hidden="true"><use href="#i-refresh"/></svg>
+            <span data-i18n="toolbar.refresh">刷新数据</span>
+          </button>
+          <button class="btn" id="sync-btn" type="button" disabled title="从数据源同步当前模型" data-i18n-title="toolbar.sync_title">
+            <span data-i18n="toolbar.sync">同步数据</span>
+          </button>
+          <button class="btn" data-variant="primary" id="create-btn" type="button" disabled>
+            <svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg>
+            <span data-i18n="toolbar.create">新增记录</span>
+          </button>
+        </div>
 
-    <!-- 分页控件 -->
-    <footer id="pagination" style="display: none;">
-      <button id="prev-page" class="btn btn-page" disabled>上一页</button>
-      <span id="page-info"></span>
-      <button id="next-page" class="btn btn-page" disabled>下一页</button>
-    </footer>
-  </main>
+        <div class="head-actions" id="settings-actions" hidden>
+          <button class="btn" id="config-reset" type="button">
+            <span data-i18n="settings.reset">恢复默认</span>
+          </button>
+          <button class="btn" data-variant="primary" id="config-save" type="button" disabled>
+            <svg class="ico" aria-hidden="true"><use href="#i-save"/></svg>
+            <span data-i18n="settings.save">保存设置</span>
+          </button>
+        </div>
+      </header>
 
-  <!-- 编辑/创建模态框 -->
-  <div id="modal-overlay" class="modal-overlay" style="display: none;">
-    <div class="modal">
-      <div class="modal-header">
-        <h2 id="modal-title">编辑记录</h2>
-        <button id="modal-close" class="btn-close">✕</button>
+      <div class="admin-toolbar" id="searchbar">
+        <div class="input-wrap search">
+          <svg class="ico" aria-hidden="true"><use href="#i-search"/></svg>
+          <input class="input has-action" id="data-search" type="search" placeholder="在当前模型内搜索，回车确认…" autocomplete="off" aria-label="在当前模型内搜索" disabled />
+          <button class="input-action" id="search-clear" type="button" hidden aria-label="清空搜索">
+            <svg class="ico" aria-hidden="true"><use href="#i-x"/></svg>
+          </button>
+        </div>
+        <span class="hint" id="search-hint">支持按名称等可搜索字段过滤</span>
       </div>
-      <div class="modal-body">
-        <form id="record-form">
-          <div id="form-fields"></div>
-        </form>
-      </div>
-      <div class="modal-footer">
-        <button id="modal-cancel" class="btn btn-secondary">取消</button>
-        <button id="modal-submit" class="btn btn-primary">保存</button>
-      </div>
+
+      <!-- 全局提示条：加载失败 / 需重载等 -->
+      <div class="admin-notice" id="notice" data-tone="danger" hidden></div>
+
+      <!-- 数据展示区：唯一滚动容器 -->
+      <section class="data-area" id="table-container" aria-live="polite">
+        <div class="state">
+          <span class="spinner"></span>
+          <p class="state-title">正在初始化数据管理…</p>
+        </div>
+      </section>
+
+      <!-- 插件设置 -->
+      <section class="settings-area" id="settings-area" hidden>
+        <div class="settings-inner" id="settings-form"></div>
+      </section>
+
+      <footer class="admin-pager" id="pagination" hidden>
+        <div class="pager">
+          <span class="pager-summary" id="page-total"></span>
+          <div class="pager-controls">
+            <button class="page-btn" id="prev-page" type="button" aria-label="上一页">
+              <svg class="ico" width="15" height="15" aria-hidden="true"><use href="#i-chevron-left"/></svg>
+            </button>
+            <div class="pager-pages" id="page-info"></div>
+            <button class="page-btn" id="next-page" type="button" aria-label="下一页">
+              <svg class="ico" width="15" height="15" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+            </button>
+          </div>
+        </div>
+      </footer>
+    </main>
+  </div>
+
+  <!-- 新增 / 编辑 -->
+  <div class="overlay" id="modal-overlay" hidden>
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <header class="dialog-head">
+        <h3 id="modal-title">编辑记录</h3>
+        <button class="btn" data-size="icon" data-variant="ghost" id="modal-close" type="button" aria-label="关闭">
+          <svg class="ico" aria-hidden="true"><use href="#i-x"/></svg>
+        </button>
+      </header>
+      <div class="dialog-body" id="form-fields"></div>
+      <footer class="dialog-foot">
+        <span class="dialog-hint" id="form-hint">带 * 的字段请按实际内容填写</span>
+        <button class="btn" id="modal-cancel" type="button">取消</button>
+        <button class="btn" data-variant="primary" id="modal-submit" type="button">保存</button>
+      </footer>
     </div>
   </div>
 
-  <!-- 删除确认模态框 -->
-  <div id="confirm-overlay" class="modal-overlay" style="display: none;">
-    <div class="modal modal-sm">
-      <div class="modal-header">
-        <h2 id="confirm-title">确认删除</h2>
-        <button id="confirm-close" class="btn-close">✕</button>
+  <!-- 删除 / 放弃修改确认 -->
+  <div class="overlay" id="confirm-overlay" hidden>
+    <div class="dialog dialog-sm" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+      <header class="dialog-head">
+        <h3 id="confirm-title">确认删除</h3>
+        <button class="btn" data-size="icon" data-variant="ghost" id="confirm-close" type="button" aria-label="关闭">
+          <svg class="ico" aria-hidden="true"><use href="#i-x"/></svg>
+        </button>
+      </header>
+      <div class="dialog-body">
+        <p class="confirm-message" id="confirm-message">确定删除这条记录吗？此操作不可撤销。</p>
+        <div class="confirm-detail" id="confirm-detail"></div>
       </div>
-      <div class="modal-body">
-        <p id="confirm-message">确定要删除这条记录吗？此操作不可撤销。</p>
-        <p id="confirm-detail" class="confirm-detail"></p>
-      </div>
-      <div class="modal-footer">
-        <button id="confirm-cancel" class="btn btn-secondary">取消</button>
-        <button id="confirm-delete" class="btn btn-danger">删除</button>
-      </div>
+      <footer class="dialog-foot">
+        <span class="dialog-hint" id="confirm-hint"></span>
+        <button class="btn" id="confirm-cancel" type="button">取消</button>
+        <button class="btn" data-variant="danger" id="confirm-delete" type="button">确认删除</button>
+      </footer>
     </div>
   </div>
 
-  <!-- Toast 通知 -->
-  <div id="toast" class="toast" style="display: none;"></div>
+  <div class="toast" id="toast" role="status" aria-live="polite" data-tone="info" hidden></div>
 
   <script type="module" src="./app.js"></script>
 </body>

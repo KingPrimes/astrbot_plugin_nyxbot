@@ -24,7 +24,7 @@ AstrBot 的 Warframe 助手插件，提供世界状态查询、市场交易、�
 | 📢 **订阅通知** | 群组任务订阅，定时推送世界状态变更通知（警报/突击/裂隙/入侵/奸商/仲裁等） |
 | 🔍 **OCR 识别** | 基于 PaddleOCR PP-OCRv5 的文字识别，支持游戏截图解析 |
 | 🌐 **中英翻译** | Warframe 物品/状态中英文名称互查，支持别名模糊匹配 |
-| ⚙️ **数据管理** | Plugin Pages 管理后台，支持别名、翻译、紫卡词条等数据的可视化 CRUD |
+| ⚙️ **数据管理** | Plugin Pages 管理后台：别名、翻译、紫卡词条等数据的可视化 CRUD，并可在页面内直接修改插件配置 |
 
 ---
 
@@ -88,6 +88,17 @@ AstrBot 的 Warframe 助手插件，提供世界状态查询、市场交易、�
 
 ---
 
+## 插件页面（Plugin Pages）
+
+WebUI 里只有一个视图 `nyxbot-admin`（`pages/nyxbot-admin/`），左侧是数据模型导航，底部「系统 → 插件设置」进入配置页。
+
+- **数据管理**：模型分页查询、按字段搜索、新增 / 编辑 / 删除、从数据源同步。
+- **插件设置**：读取 `_conf_schema.json` 生成表单（文本框 / 数字 / 开关 / 单选 / 下拉），保存后写入插件配置文件并刷新内存配置。启动期读取的项（指令前缀、初始化模式、更新间隔、图片样式、数据库调试）标注「需重载」，重载插件后生效。
+- **多语言**：页面文案由 `.astrbot-plugin/i18n/*.json` 提供，跟随 AstrBot 当前语言。AstrBot 设为韩语等没有对应文案文件的语言时，自动回退英文（目前提供 `zh-CN` / `en` / `ru`）。
+- **后端接口**：`GET /astrbot_plugin_nyxbot/config`、`POST /astrbot_plugin_nyxbot/config/update`、`GET /astrbot_plugin_nyxbot/i18n`，与 `models`、`data/<model>` 一同注册。
+
+---
+
 ## 架构
 
 ```
@@ -136,7 +147,7 @@ AstrBot 的 Warframe 助手插件，提供世界状态查询、市场交易、�
   src/util/        →  工具函数（HTTP 重试 / 缓存 / 时间格式化 / 字符串 / 压缩）
   src/init/        →  初始化引擎（TortoiseORM 连接 / 导出文件下载）
   src/web_api/     →  Plugin Pages 管理后台 API
-  pages/           →  Plugin Pages 管理后台前端
+  pages/           →  插件可视化视图前端（单一 View：数据管理 + 插件设置）
 ```
 
 ### 数据流
@@ -260,9 +271,8 @@ astrbot_plugin_nyxbot/
 ├── requirements.txt           # Python 依赖
 ├── logo.png                   # 插件图标
 ├── LICENSE                    # 开源协议
-├── pages/
-│   └── nyxbot-admin/          # Plugin Pages 管理后台前端
-│       └── assets/            # 前端静态资源
+├── pages/                     # 插件可视化视图（每个一级目录 = 一个 View）
+│   └── nyxbot-admin/          # 数据管理页：模型 CRUD + 插件设置
 ├── src/
 │   ├── api/                   # 外部 API 封装
 │   │   ├── api.py             #   WF 世界状态 / Market / Public Export 端点常量

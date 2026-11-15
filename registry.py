@@ -22,7 +22,7 @@ from pathlib import Path
 import orjson
 
 from astrbot.api import logger
-from astrbot.api.event import filter
+from astrbot.api.event import AstrMessageEvent, filter
 from astrbot.core.utils.astrbot_path import get_astrbot_config_path
 
 MAIN_MODULE = __name__.rsplit(".", 1)[0] + ".main"
@@ -151,7 +151,7 @@ command_prefix: str = _load_prefix_from_config()
 if command_prefix:
     # With prefix: use command group / 有前缀：使用指令组（如 /wf help）
     @_patch_module
-    def _wf_group_handler(self):
+    def _wf_group_handler(self, event: AstrMessageEvent):
         """Warframe 助手指令组"""
 
     wf = _PatchedRegisteringCommandable(

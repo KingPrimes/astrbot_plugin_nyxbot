@@ -185,8 +185,20 @@ class PluginConfig:
 
     @property
     def qq_markdown_enabled(self) -> bool:
-        """QQ 官方机器人优先使用 Markdown 消息格式。"""
-        return bool(self.get("qq_markdown_enabled", True))
+        """QQ 官方机器人优先使用 Markdown 消息格式。
+
+        默认与 ``_conf_schema.json`` 一致为 ``False``（审查 P2-8：两处
+        必须同值，schema 的默认值会被 AstrBot 落盘，代码回退值仅在
+        键缺失时兜底，两者对立会造成语义混乱）。
+        """
+        return bool(self.get("qq_markdown_enabled", False))
+
+    @property
+    def card_theme(self) -> str:
+        """图片样式模式（dark / light）。"""
+        from ..render.theme import DEFAULT_MODE, normalize_mode
+
+        return normalize_mode(self._config.get("wf_card_theme"), DEFAULT_MODE)
 
     # --- Representation / 表示 ---
 
@@ -211,6 +223,18 @@ def _get_default_config() -> PluginConfig:
 def get_wf_update_interval() -> int:
     """获取世界状态更新间隔（秒）。"""
     return _get_default_config().wf_update_interval
+
+
+def reload_plugin_config() -> PluginConfig:
+    """重新读取配置文件，返回刷新后的单例。
+
+    Web 设置页保存后调用，让 ``get_xxx()`` 这类读取立即看到新值；
+    启动期读取的配置项仍需重载插件才会生效。
+    """
+    config = _get_default_config()
+    config.reload()
+    logger.debug("插件配置已重新加载")
+    return config
 
 
 def get_data_init_mode() -> str:

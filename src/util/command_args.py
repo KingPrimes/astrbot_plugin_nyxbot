@@ -15,8 +15,10 @@ AstrBot 会把指令后的文本按空格切分，再逐个绑定到 handler 的
 from __future__ import annotations
 
 import re
+from typing import TYPE_CHECKING
 
-from astrbot.api.event import AstrMessageEvent
+if TYPE_CHECKING:
+    from astrbot.api.event import AstrMessageEvent
 
 _WHITESPACE_RE = re.compile(r"\s+")
 

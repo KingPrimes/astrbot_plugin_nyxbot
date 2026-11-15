@@ -1,16 +1,25 @@
 {
+  "views": {
+    "nyxbot-admin": {
+      "title": "NyxBot 数据管理中心",
+      "description": "数据管理视图：模型数据 CRUD、数据同步与插件配置在线修改。"
+    }
+  },
   "pages": {
     "nyxbot-admin": {
       "title": "NyxBot 数据管理中心",
-      "description": "管理 Warframe 助手插件的数据，支持 CRUD 操作与数据同步",
-
+      "description": "数据管理视图：模型数据 CRUD、数据同步与插件配置在线修改。",
       "sidebar": {
         "subtitle": "数据管理中心",
         "filter_placeholder": "过滤模型...",
         "loading": "加载模型列表中...",
-        "no_match": "没有匹配的模型"
+        "no_match": "没有匹配的模型",
+        "settings": "插件设置",
+        "system": "系统",
+        "title": "NyxBot 数据管理",
+        "open": "打开模型列表",
+        "close": "收起模型列表"
       },
-
       "categories": {
         "basic": "基础数据",
         "translation": "翻译数据",
@@ -20,7 +29,6 @@
         "notification": "通知与订阅",
         "other": "其他"
       },
-
       "models": {
         "alias": "别名",
         "nodes": "节点",
@@ -48,30 +56,28 @@
         "mission_subscribe_user": "订阅用户",
         "mission_subscribe_user_check_type": "订阅检查类型"
       },
-
       "toolbar": {
         "select_model": "选择一个模型",
         "records_count": "共 {n} 条记录",
-        "sync": "🔄 同步",
+        "sync": "同步数据",
         "sync_title": "从数据源同步",
         "syncing": "正在同步 {model} 数据...",
         "sync_success": "{model} 数据同步完成",
         "sync_failed": "同步失败",
-        "create": "➕ 新增记录"
+        "create": "新增记录",
+        "refresh": "刷新数据"
       },
-
       "table": {
         "actions": "操作",
         "no_data": "暂无数据",
         "loading": "加载中...",
-        "load_failed": "加载失败"
+        "load_failed": "加载失败",
+        "search_placeholder": "在当前模型内搜索，回车确认…"
       },
-
       "pagination": {
         "prev": "上一页",
         "next": "下一页"
       },
-
       "modal": {
         "edit_record": "编辑记录",
         "new_record": "新增记录",
@@ -83,15 +89,13 @@
         "load_form": "加载表单...",
         "cannot_determine_fields": "请先加载数据以确定模型字段",
         "record_not_in_cache": "缓存中未找到该记录，请刷新页面后重试",
-        "id_readonly": "id"
+        "id_readonly": "只读"
       },
-
       "confirm": {
         "title": "确认删除",
         "message": "确定要删除这条记录吗？此操作不可撤销。",
         "delete_btn": "删除"
       },
-
       "toast": {
         "create_success": "记录创建成功",
         "create_failed": "创建失败",
@@ -103,17 +107,20 @@
           "switch_light": "切换亮色主题",
           "switch_dark": "切换暗色主题"
         },
-
         "lang": {
           "switch_en": "切换到英文",
           "switch_zh": "切换到中文"
         },
-
         "operation_failed": "操作失败",
         "init_failed": "初始化失败",
-        "unknown_error": "未知错误"
+        "unknown_error": "未知错误",
+        "synced": "「{model}」同步完成",
+        "sync_failed": "同步失败：{error}",
+        "refreshed": "已刷新「{model}」",
+        "config_saved": "设置已保存",
+        "config_failed": "保存失败：{error}",
+        "syncing": "正在同步「{model}」…"
       },
-
       "fields": {
         "id": "ID",
         "ids": "ID",
@@ -200,9 +207,11 @@
         "abilityName": "技能名称",
         "excludeFromCodex": "资料库排除",
         "image_name": "图片名",
-        "urlName": "URL名称"
+        "urlName": "URL名称",
+        "is_custom": "自定义",
+        "vaulted": "已入库",
+        "ducats": "杜卡德"
       },
-
       "placeholders": {
         "id": "自动生成，新建时请留空",
         "cn": "请输入中文名称",
@@ -222,6 +231,143 @@
         "mission_type": "请输入任务类型",
         "mission_id": "请输入任务ID",
         "default": "请输入内容"
+      },
+      "search": {
+        "hint_active": "按回车或停止输入后自动搜索",
+        "hint_idle": "选择模型后可搜索"
+      },
+      "actions": {
+        "retry": "重试",
+        "reload": "重新加载",
+        "sync": "同步数据",
+        "create": "新增记录",
+        "clear_search": "清空搜索"
+      },
+      "summary": {
+        "models": "共 {n} 个数据模型",
+        "models_matched": "匹配 {n} 个数据模型",
+        "records": "共 {n} 条记录",
+        "page": "每页 {size} 条 · 共 {pages} 页",
+        "search": "搜索「{q}」· 每页 {size} 条",
+        "empty": "暂无记录",
+        "loading": "正在载入数据…",
+        "failed": "数据加载失败，可重试或切换模型"
+      },
+      "state": {
+        "loading_title": "正在加载数据…",
+        "loading_desc": "{model} · 第 {page} 页",
+        "empty_title": "当前模型暂无数据",
+        "empty_desc": "模型「{model}」没有记录。",
+        "empty_sync_hint": "可从数据源同步后查看。",
+        "empty_manual_hint": "该模型没有同步数据源，可直接手动新增。",
+        "no_match_title": "没有匹配的记录",
+        "no_match_desc": "关键词「{q}」没有命中任何记录，试试更短的关键词或清空搜索。",
+        "error_title": "数据加载失败",
+        "error_desc": "{error}。请确认插件已完成初始化、数据源可用后重试。",
+        "no_models_title": "没有可管理的数据模型",
+        "no_models_desc": "后端未返回任何模型，请确认插件已完成初始化后重试。"
+      },
+      "notice": {
+        "load_failed": "数据加载失败：{error}",
+        "sync_no_source": "「{model}」没有可用的同步数据源，请先配置数据源。"
+      },
+      "form": {
+        "fields_note": "模型「{model}」共 {n} 个字段；留空的字段会以后端默认规则处理。",
+        "edit_hint": "修改后点击保存，仅提交本表单字段",
+        "create_hint": "ID 留空将由数据库自动生成",
+        "no_fields": "当前模型没有可推断的字段，请先加载数据或同步数据源。",
+        "required_name": "请至少填写名称字段"
+      },
+      "settings": {
+        "title": "插件设置",
+        "crumb": "系统",
+        "lead": "共 {n} 项配置 · 保存后写入插件配置文件",
+        "save": "保存设置",
+        "saving": "保存中…",
+        "saved": "设置已保存",
+        "reset": "恢复默认",
+        "reset_confirm_title": "恢复默认设置",
+        "reset_confirm_message": "将把 {n} 项配置全部恢复为默认值，点击保存后生效。",
+        "reset_confirm_btn": "恢复默认",
+        "dirty": "有 {n} 项未保存",
+        "clean": "已与配置文件一致",
+        "reload_badge": "需重载",
+        "reload_notice": "以下配置需重载插件后生效：{keys}",
+        "default_value": "默认：{value}",
+        "use_default": "恢复默认值",
+        "unsaved_title": "放弃未保存的修改？",
+        "unsaved_message": "当前有 {n} 项修改尚未保存，离开后将丢失。",
+        "unsaved_confirm": "放弃修改",
+        "save_failed": "保存失败，请检查以下配置项",
+        "errors": {
+          "required": "该配置项不能为空",
+          "invalid_number": "请填写数字",
+          "min": "不能小于 {min}",
+          "max": "不能大于 {max}",
+          "invalid_option": "请从给出的选项中选择",
+          "too_long": "内容过长",
+          "unknown_key": "未知配置项",
+          "invalid_bool": "请选择开启或关闭",
+          "invalid_prefix": "前缀只能包含字母、数字、下划线（0~16 位）",
+          "generic": "该配置项不合法"
+        },
+        "groups": {
+          "command": "指令与基础",
+          "data": "数据与同步",
+          "render": "渲染",
+          "notify": "通知与消息",
+          "debug": "调试",
+          "other": "其他"
+        },
+        "items": {
+          "wf_command_prefix": {
+            "label": "指令前缀",
+            "hint": "为空时指令无需前缀（/help）；设为 wf 则通过 /wf help 触发。重载后生效。"
+          },
+          "wf_data_init_mode": {
+            "label": "数据初始化模式",
+            "hint": "auto=核心表缺数据才导入；always=每次启动全量导入；never=跳过导入；offline=跳过导入与联网任务。重载后生效。"
+          },
+          "wf_data_source_cdn": {
+            "label": "数据源 CDN",
+            "hint": "翻译与别名等静态数据的下载地址，选择延迟较低的节点。"
+          },
+          "wf_update_interval": {
+            "label": "世界状态更新间隔",
+            "hint": "定时拉取世界状态的最小间隔（秒），建议不低于 60。重载后生效。"
+          },
+          "wf_card_theme": {
+            "label": "图片样式",
+            "hint": "卡片渲染的配色方案，重载后生效。"
+          },
+          "wf_notification_retention_hours": {
+            "label": "通知历史保留时长",
+            "hint": "超过该时长的通知记录会被自动清理（小时）。"
+          },
+          "qq_markdown_enabled": {
+            "label": "QQ 官方机器人使用 Markdown",
+            "hint": "开启后 QQ 官方平台的文本消息以 Markdown 发送，排版更美观。"
+          },
+          "db_debug": {
+            "label": "数据库调试日志",
+            "hint": "输出 Tortoise ORM 的 SQL 日志，仅调试时开启。重载后生效。"
+          }
+        },
+        "options": {
+          "dark": "暗色",
+          "light": "亮色",
+          "auto": "自动",
+          "always": "每次全量",
+          "never": "跳过导入",
+          "offline": "离线"
+        }
+      },
+      "errors": {
+        "timeout": "请求超时，请重试",
+        "no_bridge": "页面 bridge 未就绪，请从 AstrBot 面板内打开本页"
+      },
+      "crumb": {
+        "root": "后台数据管理"
       }
     }
   }

@@ -1,16 +1,25 @@
 {
+  "views": {
+    "nyxbot-admin": {
+      "title": "NyxBot Data Manager",
+      "description": "Admin view: browse and edit model data, sync data sources, and change plugin settings."
+    }
+  },
   "pages": {
     "nyxbot-admin": {
       "title": "NyxBot Data Manager",
-      "description": "Manage Warframe assistant plugin data with CRUD operations and data sync",
-
+      "description": "Admin view: browse and edit model data, sync data sources, and change plugin settings.",
       "sidebar": {
         "subtitle": "Data Manager",
         "filter_placeholder": "Filter models...",
         "loading": "Loading models...",
-        "no_match": "No matching models"
+        "no_match": "No matching models",
+        "settings": "Plugin settings",
+        "system": "System",
+        "title": "NyxBot Data Manager",
+        "open": "Open model list",
+        "close": "Collapse model list"
       },
-
       "categories": {
         "basic": "Basic Data",
         "translation": "Translations",
@@ -20,7 +29,6 @@
         "notification": "Notifications",
         "other": "Other"
       },
-
       "models": {
         "alias": "Aliases",
         "nodes": "Nodes",
@@ -48,30 +56,28 @@
         "mission_subscribe_user": "Subscription Users",
         "mission_subscribe_user_check_type": "Subscription Check Types"
       },
-
       "toolbar": {
         "select_model": "Select a model",
         "records_count": "{n} records",
-        "sync": "🔄 Sync",
+        "sync": "Sync",
         "sync_title": "Sync from data source",
         "syncing": "Syncing {model} data...",
         "sync_success": "{model} data sync completed",
         "sync_failed": "Sync failed",
-        "create": "➕ New Record"
+        "create": "New record",
+        "refresh": "Refresh"
       },
-
       "table": {
         "actions": "Actions",
         "no_data": "No data",
         "loading": "Loading...",
-        "load_failed": "Failed to load"
+        "load_failed": "Failed to load",
+        "search_placeholder": "Search in this model, press Enter…"
       },
-
       "pagination": {
         "prev": "Previous",
         "next": "Next"
       },
-
       "modal": {
         "edit_record": "Edit Record",
         "new_record": "New Record",
@@ -83,15 +89,13 @@
         "load_form": "Loading form...",
         "cannot_determine_fields": "Please load data first to determine model fields",
         "record_not_in_cache": "Record not found in cache, please refresh the page",
-        "id_readonly": "id"
+        "id_readonly": "read-only"
       },
-
       "confirm": {
         "title": "Confirm Delete",
         "message": "Are you sure you want to delete this record? This action cannot be undone.",
         "delete_btn": "Delete"
       },
-
       "toast": {
         "create_success": "Record created successfully",
         "create_failed": "Failed to create",
@@ -103,17 +107,20 @@
           "switch_light": "Switch to Light",
           "switch_dark": "Switch to Dark"
         },
-
         "lang": {
           "switch_en": "Switch to English",
           "switch_zh": "Switch to Chinese"
         },
-
         "operation_failed": "Operation failed",
         "init_failed": "Initialization failed",
-        "unknown_error": "Unknown error"
+        "unknown_error": "Unknown error",
+        "synced": "“{model}” synced",
+        "sync_failed": "Sync failed: {error}",
+        "refreshed": "“{model}” refreshed",
+        "config_saved": "Settings saved",
+        "config_failed": "Save failed: {error}",
+        "syncing": "Syncing “{model}”…"
       },
-
       "fields": {
         "id": "ID",
         "ids": "ID",
@@ -200,9 +207,11 @@
         "abilityName": "Ability Name",
         "excludeFromCodex": "Exclude Codex",
         "image_name": "Image Name",
-        "urlName": "URL Name"
+        "urlName": "URL Name",
+        "is_custom": "Custom",
+        "vaulted": "Vaulted",
+        "ducats": "Ducats"
       },
-
       "placeholders": {
         "id": "Auto-generated, leave empty for new",
         "cn": "Enter Chinese name",
@@ -222,6 +231,143 @@
         "mission_type": "Enter mission type",
         "mission_id": "Enter mission ID",
         "default": "Enter content"
+      },
+      "search": {
+        "hint_active": "Press Enter or pause typing to search",
+        "hint_idle": "Select a model to search"
+      },
+      "actions": {
+        "retry": "Retry",
+        "reload": "Reload",
+        "sync": "Sync",
+        "create": "New record",
+        "clear_search": "Clear search"
+      },
+      "summary": {
+        "models": "{n} models",
+        "models_matched": "{n} matching models",
+        "records": "{n} records",
+        "page": "{size} per page · {pages} pages",
+        "search": "Search “{q}” · {size} per page",
+        "empty": "No records",
+        "loading": "Loading data…",
+        "failed": "Failed to load, retry or switch model"
+      },
+      "state": {
+        "loading_title": "Loading data…",
+        "loading_desc": "{model} · page {page}",
+        "empty_title": "No data in this model",
+        "empty_desc": "Model “{model}” has no records.",
+        "empty_sync_hint": "Sync from the data source to populate it.",
+        "empty_manual_hint": "This model has no data source; add records manually.",
+        "no_match_title": "No matching records",
+        "no_match_desc": "“{q}” matched nothing. Try a shorter keyword or clear the search.",
+        "error_title": "Failed to load data",
+        "error_desc": "{error}. Check that the plugin finished initializing and the data source is reachable, then retry.",
+        "no_models_title": "No models available",
+        "no_models_desc": "The backend returned no models. Make sure the plugin finished initializing, then retry."
+      },
+      "notice": {
+        "load_failed": "Failed to load data: {error}",
+        "sync_no_source": "“{model}” has no sync source. Configure a data source first."
+      },
+      "form": {
+        "fields_note": "Model “{model}” has {n} fields; empty values fall back to backend defaults.",
+        "edit_hint": "Only the fields in this form are submitted",
+        "create_hint": "Leave ID empty to auto-generate it",
+        "no_fields": "No fields could be inferred. Load data or sync the model first.",
+        "required_name": "Fill in at least one name field"
+      },
+      "settings": {
+        "title": "Plugin settings",
+        "crumb": "System",
+        "lead": "{n} options · saved to the plugin config file",
+        "save": "Save changes",
+        "saving": "Saving…",
+        "saved": "Settings saved",
+        "reset": "Restore defaults",
+        "reset_confirm_title": "Restore defaults",
+        "reset_confirm_message": "This resets all {n} options to their defaults. Click Save to apply.",
+        "reset_confirm_btn": "Restore",
+        "dirty": "{n} unsaved change(s)",
+        "clean": "Up to date with the config file",
+        "reload_badge": "Reload required",
+        "reload_notice": "These options take effect after the plugin is reloaded: {keys}",
+        "default_value": "Default: {value}",
+        "use_default": "Use default",
+        "unsaved_title": "Discard unsaved changes?",
+        "unsaved_message": "{n} change(s) are not saved yet and will be lost.",
+        "unsaved_confirm": "Discard",
+        "save_failed": "Some options could not be saved",
+        "errors": {
+          "required": "This field is required",
+          "invalid_number": "Enter a number",
+          "min": "Must be at least {min}",
+          "max": "Must be at most {max}",
+          "invalid_option": "Choose one of the listed options",
+          "too_long": "Value is too long",
+          "unknown_key": "Unknown option",
+          "invalid_bool": "Choose on or off",
+          "invalid_prefix": "Prefix may only contain letters, digits and underscores (0-16 chars)",
+          "generic": "Invalid value"
+        },
+        "groups": {
+          "command": "Commands & basics",
+          "data": "Data & sync",
+          "render": "Rendering",
+          "notify": "Notifications",
+          "debug": "Debug",
+          "other": "Other"
+        },
+        "items": {
+          "wf_command_prefix": {
+            "label": "Command prefix",
+            "hint": "Leave empty for prefix-free commands (/help); set to wf to use /wf help. Takes effect after reload."
+          },
+          "wf_data_init_mode": {
+            "label": "Data init mode",
+            "hint": "auto=import only when core tables are empty; always=full import on every start; never=skip import; offline=skip import and network tasks. Takes effect after reload."
+          },
+          "wf_data_source_cdn": {
+            "label": "Data source CDN",
+            "hint": "Download source for translations and aliases. Pick the mirror with the lowest latency."
+          },
+          "wf_update_interval": {
+            "label": "World state refresh interval",
+            "hint": "Minimum interval in seconds for polling world state; 60 or more is recommended. Takes effect after reload."
+          },
+          "wf_card_theme": {
+            "label": "Card appearance",
+            "hint": "Color scheme used when rendering cards. Takes effect after reload."
+          },
+          "wf_notification_retention_hours": {
+            "label": "Notification retention",
+            "hint": "Notification records older than this many hours are cleaned up automatically."
+          },
+          "qq_markdown_enabled": {
+            "label": "Markdown on QQ official bots",
+            "hint": "Send text messages as Markdown on QQ official bots for richer formatting."
+          },
+          "db_debug": {
+            "label": "Database debug log",
+            "hint": "Log Tortoise ORM SQL queries. Enable only while debugging. Takes effect after reload."
+          }
+        },
+        "options": {
+          "dark": "Dark",
+          "light": "Light",
+          "auto": "Auto",
+          "always": "Full import",
+          "never": "Skip import",
+          "offline": "Offline"
+        }
+      },
+      "errors": {
+        "timeout": "Request timed out, please retry",
+        "no_bridge": "Page bridge is not ready. Open this page from the AstrBot dashboard."
+      },
+      "crumb": {
+        "root": "Data manager"
       }
     }
   }

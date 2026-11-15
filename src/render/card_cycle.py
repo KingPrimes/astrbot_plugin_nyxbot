@@ -1,38 +1,41 @@
 """周期卡片渲染器
 
 对应 Java DefaultDrawAllCycleImage.java。
-使用 Warframe 图标字体渲染状态图标，垂直列表布局。
+版式：页头 + 表格（地点 / 状态 / 剩余）+ 看板娘 + 署名；
+状态图标走 icon_registry（sun / night / cold），颜色随「暖/冷」状态。
 """
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PIL import Image
-
-from ..wenum.faction import FactionEnum
-from ..wenum.icon import IconEnum
-from .draw_constant import ThemeColor
-from .image_combiner import ImageCombiner
+from . import card_frame as frame
+from . import components as C
+from .card_size import CardSpec, TableBlock, measure_card_size
+from .icon_registry import icon_char
+from .theme import current_theme
 
 if TYPE_CHECKING:
+    from PIL import Image
+
     from ..model.world_state.all_cycles import AllCycles
     from .card_renderer import CardRenderer
 
 
 class _CycleRow:
     """单行周期渲染数据 / Single cycle row rendering data."""
-    __slots__ = ("name", "icon_char", "is_warm", "state_text", "time_left")
+
+    __slots__ = ("name", "icon_token", "is_warm", "state_text", "time_left")
 
     def __init__(
         self,
         name: str,
-        icon_char: str,
+        icon_token: str,
         is_warm: bool,
         state_text: str,
         time_left: str,
     ) -> None:
         self.name = name
-        self.icon_char = icon_char
+        self.icon_token = icon_token
         self.is_warm = is_warm
         self.state_text = state_text
         self.time_left = time_left
@@ -45,60 +48,66 @@ def _build_rows(cycles: AllCycles) -> list[_CycleRow]:
     - Earth/Cetus: is_day → warm+SUN, else cold+NIGHT
     - Vallis: is_warm → warm+SUN, else cold+COLD
     - Cambion: active=="FASS" → warm+SUN, else cold+NIGHT
-    - Zariman: is_corpus → warm+FC_GRINEER, else cold+FC_CORPUS
+    - Zariman: is_corpus → warm+GRINEER, else cold+CORPUS
     """
     rows: list[_CycleRow] = []
 
     if cycles.earth:
-        icon = IconEnum.SUN.icon if cycles.earth.is_day else IconEnum.NIGHT.icon
-        rows.append(_CycleRow(
-            "地球",
-            icon,
-            cycles.earth.is_day,
-            cycles.earth.state,
-            cycles.earth.time_left,
-        ))
+        rows.append(
+            _CycleRow(
+                "地球",
+                "sun" if cycles.earth.is_day else "night",
+                cycles.earth.is_day,
+                cycles.earth.state,
+                cycles.earth.time_left,
+            )
+        )
 
     if cycles.cetus:
-        icon = IconEnum.SUN.icon if cycles.cetus.is_day else IconEnum.NIGHT.icon
-        rows.append(_CycleRow(
-            "希图斯（夜灵平野）",
-            icon,
-            cycles.cetus.is_day,
-            cycles.cetus.state,
-            cycles.cetus.time_left,
-        ))
+        rows.append(
+            _CycleRow(
+                "希图斯（夜灵平野）",
+                "sun" if cycles.cetus.is_day else "night",
+                cycles.cetus.is_day,
+                cycles.cetus.state,
+                cycles.cetus.time_left,
+            )
+        )
 
     if cycles.vallis:
-        icon = IconEnum.SUN.icon if cycles.vallis.is_warm else IconEnum.COLD.icon
-        rows.append(_CycleRow(
-            "福尔图娜（奥布山谷）",
-            icon,
-            cycles.vallis.is_warm,
-            cycles.vallis.state,
-            cycles.vallis.time_left,
-        ))
+        rows.append(
+            _CycleRow(
+                "福尔图娜（奥布山谷）",
+                "sun" if cycles.vallis.is_warm else "cold",
+                cycles.vallis.is_warm,
+                cycles.vallis.state,
+                cycles.vallis.time_left,
+            )
+        )
 
     if cycles.cambion:
         is_fass = cycles.cambion.active == "FASS"
-        icon = IconEnum.SUN.icon if is_fass else IconEnum.NIGHT.icon
-        rows.append(_CycleRow(
-            "魔胎之境（火卫二）",
-            icon,
-            is_fass,
-            cycles.cambion.active,
-            cycles.cambion.time_left,
-        ))
+        rows.append(
+            _CycleRow(
+                "魔胎之境（火卫二）",
+                "sun" if is_fass else "night",
+                is_fass,
+                cycles.cambion.active,
+                cycles.cambion.time_left,
+            )
+        )
 
     if cycles.zariman:
-        icon = FactionEnum.FC_GRINEER.icon if cycles.zariman.is_corpus else FactionEnum.FC_CORPUS.icon
-        rows.append(_CycleRow(
-            "扎里曼号",
-            icon,
-            cycles.zariman.is_corpus,
-            cycles.zariman.state,
-            cycles.zariman.time_left,
-        ))
+        # 扎里曼用派系图标表达「科体/科普斯」，注册表里对应 grineer / corpus
+        rows.append(
+            _CycleRow(
+                "扎里曼号",
+                "grineer" if cycles.zariman.is_corpus else "corpus",
+                cycles.zariman.is_corpus,
+                cycles.zariman.state,
+                cycles.zariman.time_left,
+            )
+        )
 
     return rows
 
@@ -111,7 +120,7 @@ def render_cycle_card(
     """绘制周期信息卡片。
 
     Args:
-        renderer: CardRenderer 实例（提供字体等资源）。
+        renderer: CardRenderer 实例（保留参数以兼容渲染入口）。
         cycles: AllCycles 聚合对象。
         title: 卡片标题。
     """
@@ -119,59 +128,36 @@ def render_cycle_card(
     if not rows:
         return renderer.create_text_image("无周期数据")
 
-    # 布局常量
-    card_width = 800
-    row_height = 88
-    card_padding_top = 60
-    card_padding_bottom = 20
-    card_height = card_padding_top + len(rows) * row_height + card_padding_bottom
+    theme = current_theme()
+    palette = theme.palette
 
-    cb = ImageCombiner(card_width, max(card_height, 150), ThemeColor.BG_DARK)
+    columns = [
+        C.Column("地点", 2.4, "left", 160),
+        C.Column("状态", 1.2, "left", 90),
+        C.Column("剩余", 1.2, "right", 100),
+    ]
+    table_rows: list[list[tuple]] = []
+    for row in rows:
+        color = palette.gold if row.is_warm else palette.blue
+        table_rows.append(
+            [
+                (row.name, None),
+                (row.state_text, color, icon_char(row.icon_token), color),
+                (row.time_left or "—", palette.text_muted),
+            ]
+        )
 
-    # 标题
-    cb.set_color(ThemeColor.ACCENT_GREEN).set_font(renderer.font_title)
-    cb.add_text(title, 25, 15)
-    cb.draw_line(25, 48, 775, 48, width=2)
+    size = measure_card_size(
+        CardSpec(
+            title=title,
+            blocks=[TableBlock(columns=columns, rows=table_rows)],
+            standing="sm",
+        )
+    )
 
-    # 加载大号图标字体（回退到文本字体兜底）
-    icon_font = renderer.font_wf_icon_large
-    if icon_font is None:
-        icon_font = renderer.font_wf_icon
-    if icon_font is None:
-        icon_font = renderer.font_body
-
-    y_offset = 65
-    for i, row in enumerate(rows):
-        bg_color = ThemeColor.BG_CARD if i % 2 == 0 else ThemeColor.BG_CARD_ALT
-        cb.draw_rounded_rect(20, y_offset, 760, row_height - 8, radius=8, fill=bg_color)
-
-        # 状态颜色 — warm=金色, cold=蓝色
-        state_color = ThemeColor.CYCLE_WARM if row.is_warm else ThemeColor.CYCLE_COLD
-
-        # 大号图标（居中于行）
-        icon_size = 56
-        icon_x = 45
-        icon_y = y_offset + (row_height - 8 - icon_size) // 2
-        cb.set_color(state_color)
-        saved_font = cb.current_font
-        cb.set_font(icon_font).add_text(row.icon_char, icon_x, icon_y)
-        cb.set_font(saved_font)
-
-        # 地点名称
-        text_x = 115
-        cb.set_color(ThemeColor.TEXT_PRIMARY).set_font(renderer.font_body)
-        cb.add_text(row.name, text_x, y_offset + 14)
-
-        # 状态文字
-        cb.set_color(state_color).set_font(renderer.font_small)
-        cb.add_text(row.state_text, text_x, y_offset + 44)
-
-        # 剩余时间（右对齐）
-        if row.time_left:
-            time_text = f"剩余: {row.time_left}"
-            cb.set_color(ThemeColor.ACCENT).set_font(renderer.font_small)
-            cb.add_text(time_text, 640, y_offset + 14)
-
-        y_offset += row_height
-
-    return cb.to_image()
+    page = C.new_page(theme, size.width, size.height)
+    y = C.draw_header(page, title)
+    y = C.draw_table(page, columns, table_rows, y)
+    frame.draw_standing_block(page, y, "sm")
+    frame.draw_footer_block(page)
+    return page.cb.to_image()

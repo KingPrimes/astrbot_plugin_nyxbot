@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 
 from PIL import Image, ImageDraw, ImageFont
 
-from .draw_constant import DrawConstant, LayoutConstants, ThemeColor
+from .draw_constant import LayoutConstants, ThemeColor
 from .font_manager import FontManager
 from .graphics_utils import (
     create_rounded_image,
@@ -730,23 +730,6 @@ class ImageCombiner:
         cw = content_w if content_w is not None else LayoutConstants.CONTENT_W_DEFAULT
         self.set_color(ThemeColor.DIVIDER)
         return self.draw_line(cx, y, cx + cw, y, width=1)
-
-    def draw_card_footer(
-        self,
-        canvas_h: int,
-        footer_offset: int = 55,
-        footer_font_size: int = 20,
-    ) -> ImageCombiner:
-        """绘制卡片底部居中署名 — 消除 20 个 card_*.py 中的重复样板。
-
-        Args:
-            canvas_h: 画布总高度。
-            footer_offset: 页脚文字距画布底部的偏移量。
-            footer_font_size: 页脚字体大小（默认 20）。
-        """
-        footer_font = FontManager.get_text_font(footer_font_size)
-        self.set_color(ThemeColor.TEXT_MUTED).set_font(footer_font)
-        return self.add_centered_text(DrawConstant.FOOTER_TEXT, canvas_h - footer_offset)
 
     # ========================================================================
     # 工具方法

@@ -49,13 +49,13 @@ class SyndicateEnum(StrEnum):
     RadioLegionIntermission4Syndicate = ("RadioLegionIntermission4Syndicate", "Nora 的精选", "\ue520")
     RadioLegionIntermission5Syndicate = ("RadioLegionIntermission5Syndicate", "Nora 的混选 Vol. 1", "\ue520")
     RadioLegionIntermission6Syndicate = ("RadioLegionIntermission6Syndicate", "Nora 的混选 Vol. 2", "\ue520")
-    RadioLegionIntermission7Syndicate = ("RadioLegionIntermission7Syndicate", "RadioLegionIntermission7Syndicate", "\ue520")
-    RadioLegionIntermission8Syndicate = ("RadioLegionIntermission8Syndicate", "RadioLegionIntermission8Syndicate", "\ue520")
-    RadioLegionIntermission9Syndicate = ("RadioLegionIntermission9Syndicate", "RadioLegionIntermission9Syndicate", "\ue520")
-    RadioLegionIntermission10Syndicate = ("RadioLegionIntermission10Syndicate", "RadioLegionIntermission10Syndicate", "\ue520")
-    RadioLegionIntermission11Syndicate = ("RadioLegionIntermission11Syndicate", "RadioLegionIntermission11Syndicate", "\ue520")
-    RadioLegionIntermission12Syndicate = ("RadioLegionIntermission12Syndicate", "RadioLegionIntermission12Syndicate", "\ue520")
-    RadioLegionIntermission13Syndicate = ("RadioLegionIntermission13Syndicate", "RadioLegionIntermission13Syndicate", "\ue520")
+    RadioLegionIntermission7Syndicate = ("RadioLegionIntermission7Syndicate", "RadioLegionIntermission7Syndicate", "\ue520")  # noqa: E501
+    RadioLegionIntermission8Syndicate = ("RadioLegionIntermission8Syndicate", "RadioLegionIntermission8Syndicate", "\ue520")  # noqa: E501
+    RadioLegionIntermission9Syndicate = ("RadioLegionIntermission9Syndicate", "RadioLegionIntermission9Syndicate", "\ue520")  # noqa: E501
+    RadioLegionIntermission10Syndicate = ("RadioLegionIntermission10Syndicate", "RadioLegionIntermission10Syndicate", "\ue520")  # noqa: E501
+    RadioLegionIntermission11Syndicate = ("RadioLegionIntermission11Syndicate", "RadioLegionIntermission11Syndicate", "\ue520")  # noqa: E501
+    RadioLegionIntermission12Syndicate = ("RadioLegionIntermission12Syndicate", "RadioLegionIntermission12Syndicate", "\ue520")  # noqa: E501
+    RadioLegionIntermission13Syndicate = ("RadioLegionIntermission13Syndicate", "RadioLegionIntermission13Syndicate", "\ue520")  # noqa: E501
 
     def __new__(cls, value: str, display_name: str, icon: str):
         obj = str.__new__(cls, value)

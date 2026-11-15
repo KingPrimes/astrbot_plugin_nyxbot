@@ -1,130 +1,150 @@
 """仲裁卡片渲染器 — 对齐 Go draw_arbitration.go
 
-布局：
-  - 单条：左侧 850×210 卡片（节点/敌人、任务类型/开始、剩余/评级）+ 右侧看板娘
-  - 列表：两列卡片网格（最多 10 条）+ 看板娘
+两条渲染入口，共用同一块「两列三行」面板：
+
+* ``render_arbitration_card``      单条：页头 + 面板 + 看板娘 + 署名
+* ``render_arbitration_list_card`` 前瞻：页头 + 2 列卡片网格 + 看板娘 + 署名
+
+面板字段：节点 / 敌人（带派系图标）、任务类型 / 开始、剩余 / 评级。
 """
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PIL import Image, ImageFont
-
-from ..wenum.faction import FactionEnum
-from .draw_constant import ThemeColor, hex_to_rgb
-from .font_manager import FontManager
-from .image_combiner import ImageCombiner
-from .standing import draw_standing_at
+from . import card_frame as frame
+from . import components as C
+from .card_size import CardSpec, CustomBlock, measure_card_size
+from .design import FONT, SPACE, adapt_color, font
+from .theme import current_theme
 
 if TYPE_CHECKING:
+    from PIL import Image
+
     from ..model.arbitration import ArbitrationView
     from .card_renderer import CardRenderer
 
-# 单条卡片 / Single card
-_SINGLE_CANVAS_W = 1450
-_SINGLE_CANVAS_H = 470
-_CARD_X = 50
-_CARD_Y = 150
-_CARD_W = 850
-_CARD_H = 210
-_CARD_RADIUS = 14
-_CARD_PAD = 24
-_ROW_H = 52
-_TITLE_Y = 80
-
-# 前瞻列表 / Arbitration list
-_LIST_CANVAS_W = 1300
-_LIST_CONTENT_X = 50
-_LIST_CONTENT_W = 1200
-_LIST_COLS = 2
-_LIST_GAP = 20
-_LIST_CARD_H = 190
-_LIST_ROW_GAP = 20
-_LIST_CARD_PAD = 20
-_LIST_CARD_ROW_H = 44
-_LIST_START_Y = 160
-
-# 评级颜色 — 对齐 Go tierSColor..tierFColor
-_TIER_COLORS: dict[str, tuple[int, int, int]] = {
-    "S": (0xFF, 0xC1, 0x07),
-    "A": (0xE0, 0x40, 0xFB),
-    "B": (0x42, 0xA5, 0xF5),
-    "C": (0x66, 0xBB, 0x6A),
-    "D": (0x9E, 0x9E, 0x9E),
-    "F": (0x75, 0x75, 0x75),
+#: 评级颜色 — 对齐 Go tierSColor..tierFColor
+_TIER_COLORS: dict[str, str] = {
+    "S": "#FFC107",
+    "A": "#E040FB",
+    "B": "#42A5F5",
+    "C": "#66BB6A",
+    "D": "#9E9E9E",
+    "F": "#757575",
 }
 
 
 def _tier_label(tier: str) -> str:
-    """评级显示文本：空值/未知值按 F 渲染。"""
     normalized = (tier or "").strip().upper()
     return normalized if normalized in _TIER_COLORS else "F"
 
 
-def _tier_color(tier: str) -> tuple[int, int, int]:
-    """评级颜色：空值/未知值按 F 渲染。"""
-    return _TIER_COLORS[_tier_label(tier)]
+def _faction_label(faction) -> str:
+    from ..wenum.faction import FactionEnum
 
-
-def _faction_label(faction: FactionEnum) -> str:
-    """派系显示名；未知派系回退“未知”。"""
     if faction is FactionEnum.FC_NONE:
         return "未知"
     return faction.display_name or "未知"
 
 
-def _draw_card(
-    cb: ImageCombiner,
+def _row_height(compact: bool) -> int:
+    """一行 = 值的一行 + 行间呼吸（标签与值同行）。"""
+    return (FONT["sm"] if compact else FONT["md"]) + SPACE["md"]
+
+
+def _panel_height(compact: bool) -> int:
+    return SPACE["lg"] * 2 + _row_height(compact) * 3
+
+
+def _draw_panel(
+    page,
     view: ArbitrationView,
-    card_x: int,
-    card_y: int,
-    card_w: int,
-    card_h: int,
-    *,
-    pad: int,
-    row_h: int,
-    data_font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
-    tier_font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
-    icon_font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
-) -> None:
-    """绘制单张仲裁卡片（三行布局）。"""
-    cb.set_color(ThemeColor.BG_CARD).draw_rounded_rect(
-        card_x, card_y, card_w, card_h, radius=_CARD_RADIUS
+    x: int,
+    y: int,
+    width: int,
+    compact: bool = False,
+) -> int:
+    """画一块仲裁面板（左/右两列，每列 3 行「标签 + 值」），返回底部 y。"""
+    from ..wenum.faction import FactionEnum
+
+    theme = page.theme
+    palette = page.palette
+    cb = page.cb
+    height = _panel_height(compact)
+    C.draw_grid_card(page, x, y, width, height)
+
+    value_size = FONT["sm"] if compact else FONT["md"]
+    value_font = font("sm") if compact else font("md")
+    label_font = font("xs") if compact else font("sm")
+    row_h = _row_height(compact)
+    pad = SPACE["lg"]
+
+    inner_w = width - pad * 2
+    col_gap = SPACE["xl"]
+    left_x = x + pad
+    right_x = x + pad + (inner_w - col_gap) // 2 + col_gap
+    top = y + pad
+
+    # 同一块面板内标签列对齐
+    labels = ("节点", "任务类型", "剩余", "敌人", "开始", "评级")
+    label_w = max(C.measure(label, label_font) for label in labels)
+    # 单列可用宽度：卡片内容宽的一半，减去标签与图标；值超宽必须截断，
+    # 否则会像旧版一样顶出卡片（列表卡尤其明显）。
+    column_w = (inner_w - col_gap) // 2
+    value_max = column_w - label_w - SPACE["md"]
+
+    def field(
+        cx: int,
+        cy: int,
+        label: str,
+        value: str,
+        color=None,
+        icon: str | None = None,
+    ) -> None:
+        cb.set_color(palette.text_dim).set_font(label_font)
+        cb.add_text(label, cx, cy + (value_size - label_font.size) // 2 + 2)
+
+        value_x = cx + label_w + SPACE["md"]
+        available = value_max
+        if icon:
+            tint = color or palette.text
+            cb.set_color(tint).set_font(C.icon_font(value_size))
+            cb.add_text(icon, value_x, cy)
+            icon_w = value_size + SPACE["xs"]
+            value_x += icon_w
+            available -= icon_w
+
+        cb.set_color(color or palette.text).set_font(value_font)
+        cb.add_text(C.fit_text(value, max(20, available), value_font), value_x, cy)
+
+    fraction = view.faction
+    faction_color = (
+        adapt_color(fraction.color, theme)
+        if fraction is not FactionEnum.FC_NONE
+        else palette.text_muted
     )
 
-    inner_x = card_x + pad
-    inner_w = card_w - pad * 2
-    right_x = inner_x + inner_w // 2 + 10
-    row1_y = card_y + 45
-    row2_y = row1_y + row_h
-    row3_y = row2_y + row_h
+    # 左列：节点 / 任务类型 / 剩余
+    field(left_x, top, "节点", view.node or "未知节点")
+    field(left_x, top + row_h, "任务类型", view.mission_name or "未知")
+    field(left_x, top + row_h * 2, "剩余", view.time_left, palette.gold)
 
-    # 第一行：节点 | 敌人
-    node = view.node or "未知节点"
-    cb.set_color(ThemeColor.TEXT_PRIMARY).set_font(data_font)
-    cb.add_text(f"节点: {node}", inner_x, row1_y)
-
-    faction = view.faction
-    info = _faction_label(faction)
-    cursor = right_x
-    if faction is not FactionEnum.FC_NONE and faction.icon:
-        cb.set_color(hex_to_rgb(faction.color)).set_font(icon_font)
-        cb.add_text(faction.icon, cursor, row1_y)
-        cursor += int(cb.draw.textlength(faction.icon, font=icon_font)) + 4
-    cb.set_color(hex_to_rgb(faction.color)).set_font(data_font)
-    cb.add_text(f"敌人: {info}", cursor, row1_y)
-
-    # 第二行：任务类型 | 开始时间
-    cb.set_color(ThemeColor.TEXT_PRIMARY).set_font(data_font)
-    cb.add_text(f"任务类型: {view.mission_name or '未知'}", inner_x, row2_y)
-    cb.set_color(ThemeColor.TEXT_SECONDARY).set_font(data_font)
-    cb.add_text(f"开始: {view.activation_str}", right_x, row2_y)
-
-    # 第三行：剩余时间 | 评级
-    cb.set_color(ThemeColor.ACCENT_GOLD).set_font(data_font)
-    cb.add_text(f"剩余: {view.time_left}", inner_x, row3_y)
-    cb.set_color(_tier_color(view.tier)).set_font(tier_font)
-    cb.add_text(f"评级: {_tier_label(view.tier)}", right_x, row3_y)
+    # 右列：敌人（派系图标）/ 开始 / 评级
+    faction_icon = fraction.icon if fraction is not FactionEnum.FC_NONE else None
+    field(right_x, top, "敌人", _faction_label(fraction), faction_color, faction_icon)
+    # 紧凑卡空间有限，开始时间省掉年份与秒
+    activation = (
+        view.activation.strftime("%m-%d %H:%M") if compact else view.activation_str
+    )
+    field(right_x, top + row_h, "开始", activation, palette.text_muted)
+    field(
+        right_x,
+        top + row_h * 2,
+        "评级",
+        _tier_label(view.tier),
+        adapt_color(_TIER_COLORS[_tier_label(view.tier)], theme),
+    )
+    return y + height
 
 
 def render_arbitration_card(
@@ -135,44 +155,23 @@ def render_arbitration_card(
     if arbitration is None:
         return renderer.create_text_image("仲裁数据为空", 800, 120)
 
-    cb = ImageCombiner(_SINGLE_CANVAS_W, _SINGLE_CANVAS_H, ThemeColor.BG_DARK)
-    cb.draw_double_border(
-        border_padding=12,
-        border_color_outer=ThemeColor.TABLE_BORDER,
-        border_color_inner=ThemeColor.DIVIDER,
-        stroke=2,
+    theme = current_theme()
+    panel_h = _panel_height(compact=False)
+    size = measure_card_size(
+        CardSpec(
+            title="仲裁任务",
+            blocks=[CustomBlock(width=760, height=panel_h)],
+            standing="md",
+            header_gap=SPACE["md"],
+        )
     )
 
-    cb.set_color(ThemeColor.ACCENT_BLUE).set_font(
-        FontManager.get_text_font(36)
-    )
-    cb.add_text("仲裁任务", _CARD_X, _TITLE_Y)
-    cb.set_color(ThemeColor.DIVIDER)
-    cb.draw_line(
-        _CARD_X,
-        _TITLE_Y + 55,
-        _CARD_X + _CARD_W,
-        _TITLE_Y + 55,
-        width=1,
-    )
-
-    _draw_card(
-        cb,
-        arbitration,
-        _CARD_X,
-        _CARD_Y,
-        _CARD_W,
-        _CARD_H,
-        pad=_CARD_PAD,
-        row_h=_ROW_H,
-        data_font=FontManager.get_text_font(24),
-        tier_font=FontManager.get_text_font(28),
-        icon_font=FontManager.get_wf_icon_font(32),
-    )
-
-    draw_standing_at(cb, 1120, _CARD_Y, 300, 300)
-    cb.draw_card_footer(_SINGLE_CANVAS_H, 30, 18)
-    return cb.to_image()
+    page = C.new_page(theme, size.width, size.height)
+    y = C.draw_header(page, "仲裁任务")
+    y = _draw_panel(page, arbitration, page.content_x, y + SPACE["md"], page.content_w)
+    frame.draw_standing_block(page, y, "md")
+    frame.draw_footer_block(page)
+    return page.cb.to_image()
 
 
 def render_arbitration_list_card(
@@ -183,70 +182,69 @@ def render_arbitration_list_card(
     if not arbitrations:
         return renderer.create_text_image("暂无可参与的仲裁数据", 800, 120)
 
+    theme = current_theme()
     cards = arbitrations[:10]
-    card_w = (_LIST_CONTENT_W - _LIST_GAP) // _LIST_COLS
-    rows = (len(cards) + _LIST_COLS - 1) // _LIST_COLS
-    cards_h = rows * _LIST_CARD_H + (rows - 1) * _LIST_ROW_GAP
-    odd = len(cards) % _LIST_COLS != 0
+    columns = 2
+    gap = SPACE["lg"]
 
-    standing_x = _LIST_CONTENT_X + card_w + _LIST_GAP
-    standing_y = _LIST_START_Y + cards_h + 10
-    if odd:
-        standing_x = _LIST_CONTENT_X + card_w + _LIST_GAP
-        standing_y = _LIST_START_Y + (rows - 1) * (
-            _LIST_CARD_H + _LIST_ROW_GAP
+    # 两张并排卡，每张要容得下「标签 + 时间」两列，720 宽会挤爆
+    panel_h = _panel_height(compact=True)
+    rows = (len(cards) + columns - 1) // columns
+    grid_h = rows * panel_h + max(0, rows - 1) * gap
+
+    # 第一遍：拿到画布宽度才能算卡片宽与看板娘空位
+    provisional = measure_card_size(
+        CardSpec(
+            title="有价值的仲裁任务",
+            blocks=[CustomBlock(width=1120, height=grid_h)],
+            standing=None,
         )
-    canvas_h = max(
-        standing_y + 300,
-        _LIST_START_Y + cards_h + 40,
+    )
+    content_w = provisional.content_width
+    card_w = (content_w - gap) // columns
+
+    # 奇数张时最后一格空着 → 看板娘填进去；偶数张才走流式块
+    slot_index = len(cards)
+    cell_standing = (
+        frame.standing_cell_size(card_w, panel_h * 2)
+        if slot_index < rows * columns
+        else (0, 0)
+    )
+    extra_h = (
+        max(0, cell_standing[1] - panel_h) + SPACE["md"]
+        if cell_standing[1]
+        else frame.standing_block_height("md", content_w)
     )
 
-    cb = ImageCombiner(_LIST_CANVAS_W, canvas_h, ThemeColor.BG_DARK)
-    cb.draw_double_border(
-        border_padding=12,
-        border_color_outer=ThemeColor.TABLE_BORDER,
-        border_color_inner=ThemeColor.DIVIDER,
-        stroke=2,
+    # 第二遍：把空位里立绘溢出的高度补进画布
+    size = measure_card_size(
+        CardSpec(
+            title="有价值的仲裁任务",
+            blocks=[CustomBlock(width=1120, height=grid_h + extra_h)],
+            standing=None,
+        )
     )
 
-    cb.set_color(ThemeColor.ACCENT_BLUE).set_font(
-        FontManager.get_text_font(40)
-    )
-    cb.add_centered_text("有价值的仲裁任务", _TITLE_Y)
-    cb.set_color(ThemeColor.DIVIDER)
-    cb.draw_line(
-        _LIST_CONTENT_X,
-        _TITLE_Y + 55,
-        _LIST_CONTENT_X + _LIST_CONTENT_W,
-        _TITLE_Y + 55,
-        width=1,
-    )
-
-    data_font = FontManager.get_text_font(20)
-    tier_font = FontManager.get_text_font(22)
-    icon_font = FontManager.get_wf_icon_font(24)
+    page = C.new_page(theme, size.width, size.height)
+    y = C.draw_header(page, "有价值的仲裁任务")
 
     for index, view in enumerate(cards):
-        row = index // _LIST_COLS
-        col = index % _LIST_COLS
-        card_x = _LIST_CONTENT_X + col * (card_w + _LIST_GAP)
-        card_y = _LIST_START_Y + row * (
-            _LIST_CARD_H + _LIST_ROW_GAP
-        )
-        _draw_card(
-            cb,
-            view,
-            card_x,
-            card_y,
-            card_w,
-            _LIST_CARD_H,
-            pad=_LIST_CARD_PAD,
-            row_h=_LIST_CARD_ROW_H,
-            data_font=data_font,
-            tier_font=tier_font,
-            icon_font=icon_font,
-        )
+        row, column = divmod(index, columns)
+        x = page.content_x + column * (card_w + gap)
+        top = y + row * (panel_h + gap)
+        _draw_panel(page, view, x, top, card_w, compact=True)
 
-    draw_standing_at(cb, standing_x, standing_y, 280, 280)
-    cb.draw_card_footer(canvas_h, 30, 18)
-    return cb.to_image()
+    if cell_standing[1]:
+        slot_row, slot_col = divmod(slot_index, columns)
+        frame.draw_standing_in_cell(
+            page,
+            page.content_x + slot_col * (card_w + gap),
+            y + slot_row * (panel_h + gap),
+            card_w,
+            panel_h * 2,
+        )
+    else:
+        frame.draw_standing_block(page, y + grid_h, "md")
+
+    frame.draw_footer_block(page)
+    return page.cb.to_image()

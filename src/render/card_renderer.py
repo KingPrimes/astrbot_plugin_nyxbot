@@ -35,25 +35,9 @@ class CardRenderer:
     具体绘制逻辑委托给各 card_*.py 中的独立函数。
     """
 
-    # Warframe 暗色主题色板（向后兼容）
-    COLORS = {
-        "bg_dark": ThemeColor.BG_DARK,
-        "bg_card": ThemeColor.BG_CARD,
-        "bg_card_alt": ThemeColor.BG_CARD_ALT,
-        "accent": ThemeColor.ACCENT,
-        "accent_blue": ThemeColor.ACCENT_BLUE,
-        "accent_green": ThemeColor.ACCENT_GREEN,
-        "accent_gold": ThemeColor.ACCENT_GOLD,
-        "text_primary": ThemeColor.TEXT_PRIMARY,
-        "text_secondary": ThemeColor.TEXT_SECONDARY,
-        "text_muted": ThemeColor.TEXT_MUTED,
-        "reward_bg": ThemeColor.REWARD_BG,
-        "divider": ThemeColor.DIVIDER,
-        "success": ThemeColor.SUCCESS,
-        "warning": ThemeColor.WARNING,
-        "danger": ThemeColor.DANGER,
-        "info": ThemeColor.INFO,
-    }
+    # 卡片主题（dark / light）统一由 theme.THEME_MANAGER 提供，
+    # 历史常量请用 draw_constant.ThemeColor，它已是主题代理。
+    # （审查 P2-6：CardRenderer.theme 属性全仓零引用，已删除。）
 
     # 字体大小预设
     FONT_SIZES = {
@@ -76,12 +60,12 @@ class CardRenderer:
         if cls._FACTION_LOOKUP:
             return
         for fe in FactionEnum:
-            rgb = hex_to_rgb(fe.color)
+            rgb = hex_to_rgb(fe.color, fallback=ThemeColor.TEXT_MUTED)
             cls._FACTION_LOOKUP[fe.display_name.lower()] = (fe.icon, rgb)
             cls._FACTION_LOOKUP[fe.name.lower()] = (fe.icon, rgb)
             cls._FACTION_LOOKUP[fe.name.removeprefix("FC_").lower()] = (fe.icon, rgb)
         for mt in MissionTypeEnum:
-            rgb = hex_to_rgb(mt.color)
+            rgb = hex_to_rgb(mt.color, fallback=ThemeColor.TEXT_MUTED)
             cls._MISSION_TYPE_LOOKUP[mt.display_name] = rgb
             cls._MISSION_TYPE_LOOKUP[mt.name.lower()] = rgb
             cls._MISSION_TYPE_LOOKUP[mt.name.removeprefix("MT_").lower().replace("_", " ")] = rgb
@@ -126,7 +110,7 @@ class CardRenderer:
             return ("", ThemeColor.TEXT_MUTED)
 
         if isinstance(faction, FactionEnum):
-            return (faction.icon, hex_to_rgb(faction.color))
+            return (faction.icon, hex_to_rgb(faction.color, fallback=ThemeColor.TEXT_MUTED))
 
         CardRenderer._build_lookup_caches()
         key = faction.lower().strip()
@@ -142,7 +126,7 @@ class CardRenderer:
             return ThemeColor.TEXT_SECONDARY
 
         if isinstance(mission_type, MissionTypeEnum):
-            return hex_to_rgb(mission_type.color)
+            return hex_to_rgb(mission_type.color, fallback=ThemeColor.TEXT_MUTED)
 
         CardRenderer._build_lookup_caches()
         key = mission_type.strip()

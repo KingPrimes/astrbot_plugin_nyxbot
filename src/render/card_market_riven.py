@@ -1,81 +1,58 @@
-"""Market 紫卡卡片渲染器 — 全新设计 (1.3x 放大版)
+"""Market 紫卡拍卖卡片
 
-布局：
-  - 1950px 宽，3 列圆角卡片网格
-  - 单卡 576×572 px，BG_CARD 圆角 + 边框
-  - 顶部：武器名 + 紫卡后缀 + 极性图标（PolarityEnum.icon）+ MR 徽章
-  - 中部：词条列表，元素词条带 ElementEnum 图标 + 颜色
-  - 底部：mod 等级点 + 买断价（IconEnum.PLATINUM）+ 起拍/最高/直购徽章 + 卖家信息
-  - 深色主题 + 双层装饰边框 + 底部署名 + 看板娘自适应位置
+版式：页头（``紫卡市场 + 武器名``）+ 三列拍卖卡 + 私聊提示 + 看板娘 + 署名。
 
-注：本次相对初版整体等比例放大约 1.3x，便于阅读。如需再次调整，
-所有字号 / 尺寸常量定义在文件顶部及 _draw_riven_card 内的局部偏移。
+每张卡：
+
+1. 序号 + 紫卡名（紫色），右上角 ``MR`` 与极性图标；
+2. 分隔线 + 词条（元素词条带图标，正负用 ▲▼ 与红绿区分，最多 5 条）；
+3. 分隔线 + 等级点 / 循环次数 / 直购标记（左）与买断价 + 白金图标（右）；
+4. 起拍 / 最高（左）与卖家声望（右）；
+5. 分隔线 + 卖家名与在线状态。
+
+卡片高按「词条数」累加，同一行取较高者，底边对齐；宽夹在 400~490（三列放得下）。
 """
 from __future__ import annotations
 
-import math
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
-
-from PIL import Image, ImageFont
 
 from ..wenum.element import ElementEnum
 from ..wenum.icon import IconEnum
-from .draw_constant import ThemeColor, hex_to_rgb
-from .font_manager import FontManager
-from .graphics_utils import truncate_text
-from .image_combiner import ImageCombiner
-from .standing import draw_standing_at
+from . import card_frame as frame
+from . import components as C
+from .card_size import CardSpec, CustomBlock, measure_card_size
+from .design import FONT, MAX_WIDTH, PAD, RADIUS, RGB, SPACE, font, semantic_color
+from .theme import current_theme
 
 if TYPE_CHECKING:
-    from ..model.market import MarketRiven, RivenAttribute, RivenAuction
+    from PIL import Image
+
+    from ..model.market import MarketRiven, RivenAuction, RivenAttribute
     from .card_renderer import CardRenderer
 
+#: 每行列数。
+_COLUMNS = 3
+#: 列间距 / 行间距。
+_GAP = SPACE["lg"]
+#: 卡片内边距。
+_CARD_PAD = SPACE["lg"]
+#: 卡片宽下限 / 上限。
+_MIN_CARD_W = 400
+_MAX_CARD_W = 490
+#: 词条最多画几条（超出不画，避免卡片过高）。
+_MAX_ATTRS = 5
+#: 等级点总数。
+_MAX_RANK = 8
 
-# ---------------------------------------------------------------------------
-# 布局常量 / Layout constants (1.3x scaled)
-# ---------------------------------------------------------------------------
+#: 各段行高（绘制与测高共用）。
+_DIVIDER_H = SPACE["sm"] + 1 + SPACE["sm"]
+_ATTR_H = FONT["md"] + SPACE["xs"]
+_PRICE_H = FONT["lg"] + SPACE["xs"]
+_META_H = FONT["sm"] + SPACE["xs"]
+_OWNER_H = FONT["md"] + SPACE["xs"]
 
-_CANVAS_W = 1950
-_MARGIN = 52
-_CONTENT_PAD = 26
-_CONTENT_X = _MARGIN + _CONTENT_PAD              # 78
-_CONTENT_W = _CANVAS_W - 2 * _CONTENT_X          # 1794
-
-_COLS = 3
-_COL_GAP = 32
-_CARD_W = (_CONTENT_W - _COL_GAP * (_COLS - 1)) // _COLS  # 576
-_CARD_H = 572
-
-_WHISPER_HINT = "回复 /w 序号 获取对应卖家的私聊语句（2 分钟内有效）"
-_CARD_RADIUS = 20
-_CARD_PAD = 26
-_ROW_GAP = 26
-
-_TITLE_Y = 90
-_SUBTITLE_Y = 170
-_SUBTITLE_DIVIDER_OFFSET = 65
-_CONTENT_START_Y = 260
-
-# 卡片内分区 y 偏移（相对 card_y） / Per-card y offsets
-_CARD_HEADER_END = 107
-_CARD_ATTR_START = 132
-_CARD_ATTR_LINE_H = 44
-_CARD_ATTR_END = 364
-_CARD_PRICE_DOTS_Y = 385
-_CARD_PRICE_BUYOUT_Y = 380
-_CARD_PRICE_META_Y = 432
-_CARD_FOOTER_LINE = 484
-_CARD_OWNER_Y = 504
-
-# 看板娘 / Standing
-_STANDING_INROW_W, _STANDING_INROW_H = 420, 520
-_STANDING_BELOW_W, _STANDING_BELOW_H = 340, 494
-
-_FOOTER_OFFSET = 72
-
-_RIVEN_SUFFIX_COLOR = (134, 105, 167)  # #8669A7
-
-# 词条 url_name → ElementEnum 映射 / Riven attribute → element
+#: 词条 url_name → 元素（这些词条显示元素图标与配色）。
 _RIVEN_ELEMENT_MAP: dict[str, ElementEnum] = {
     "cold_damage": ElementEnum.COLD,
     "electric_damage": ElementEnum.ELECTRICITY,
@@ -86,6 +63,7 @@ _RIVEN_ELEMENT_MAP: dict[str, ElementEnum] = {
     "slash_damage": ElementEnum.SLASH,
 }
 
+#: 卖家状态 → 文案。
 _STATUS_LABEL: dict[str, str] = {
     "online": "在线",
     "ingame": "游戏中",
@@ -94,364 +72,360 @@ _STATUS_LABEL: dict[str, str] = {
 }
 
 
-# ---------------------------------------------------------------------------
-# 辅助函数 / Helpers
-# ---------------------------------------------------------------------------
+@dataclass(frozen=True)
+class _AttrLine:
+    """一条紫卡词条的绘制文案。"""
 
-def _resolve_attribute(
-    attr: RivenAttribute,
-) -> tuple[str, tuple[int, int, int], str, bool]:
-    """解析词条 → (展示名, RGB 颜色, 元素图标字形 | "", 是否元素)。
-    Resolve riven attribute to (display name, RGB color, element glyph or "", is_element).
-    """
-    url_name = (attr.url_name or "").lower()
+    name: str
+    value: str
+    color: RGB
+    icon: str
+    arrow: str
+
+
+@dataclass(frozen=True)
+class _RivenCard:
+    """一张拍卖卡的绘制文案。"""
+
+    index: str
+    name: str
+    mastery: str
+    polarity: str
+    attrs: list[_AttrLine]
+    dots: str
+    re_rolls: str
+    direct: bool
+    buyout: str
+    starting: str
+    top_bid: str
+    seller: str
+    status: str
+    status_color: RGB
+    reputation: str
+    height: int
+
+
+def _resolve_attribute(attr: RivenAttribute, theme) -> _AttrLine:
+    """词条 → (名称, 数值文本, 颜色, 图标, 箭头)。"""
+    palette = theme.palette
     positive = bool(attr.positive)
-    elem = _RIVEN_ELEMENT_MAP.get(url_name)
-    if elem is not None:
-        return f"{elem.display_name}伤害", hex_to_rgb(elem.color), elem.icon, True
-    fallback = attr.url_name or "未知词条"
-    color = ThemeColor.SUCCESS if positive else ThemeColor.DANGER
-    return fallback, color, "", False
+    value = attr.value if attr.value is not None else 0.0
+    value_text = f"{'+' if value >= 0 else ''}{value:.1f}%"
+
+    element = _RIVEN_ELEMENT_MAP.get((attr.url_name or "").lower())
+    if element is not None:
+        return _AttrLine(
+            name=f"{element.display_name}伤害",
+            value=value_text,
+            color=semantic_color(element.color, theme, palette.text_muted),
+            icon=element.icon,
+            arrow="",
+        )
+    return _AttrLine(
+        name=attr.url_name or "未知词条",
+        value=value_text,
+        color=palette.green if positive else palette.red,
+        icon="",
+        arrow="▲" if positive else "▼",
+    )
 
 
-def _format_dots(rank: int | None, max_rank: int = 8) -> str:
-    """生成 mod 等级实心/空心点字符串。/ Render mod rank as filled/empty dots."""
-    if rank is None or rank < 0:
-        rank = 0
-    rank = min(rank, max_rank)
-    return "●" * rank + "○" * (max_rank - rank)
+def _format_dots(rank: int | None, max_rank: int = _MAX_RANK) -> str:
+    """mod 等级 → 实心/空心点。"""
+    filled = min(max(rank or 0, 0), max_rank)
+    return "●" * filled + "○" * (max_rank - filled)
 
 
-# ---------------------------------------------------------------------------
-# 单卡片绘制 / Single-card draw
-# ---------------------------------------------------------------------------
-
-def _draw_riven_card(
-    cb: ImageCombiner,
+def _build_card(
     auction: RivenAuction,
-    item_name: str,
-    card_x: int,
-    card_y: int,
-    fonts: dict[str, ImageFont.FreeTypeFont | ImageFont.ImageFont],
-    index: int = 0,
-) -> None:
-    """绘制单张紫卡卡片到主画布。/ Draw a single riven card onto the canvas."""
-    rim = auction.item
-    inner_x = card_x + _CARD_PAD
-    inner_right = card_x + _CARD_W - _CARD_PAD
+    index: int,
+    theme,
+) -> _RivenCard | None:
+    """把一条拍卖转成绘制文案；``item`` 缺失时返回 ``None``。"""
+    item = auction.item
+    if item is None:
+        return None
 
-    # 序号角标（配合 /w <序号> 取私聊语句）
-    if index:
-        badge = f"#{index}"
-        cb.set_color(ThemeColor.ACCENT_GOLD).set_font(fonts["badge"])
-        cb.add_text(badge, inner_right - cb.get_string_width(badge), card_y + 8)
-    inner_w = inner_right - inner_x
+    palette = theme.palette
+    attrs = [_resolve_attribute(attr, theme) for attr in (item.attributes or [])][:_MAX_ATTRS]
 
-    # 卡片背景 + 边框
+    starting = f"起拍 {auction.starting_price}" if auction.starting_price is not None else ""
+    top_bid = f"最高 {auction.top_bid}" if auction.top_bid is not None else ""
+    owner = auction.owner
+    seller = (owner.ingame_name if owner and owner.ingame_name else "未知卖家")
+    status = (owner.status if owner and owner.status else "")
+    reputation = (
+        f"声望 {owner.reputation}" if owner and owner.reputation is not None else ""
+    )
+
+    height = (
+        _CARD_PAD * 2
+        + FONT["md"]
+        + _DIVIDER_H
+        + len(attrs) * _ATTR_H
+        + _DIVIDER_H
+        + _PRICE_H
+        + _META_H
+        + _DIVIDER_H
+        + _OWNER_H
+    )
+
+    return _RivenCard(
+        index=f"#{index}",
+        name=item.name or "未命名紫卡",
+        mastery=f"MR{item.mastery_level}" if item.mastery_level is not None else "",
+        polarity=item.polarity.icon if item.polarity is not None else "",
+        attrs=attrs,
+        dots=_format_dots(item.mod_rank),
+        re_rolls=f"循环 {item.re_rolls if item.re_rolls is not None else 0}",
+        direct=bool(auction.is_direct_sell),
+        buyout=str(auction.buyout_price) if auction.buyout_price is not None else "议价",
+        starting=starting,
+        top_bid=top_bid,
+        seller=seller,
+        status=_STATUS_LABEL.get(status.lower(), status),
+        status_color=C.status_color(status, palette),
+        reputation=reputation,
+        height=height,
+    )
+
+
+def _card_width(card: _RivenCard, theme) -> int:
+    """单张卡的自然宽度（不含内边距）。"""
+    body = font("md")
+    small = font("sm")
+    icon_w = FONT["md"]
+
+    header = C.measure(card.index, body) + SPACE["sm"] + C.measure(card.name, font("md", bold=True))
+    right = C.measure(card.mastery, small) + (SPACE["md"] + icon_w if card.polarity else 0)
+    width = header + SPACE["xl"] + right
+
+    for attr in card.attrs:
+        lead = icon_w if attr.icon else C.measure(attr.arrow, body)
+        width = max(
+            width,
+            lead + SPACE["sm"] + C.measure(attr.value, body) + SPACE["sm"] + C.measure(attr.name, small),
+        )
+
+    price = C.measure(card.dots, body) + SPACE["sm"] + C.measure(card.re_rolls, small)
+    if card.direct:
+        price += SPACE["md"] + C.measure("直购", small)
+    price += SPACE["3xl"] + C.measure(card.buyout, font("lg")) + SPACE["sm"] + FONT["lg"]
+    width = max(width, price)
+
+    meta = C.measure(card.starting, small) + SPACE["md"] + C.measure(card.top_bid, small)
+    meta += SPACE["3xl"] + C.measure(card.reputation, small)
+    width = max(width, meta)
+
+    owner = C.measure(card.seller, body) + SPACE["md"] + C.measure(card.status, small)
+    return max(width, owner)
+
+
+def _draw_card(page, card: _RivenCard, x: int, y: int, width: int, height: int) -> None:
+    """画一张紫卡拍卖卡。"""
+    palette = page.palette
+    cb = page.cb
     cb.draw_rounded_rect(
-        card_x, card_y, _CARD_W, _CARD_H,
-        radius=_CARD_RADIUS,
-        fill=ThemeColor.BG_CARD,
-        outline=ThemeColor.TABLE_BORDER,
+        x, y, width, height,
+        radius=RADIUS["md"],
+        fill=palette.surface_alt,
+        outline=palette.border,
         stroke_width=1,
     )
 
-    if rim is None:
-        cb.set_color(ThemeColor.TEXT_MUTED).set_font(fonts["body"])
-        cb.add_text("数据缺失", inner_x, card_y + _CARD_H // 2)
-        return
+    inner_x = x + _CARD_PAD
+    inner_w = width - _CARD_PAD * 2
+    inner_right = inner_x + inner_w
+    body = font("md")
+    small = font("sm")
+    cursor = y + _CARD_PAD
 
-    # 右上角：极性图标 + MR 徽章
-    polarity_glyph = rim.polarity.icon if rim.polarity is not None else ""
-    polarity_w = 0
-    if polarity_glyph:
-        cb.set_color(ThemeColor.TEXT_PRIMARY).set_font(fonts["polarity"])
-        polarity_w = cb.get_string_width(polarity_glyph)
-        cb.add_text(polarity_glyph, inner_right - polarity_w, card_y + 18)
+    # ---- 标题行：序号 + 紫卡名（左）｜ MR + 极性（右）----
+    cb.set_color(palette.gold).set_font(body)
+    cb.add_text(card.index, inner_x, cursor)
+    name_x = inner_x + C.measure(card.index, body) + SPACE["sm"]
 
-    mr_badge_w = 0
-    if rim.mastery_level is not None:
-        cb.set_color(ThemeColor.TEXT_PRIMARY).set_font(fonts["badge"])
-        mr_text = f"MR{rim.mastery_level}"
-        mr_w = cb.get_string_width(mr_text)
-        mr_badge_w = mr_w + 18
-        cb.add_text_with_background(
-            mr_text,
-            inner_right - polarity_w - 13 - mr_badge_w,
-            card_y + 31,
-            bg_color=ThemeColor.BG_CARD_ALT,
-            border_color=ThemeColor.DIVIDER,
-            corner_radius=8,
-            padding=6,
-        )
-
-    # 标题区：武器名 + 紫卡后缀
-    title_max_w = inner_w - polarity_w - mr_badge_w - 21
-    cb.set_color(ThemeColor.ACCENT_GOLD).set_font(fonts["weapon"])
-    cb.add_text(truncate_text(cb, item_name, title_max_w), inner_x, card_y + 23)
-
-    if rim.name:
-        cb.set_color(_RIVEN_SUFFIX_COLOR).set_font(fonts["suffix"])
-        cb.add_text(truncate_text(cb, rim.name, title_max_w), inner_x, card_y + 65)
-
-    # 分隔线 1
-    cb.set_color(ThemeColor.DIVIDER)
-    cb.draw_line(
-        inner_x, card_y + _CARD_HEADER_END,
-        inner_right, card_y + _CARD_HEADER_END,
-        width=1,
+    right_w = C.measure(card.mastery, small) + (SPACE["md"] + FONT["md"] if card.polarity else 0)
+    name_font = font("md", bold=True)
+    cb.set_color(palette.rarity_legendary).set_font(name_font)
+    cb.add_text(
+        C.fit_text(card.name, inner_right - name_x - right_w - SPACE["md"], name_font),
+        name_x,
+        cursor,
     )
 
-    # 词条区
-    attrs = list(rim.attributes or [])[:5]
-    attr_y = card_y + _CARD_ATTR_START
-    for attr in attrs:
-        name, color, icon_glyph, is_elem = _resolve_attribute(attr)
-        val = attr.value if attr.value is not None else 0.0
-        positive = bool(attr.positive)
-        sign = "+" if val >= 0 else ""
-        val_text = f"{sign}{val:.1f}%"
+    if card.polarity:
+        cb.set_color(palette.text).set_font(C.icon_font(FONT["md"]))
+        cb.add_text(card.polarity, inner_right - FONT["md"], cursor)
+    if card.mastery:
+        mastery_right = inner_right - (FONT["md"] + SPACE["md"] if card.polarity else 0)
+        cb.set_color(palette.text_muted).set_font(small)
+        cb.add_text(
+            card.mastery, mastery_right - C.measure(card.mastery, small), cursor + FONT["md"] - FONT["sm"]
+        )
+    cursor += FONT["md"]
 
-        cb.set_color(color)
-        if is_elem and icon_glyph:
-            cb.set_font(fonts["attr_icon"])
-            icon_w = cb.get_string_width(icon_glyph)
-            cb.add_text(icon_glyph, inner_x, attr_y - 5)
-            cursor_x = inner_x + max(icon_w, 28) + 8
+    # ---- 分隔线 ----
+    cursor += SPACE["sm"]
+    cb.set_color(palette.border)
+    cb.draw_line(inner_x, cursor, inner_right, cursor, width=1)
+    cursor += 1 + SPACE["sm"]
+
+    # ---- 词条 ----
+    for attr in card.attrs:
+        if attr.icon:
+            cb.set_color(attr.color).set_font(C.icon_font(FONT["md"]))
+            cb.add_text(attr.icon, inner_x, cursor)
+            lead_w = FONT["md"]
         else:
-            cb.set_font(fonts["attr_arrow"])
-            arrow = "▲" if positive else "▼"
-            arrow_w = cb.get_string_width(arrow)
-            cb.add_text(arrow, inner_x, attr_y)
-            cursor_x = inner_x + arrow_w + 10
+            cb.set_color(attr.color).set_font(body)
+            cb.add_text(attr.arrow, inner_x, cursor)
+            lead_w = C.measure(attr.arrow, body)
 
-        # 数值
-        cb.set_color(color).set_font(fonts["attr_val"])
-        cb.add_text(val_text, cursor_x, attr_y - 3)
-        val_w = cb.get_string_width(val_text)
+        value_x = inner_x + lead_w + SPACE["sm"]
+        cb.set_color(attr.color).set_font(body)
+        cb.add_text(attr.value, value_x, cursor)
 
-        # 名字
-        cb.set_color(color).set_font(fonts["attr"])
-        name_x = cursor_x + val_w + 13
-        cb.add_text(truncate_text(cb, name, inner_right - name_x), name_x, attr_y)
+        name_x = value_x + C.measure(attr.value, body) + SPACE["sm"]
+        cb.set_color(attr.color).set_font(small)
+        cb.add_text(
+            C.fit_text(attr.name, inner_right - name_x, small),
+            name_x,
+            cursor + FONT["md"] - FONT["sm"],
+        )
+        cursor += _ATTR_H
 
-        attr_y += _CARD_ATTR_LINE_H
+    # ---- 分隔线 ----
+    cursor += SPACE["sm"]
+    cb.set_color(palette.border)
+    cb.draw_line(inner_x, cursor, inner_right, cursor, width=1)
+    cursor += 1 + SPACE["sm"]
 
-    # 分隔线 2
-    cb.set_color(ThemeColor.DIVIDER)
-    cb.draw_line(
-        inner_x, card_y + _CARD_ATTR_END,
-        inner_right, card_y + _CARD_ATTR_END,
-        width=1,
-    )
+    # ---- 价格行：等级点 + 循环 + 直购（左）｜ 买断价 + 白金（右）----
+    cb.set_color(palette.blue).set_font(body)
+    cb.add_text(card.dots, inner_x, cursor)
+    cursor_x = inner_x + C.measure(card.dots, body) + SPACE["sm"]
+    cb.set_color(palette.text_muted).set_font(small)
+    cb.add_text(card.re_rolls, cursor_x, cursor + FONT["md"] - FONT["sm"])
+    cursor_x += C.measure(card.re_rolls, small) + SPACE["md"]
+    if card.direct:
+        cb.set_color(palette.green).set_font(small)
+        cb.add_text("直购", cursor_x, cursor + FONT["md"] - FONT["sm"])
 
-    # 价格 + 元数据
-    # 左侧：mod_rank dots
-    cb.set_color(ThemeColor.CYCLE_COLD).set_font(fonts["dots"])
-    dots_text = _format_dots(rim.mod_rank, 8)
-    cb.add_text(dots_text, inner_x, card_y + _CARD_PRICE_DOTS_Y)
-    dots_w = cb.get_string_width(dots_text)
+    price_font = font("lg")
+    plat_w = FONT["lg"]
+    price_w = C.measure(card.buyout, price_font)
+    price_x = inner_right - price_w - SPACE["sm"] - plat_w
+    cb.set_color(palette.gold).set_font(price_font)
+    cb.add_text(card.buyout, price_x, cursor)
+    cb.set_color(palette.icon_platinum).set_font(C.icon_font(FONT["lg"]))
+    cb.add_text(IconEnum.PLATINUM.icon, inner_right - plat_w, cursor)
+    cursor += _PRICE_H
 
-    # 左侧次行：循环次数 + 直购徽章
-    cb.set_color(ThemeColor.TEXT_SECONDARY).set_font(fonts["meta"])
-    rr_text = f"循环 {rim.re_rolls if rim.re_rolls is not None else 0}"
-    cb.add_text(rr_text, inner_x, card_y + _CARD_PRICE_META_Y)
-    rr_w = cb.get_string_width(rr_text)
+    # ---- 起拍 / 最高（左）｜ 声望（右）----
+    cb.set_color(palette.text_muted).set_font(small)
+    if card.starting:
+        cb.add_text(card.starting, inner_x, cursor)
+    if card.top_bid:
+        cb.add_text(
+            card.top_bid, inner_x + C.measure(card.starting, small) + SPACE["md"], cursor
+        )
+    if card.reputation:
+        cb.add_text(card.reputation, inner_right - C.measure(card.reputation, small), cursor)
+    cursor += _META_H
 
-    if auction.is_direct_sell:
-        cb.set_color(ThemeColor.ACCENT_GREEN).set_font(fonts["badge"])
-        cb.add_text_with_background(
-            "直购",
-            inner_x + rr_w + 16,
-            card_y + _CARD_PRICE_META_Y - 1,
-            bg_color=ThemeColor.BG_CARD_ALT,
-            border_color=ThemeColor.ACCENT_GREEN,
-            corner_radius=8,
-            padding=5,
+    # ---- 分隔线 ----
+    cursor += SPACE["sm"]
+    cb.set_color(palette.border)
+    cb.draw_line(inner_x, cursor, inner_right, cursor, width=1)
+    cursor += 1 + SPACE["sm"]
+
+    # ---- 卖家 + 状态 ----
+    cb.set_color(palette.text).set_font(body)
+    seller_text = C.fit_text(card.seller, inner_w - C.measure(card.status, small) - SPACE["md"], body)
+    cb.add_text(seller_text, inner_x, cursor)
+    if card.status:
+        cb.set_color(card.status_color).set_font(small)
+        cb.add_text(
+            card.status,
+            inner_x + C.measure(seller_text, body) + SPACE["md"],
+            cursor + FONT["md"] - FONT["sm"],
         )
 
-    # 右侧：买断价（数字 + 白金图标）
-    cb.set_color(ThemeColor.ACCENT_GOLD)
-    if auction.buyout_price is not None:
-        num_text = str(auction.buyout_price)
-        cb.set_font(fonts["price"])
-        num_w = cb.get_string_width(num_text)
-
-        plat_glyph = IconEnum.PLATINUM.icon
-        cb.set_font(fonts["price_icon"])
-        plat_w = cb.get_string_width(plat_glyph)
-
-        gap = 10
-        total_w = num_w + gap + plat_w
-        x_base = inner_right - total_w
-
-        cb.set_font(fonts["price"])
-        cb.add_text(num_text, x_base, card_y + _CARD_PRICE_BUYOUT_Y)
-        cb.set_font(fonts["price_icon"])
-        cb.add_text(plat_glyph, x_base + num_w + gap, card_y + _CARD_PRICE_BUYOUT_Y)
-    else:
-        cb.set_font(fonts["price"])
-        nego = "议价"
-        nw = cb.get_string_width(nego)
-        cb.add_text(nego, inner_right - nw, card_y + _CARD_PRICE_BUYOUT_Y)
-
-    # 右侧次行：起拍 / 最高
-    sub_parts: list[str] = []
-    if auction.starting_price is not None:
-        sub_parts.append(f"起拍 {auction.starting_price}")
-    if auction.top_bid is not None:
-        sub_parts.append(f"最高 {auction.top_bid}")
-    if sub_parts:
-        sub_text = "  ·  ".join(sub_parts)
-        cb.set_color(ThemeColor.TEXT_SECONDARY).set_font(fonts["meta"])
-        sub_w = cb.get_string_width(sub_text)
-        max_sub_x = max(inner_x + max(dots_w, rr_w) + 78, inner_right - sub_w)
-        cb.add_text(sub_text, max_sub_x, card_y + _CARD_PRICE_META_Y)
-
-    # 分隔线 3
-    cb.set_color(ThemeColor.DIVIDER)
-    cb.draw_line(
-        inner_x, card_y + _CARD_FOOTER_LINE,
-        inner_right, card_y + _CARD_FOOTER_LINE,
-        width=1,
-    )
-
-    # 卖家区
-    owner = auction.owner
-    seller_name = owner.ingame_name if owner and owner.ingame_name else "未知卖家"
-    cb.set_color(ThemeColor.TEXT_PRIMARY).set_font(fonts["owner"])
-    name_text = truncate_text(cb, seller_name, 234)
-    cb.add_text(name_text, inner_x, card_y + _CARD_OWNER_Y)
-    name_w = cb.get_string_width(name_text)
-
-    if owner and owner.status:
-        status_color = ThemeColor.get_status_color(owner.status)
-        status_label = _STATUS_LABEL.get(owner.status.lower(), owner.status)
-        cb.set_color(status_color).set_font(fonts["badge"])
-        cb.add_text_with_background(
-            status_label,
-            inner_x + name_w + 13,
-            card_y + _CARD_OWNER_Y + 5,
-            bg_color=ThemeColor.BG_CARD_ALT,
-            border_color=status_color,
-            corner_radius=8,
-            padding=5,
-        )
-
-    if owner and owner.reputation is not None:
-        rep_text = f"声望 {owner.reputation}"
-        cb.set_color(ThemeColor.TEXT_SECONDARY).set_font(fonts["meta"])
-        rep_w = cb.get_string_width(rep_text)
-        cb.add_text(rep_text, inner_right - rep_w, card_y + _CARD_OWNER_Y + 8)
-
-
-# ---------------------------------------------------------------------------
-# 主渲染函数 / Main render
-# ---------------------------------------------------------------------------
 
 def render_market_riven_card(
     renderer: CardRenderer,
     market_riven: MarketRiven,
 ) -> Image.Image:
-    """绘制 Market 紫卡市场卡片 — 3 列圆角卡片网格。
+    """绘制 Market 紫卡市场卡片。
 
     Args:
-        renderer: CardRenderer 实例。
+        renderer: CardRenderer 实例（空数据时用它出提示图）。
         market_riven: MarketRiven 模型。
 
     Returns:
         PIL Image 对象。
     """
-    pay = market_riven.payload
-    if pay is None or not pay.auctions:
+    payload = market_riven.payload
+    if payload is None or not payload.auctions:
         return renderer.create_text_image("当前没有紫卡拍卖数据", 1040, 156)
 
-    auctions = pay.auctions
+    theme = current_theme()
     item_name = market_riven.item_name or "未知武器"
 
-    # 字体（已整体放大约 1.3x）
-    title_font = FontManager.get_text_font(60)
-    subtitle_font = FontManager.get_text_font(32)
-    FontManager.get_text_font(24)
+    cards: list[_RivenCard] = []
+    for index, auction in enumerate(payload.auctions, 1):
+        card = _build_card(auction, index, theme)
+        if card is not None:  # item 缺失的条目不画，避免整张卡只剩边框
+            cards.append(card)
+    if not cards:
+        return renderer.create_text_image("当前没有紫卡拍卖数据", 1040, 156)
 
-    fonts: dict[str, ImageFont.FreeTypeFont | ImageFont.ImageFont] = {
-        "weapon": FontManager.get_text_font(28),
-        "suffix": FontManager.get_text_font(24),
-        "polarity": FontManager.get_wf_icon_font(44),
-        "badge": FontManager.get_text_font(18),
-        "attr": FontManager.get_text_font(24),
-        "attr_val": FontManager.get_text_font(26),
-        "attr_arrow": FontManager.get_text_font(24),
-        "attr_icon": FontManager.get_wf_icon_font(28),
-        "dots": FontManager.get_text_font(26),
-        "meta": FontManager.get_text_font(21),
-        "price": FontManager.get_text_font(36),
-        "price_icon": FontManager.get_wf_icon_font(36),
-        "owner": FontManager.get_text_font(26),
-        "body": FontManager.get_text_font(21),
-    }
+    subtitle = f"{item_name} · 共 {len(cards)} 条在售"
 
-    # 布局
-    n = len(auctions)
-    rows = math.ceil(n / _COLS)
-    cards_h = rows * _CARD_H + (rows - 1) * _ROW_GAP
-    last_row_count = n - (rows - 1) * _COLS
-    last_row_y = _CONTENT_START_Y + (rows - 1) * (_CARD_H + _ROW_GAP)
-    standing_in_row = last_row_count < _COLS
+    # ---- 卡片宽：最宽一张，夹在 [400, 490]（三列不能撑破画布）----
+    max_card_w = (MAX_WIDTH - PAD * 2 - (_COLUMNS - 1) * _GAP) // _COLUMNS
+    intrinsic = max(_card_width(card, theme) for card in cards)
+    card_w = max(_MIN_CARD_W, min(_MAX_CARD_W, max_card_w, intrinsic + _CARD_PAD * 2))
 
-    content_end = _CONTENT_START_Y + cards_h + 34
-    if standing_in_row:
-        canvas_h = max(content_end, last_row_y + _STANDING_INROW_H + _FOOTER_OFFSET + 12)
-    else:
-        canvas_h = content_end + _STANDING_BELOW_H + _FOOTER_OFFSET + 26
+    # 卡片少的时候不必占满三列（1~2 张就按实际张数排，画布更紧凑）
+    columns = min(_COLUMNS, len(cards))
+    row_heights = [
+        max(card.height for card in cards[start : start + columns])
+        for start in range(0, len(cards), columns)
+    ]
+    grid_w = card_w * columns + (columns - 1) * _GAP
+    grid_h = sum(row_heights) + max(0, len(row_heights) - 1) * _GAP
 
-    cb = ImageCombiner(_CANVAS_W, canvas_h, ThemeColor.BG_DARK)
-    cb.draw_double_border(
-        border_padding=20,
-        border_color_outer=ThemeColor.TABLE_BORDER,
-        border_color_inner=ThemeColor.DIVIDER,
-        stroke=3,
+    size = measure_card_size(
+        CardSpec(
+            title="Warframe Market 紫卡市场",
+            subtitle=subtitle,
+            blocks=[CustomBlock(width=grid_w, height=grid_h)],
+            standing="md",
+        )
     )
 
-    # 标题 + 副标题
-    cb.set_color(ThemeColor.ACCENT_GOLD).set_font(title_font)
-    cb.add_centered_text("Warframe Market 紫卡市场", _TITLE_Y)
-    cb.set_color(_RIVEN_SUFFIX_COLOR).set_font(subtitle_font)
-    cb.add_centered_text(item_name, _SUBTITLE_Y)
+    page = C.new_page(theme, size.width, size.height)
+    y = C.draw_header(page, "Warframe Market 紫卡市场", subtitle)
 
-    # 标题下方分隔线
-    cb.set_color(ThemeColor.DIVIDER)
-    cb.draw_line(
-        _CONTENT_X, _SUBTITLE_Y + _SUBTITLE_DIVIDER_OFFSET,
-        _CONTENT_X + _CONTENT_W, _SUBTITLE_Y + _SUBTITLE_DIVIDER_OFFSET,
-        width=1,
-    )
+    grid_x = page.content_x + max(0, (page.content_w - grid_w) // 2)
+    offset_y = 0
+    for row_index, row_height in enumerate(row_heights):
+        for column in range(columns):
+            index = row_index * columns + column
+            if index >= len(cards):
+                break
+            _draw_card(
+                page,
+                cards[index],
+                grid_x + column * (card_w + _GAP),
+                y + offset_y,
+                card_w,
+                row_height,
+            )
+        offset_y += row_height + _GAP
 
-    # 卡片网格
-    col_xs = [_CONTENT_X + i * (_CARD_W + _COL_GAP) for i in range(_COLS)]
-    for i, auction in enumerate(auctions):
-        row = i // _COLS
-        col = i % _COLS
-        card_x = col_xs[col]
-        card_y = _CONTENT_START_Y + row * (_CARD_H + _ROW_GAP)
-        _draw_riven_card(cb, auction, item_name, card_x, card_y, fonts, i + 1)
-
-    # 看板娘 — 尾行有空位时固定置于最右列，避免 1 个数据时跑到中间
-    if standing_in_row:
-        rightmost_col = _COLS - 1
-        standing_x = col_xs[rightmost_col] + (_CARD_W - _STANDING_INROW_W) // 2
-        draw_standing_at(cb, standing_x, last_row_y,
-                         _STANDING_INROW_W, _STANDING_INROW_H)
-    else:
-        standing_x = _CONTENT_X + _CONTENT_W - _STANDING_BELOW_W - 26
-        draw_standing_at(cb, standing_x, content_end + 12,
-                         _STANDING_BELOW_W, _STANDING_BELOW_H)
-
-    # 私聊提示
-    cb.set_color(ThemeColor.TEXT_SECONDARY).set_font(FontManager.get_text_font(22))
-    cb.add_centered_text(_WHISPER_HINT, content_end - 26)
-
-    # Footer
-    cb.draw_card_footer(canvas_h, _FOOTER_OFFSET, 24)
-
-    return cb.to_image()
+    frame.draw_standing_block(page, y + grid_h, "md")
+    frame.draw_footer_block(page)
+    return page.cb.to_image()

@@ -138,7 +138,11 @@ class RelicsService:
         untranslated_map: dict[str, dict] = {}  # rewardName → item dict 去重
         for item in relics_data:
             for r in item.get("rewards", []):
-                if (rn := r.get("rewardName")) and (kw := get_last_three_segments(rn)) and (translated := translation_map.get(kw)):
+                if (
+                    (rn := r.get("rewardName"))
+                    and (kw := get_last_three_segments(rn))
+                    and (translated := translation_map.get(kw))
+                ):
                     r["rewardName"] = translated
                 elif rn:
                     # 未找到翻译，收集（去重）

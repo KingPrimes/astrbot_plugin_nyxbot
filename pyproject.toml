@@ -34,4 +34,21 @@ dev-dependencies = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.25.0",
     "ruff>=0.9.0",
+    # 字体覆盖校验（tests/test_icon_registry.py）
+    "fonttools>=4.50.0",
 ]
+
+[tool.ruff]
+# 审查 P2-10：行宽从「未校验」收敛为 120 并启用 E501。
+# 120 是实测代码的自然上限（>120 仅 53 处，多为不可拆的 URL/Lotus 路径字面量）；
+# 不可拆的长字符串行用 `# noqa: E501` 显式豁免。
+line-length = 120
+
+[tool.ruff.lint]
+extend-select = ["E501"]
+
+# 审查 P2-10 例外：market.py 的超长行几乎全部位于文档串内的 API 响应 JSON
+# 示例（URL / 描述等不可拆字符串，无法用行注释豁免），故整文件豁免 E501；
+# 其代码部分的超长重试日志行已改为隐式拼接换行。
+[tool.ruff.lint.per-file-ignores]
+"src/api/market.py" = ["E501"]

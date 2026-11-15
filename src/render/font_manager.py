@@ -12,11 +12,7 @@ from typing import ClassVar
 
 from PIL import ImageFont
 
-try:
-    from astrbot.api import logger
-except ImportError:
-    import logging
-    logger = logging.getLogger(__name__)
+from astrbot.api import logger
 
 
 class FontManager:

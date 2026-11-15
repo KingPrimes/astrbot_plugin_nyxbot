@@ -1,11 +1,14 @@
 """Draw constants / 绘图常量模块
 
 标准化绘图常量，对应 Java DrawConstants.java。
-保持暗色主题风格（与现有 CardRenderer.COLORS 一致）。
+配色走 ``ThemeColor`` 主题代理（跟随当前主题，单一来源见 ``design.THEMES``），
+尺寸常量保留为 ``Final`` 常量。
 """
 from __future__ import annotations
 
 from typing import Final
+
+from .theme import LEGACY_FIELDS, current_theme
 
 # ============================================================================
 # 尺寸常量 / Dimension Constants
@@ -96,41 +99,23 @@ class DrawConstant:
 # 颜色常量 / Color Constants (暗色主题)
 # ============================================================================
 
-class ThemeColor:
-    """Warframe 暗色主题色板 — 与现有 CardRenderer.COLORS 保持一致。"""
+class _ThemeColorMeta(type):
+    """把历史色板名映射到当前主题（``src/render/theme.py``）。"""
 
-    # 背景色
-    BG_DARK: Final[tuple[int, int, int]] = (26, 26, 46)          # #1a1a2e
-    BG_CARD: Final[tuple[int, int, int]] = (22, 33, 62)          # #16213e
-    BG_CARD_ALT: Final[tuple[int, int, int]] = (30, 45, 80)      # 交替卡片背景
+    def __getattr__(cls, name: str) -> tuple[int, int, int]:
+        field = LEGACY_FIELDS.get(name)
+        if field is None:
+            raise AttributeError(f"type object {cls.__name__!r} has no attribute {name!r}")
+        return getattr(current_theme().palette, field)
 
-    # 强调色
-    ACCENT: Final[tuple[int, int, int]] = (233, 69, 96)          # #e94560
-    ACCENT_BLUE: Final[tuple[int, int, int]] = (69, 133, 233)    # 蓝色强调
-    ACCENT_GREEN: Final[tuple[int, int, int]] = (69, 233, 150)   # 绿色强调
-    ACCENT_GOLD: Final[tuple[int, int, int]] = (255, 215, 0)     # 金色
 
-    # 文本颜色
-    TEXT_PRIMARY: Final[tuple[int, int, int]] = (255, 255, 255)
-    TEXT_SECONDARY: Final[tuple[int, int, int]] = (170, 170, 170)
-    TEXT_MUTED: Final[tuple[int, int, int]] = (120, 120, 120)
+class ThemeColor(metaclass=_ThemeColorMeta):
+    """历史色板名 → 当前主题的语义色。
 
-    # 功能色
-    REWARD_BG: Final[tuple[int, int, int]] = (15, 52, 96)       # 奖励标签背景
-    DIVIDER: Final[tuple[int, int, int]] = (60, 60, 90)          # 分割线
-    SUCCESS: Final[tuple[int, int, int]] = (69, 233, 150)
-    WARNING: Final[tuple[int, int, int]] = (255, 193, 7)
-    DANGER: Final[tuple[int, int, int]] = (233, 69, 96)
-    INFO: Final[tuple[int, int, int]] = (69, 133, 233)
-
-    # 循环图像颜色
-    CYCLE_WARM: Final[tuple[int, int, int]] = (255, 128, 0)
-    CYCLE_COLD: Final[tuple[int, int, int]] = (0, 180, 255)
-
-    # 表格颜色
-    TABLE_HEADER_BG: Final[tuple[int, int, int]] = (41, 128, 185)  # #2980b9
-    TABLE_EVEN_ROW: Final[tuple[int, int, int]] = (22, 33, 62)     # 与 BG_CARD 一致
-    TABLE_BORDER: Final[tuple[int, int, int]] = (60, 60, 90)
+    以前这里是一组硬编码 RGB，只在暗色下成立；现在按语义映射到 ``Palette``
+    字段，因此**未迁移的卡片也会跟随** ``dark`` / ``light`` 切换。
+    下面保留的是与主题无关的固定色（时间紧急度、虚空层级、帮助图）。
+    """
 
     # 帮助图像
     HELP_HEADER_BG: Final[tuple[int, int, int]] = (41, 128, 185)
@@ -166,25 +151,25 @@ class ThemeColor:
 # 工具函数 / Utility Functions
 # ============================================================================
 
-def hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
+def hex_to_rgb(hex_color: object, fallback: tuple[int, int, int] = (0, 0, 0)) -> tuple[int, int, int]:
     """将十六进制颜色字符串转换为 RGB 元组。
 
     支持格式: "#RRGGBB"、"RRGGBB"。
 
+    审查 P1-3：色值可能来自游戏数据（派系 / 任务类型），无法在编译期
+    发现脏值——非法输入（``#FFF`` / ``#GGGGGG`` / 空串 / ``None``）回退
+    ``fallback``，不再抛 ``ValueError`` 打断渲染。
+
     Args:
         hex_color: 十六进制颜色字符串。
+        fallback: 非法输入时的替代色。
 
     Returns:
         (R, G, B) 元组，每个分量 0-255。
     """
-    hex_color = hex_color.lstrip("#")
-    if len(hex_color) != 6:
-        raise ValueError(f"无效的十六进制颜色: {hex_color!r}，需要 6 位十六进制")
-    return (
-        int(hex_color[0:2], 16),
-        int(hex_color[2:4], 16),
-        int(hex_color[4:6], 16),
-    )
+    from .design import parse_hex
+
+    return parse_hex(hex_color) or fallback
 
 
 def rgb_to_hex(rgb: tuple[int, int, int]) -> str:

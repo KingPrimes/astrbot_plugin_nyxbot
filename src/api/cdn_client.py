@@ -43,7 +43,10 @@ class CdnClient:
             data = await fetch_json_with_retry(
                 GITHUB_TAGS_URL,
                 log_templates={
-                    RetryLogLevel.WARNING: "获取最新版本号失败（第 {attempt}/{max_retries} 次），{retry_delay} 秒后重试...",
+                    RetryLogLevel.WARNING:  (
+                        "获取最新版本号失败（第 {attempt}/{max_retries} 次），"
+                        "{retry_delay} 秒后重试..."
+                    ),
                     RetryLogLevel.ERROR: "获取最新版本号失败，已重试 {max_retries} 次，将使用无版本号的 CDN 地址",
                 },
             )
@@ -87,7 +90,10 @@ class CdnClient:
         return await fetch_json_with_retry(
             url,
             log_templates={
-                RetryLogLevel.WARNING: "获取星图节点数据失败（第 {attempt}/{max_retries} 次），{retry_delay} 秒后重试...",
+                RetryLogLevel.WARNING:  (
+                    "获取星图节点数据失败（第 {attempt}/{max_retries} 次），"
+                    "{retry_delay} 秒后重试..."
+                ),
                 RetryLogLevel.ERROR: "获取星图节点数据失败，已重试 {max_retries} 次，放弃",
             },
         )
@@ -99,7 +105,10 @@ class CdnClient:
         return await fetch_json_with_retry(
             url,
             log_templates={
-                RetryLogLevel.WARNING: "获取仲裁分级数据失败（第 {attempt}/{max_retries} 次），{retry_delay} 秒后重试...",
+                RetryLogLevel.WARNING:  (
+                    "获取仲裁分级数据失败（第 {attempt}/{max_retries} 次），"
+                    "{retry_delay} 秒后重试..."
+                ),
                 RetryLogLevel.ERROR: "获取仲裁分级数据失败，已重试 {max_retries} 次，放弃",
             },
         )
@@ -123,7 +132,10 @@ class CdnClient:
         return await fetch_json_with_retry(
             url,
             log_templates={
-                RetryLogLevel.WARNING: "获取紫卡属性查询参数失败（第 {attempt}/{max_retries} 次），{retry_delay} 秒后重试...",
+                RetryLogLevel.WARNING:  (
+                    "获取紫卡属性查询参数失败（第 {attempt}/{max_retries} 次），"
+                    "{retry_delay} 秒后重试..."
+                ),
                 RetryLogLevel.ERROR: "获取紫卡属性查询参数失败，已重试 {max_retries} 次，放弃",
             },
         )
@@ -135,7 +147,10 @@ class CdnClient:
         return await fetch_json_with_retry(
             url,
             log_templates={
-                RetryLogLevel.WARNING: "获取紫卡属性查询别名失败（第 {attempt}/{max_retries} 次），{retry_delay} 秒后重试...",
+                RetryLogLevel.WARNING:  (
+                    "获取紫卡属性查询别名失败（第 {attempt}/{max_retries} 次），"
+                    "{retry_delay} 秒后重试..."
+                ),
                 RetryLogLevel.ERROR: "获取紫卡属性查询别名失败，已重试 {max_retries} 次，放弃",
             },
         )
@@ -159,7 +174,10 @@ class CdnClient:
         return await fetch_json_with_retry(
             url,
             log_templates={
-                RetryLogLevel.WARNING: "获取紫卡计算器数据失败（第 {attempt}/{max_retries} 次），{retry_delay} 秒后重试...",
+                RetryLogLevel.WARNING:  (
+                    "获取紫卡计算器数据失败（第 {attempt}/{max_retries} 次），"
+                    "{retry_delay} 秒后重试..."
+                ),
                 RetryLogLevel.ERROR: "获取紫卡计算器数据失败，已重试 {max_retries} 次，放弃",
             },
         )

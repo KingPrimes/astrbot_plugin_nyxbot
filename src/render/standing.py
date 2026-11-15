@@ -13,8 +13,9 @@
 | 4 | 秋季 |
 | 5 | 冬季 |
 
-默认所有卡片都会跟随本机当前日期自动换季；把 `SEASONAL_STANDING`
-置为 `False` 可让全部卡片固定使用默认立绘。
+默认所有卡片都会跟随本机当前日期自动换季。是否启用、是否换季、用多大尺寸
+由 :mod:`src.render.branding` 的品牌设置决定（数据目录 ``render_branding.json``），
+模块常量 ``SEASONAL_STANDING`` 仅作为读不到配置时的兜底。
 """
 from __future__ import annotations
 
@@ -23,6 +24,7 @@ from pathlib import Path
 
 from PIL import Image
 
+from . import branding
 from .image_combiner import ImageCombiner
 
 # 看板娘最大尺寸 — 对应 Java: imageWidth=413, imageHeight=625
@@ -72,8 +74,12 @@ _SEASON_ALIASES: dict[str, str] = {
     "cst_winter": WINTER,
 }
 
-# 是否按现实季节自动换装；关闭后所有卡片固定使用默认立绘
+# 已废弃：仅为兼容外部引用保留。是否换季请走品牌设置（branding.standing_seasonal()）。
 SEASONAL_STANDING = True
+
+# 尺寸档位：指向 branding 的唯一定义（审查 P2-2：全仓只保留一份字面量，
+# card_frame 等版式层一律从这里或 branding 取，不再复制）。
+STANDING_SIZES = branding.STANDING_SIZES
 
 # 模块级缓存：按编号缓存立绘，避免每次渲染都从磁盘读取
 _index_cache: dict[int, Image.Image] = {}
@@ -112,15 +118,20 @@ def current_season(today: date | None = None) -> str:
     return WINTER
 
 
+def is_enabled() -> bool:
+    """看板娘是否全局启用（品牌设置）。"""
+    return branding.standing_enabled()
+
+
 def resolve_standing_index(seasonal: bool | None = None) -> int:
     """解析当前应使用的立绘编号。
 
     Args:
         seasonal: `True` 跟随季节，`False` 固定默认立绘，
-            `None` 时取模块开关 `SEASONAL_STANDING`。
+            `None` 时取品牌设置（读不到再退 `SEASONAL_STANDING`）。
     """
     if seasonal is None:
-        seasonal = SEASONAL_STANDING
+        seasonal = branding.standing_seasonal()
     if not seasonal:
         return DEFAULT_STANDING_INDEX
     return SEASON_STANDING_INDEX.get(current_season(), DEFAULT_STANDING_INDEX)
@@ -159,16 +170,24 @@ def standing_index_for_season(season: object) -> int:
 def pick_standing_image(
     seasonal: bool | None = None,
     index: int | None = None,
+    enabled: bool | None = None,
 ) -> Image.Image | None:
     """选取看板娘立绘（无磁盘 I/O，命中缓存）。
 
     Args:
-        seasonal: 是否跟随季节，`None` 取模块开关。
+        seasonal: 是否跟随季节，`None` 取品牌设置。
         index: 显式指定立绘编号，优先级高于 `seasonal`。
+        enabled: 是否启用看板娘，`None` 取品牌设置；`False` 时直接返回 `None`。
+            **显式指定 `index` 时不受此开关限制**（按数据季节换装的卡片需要）。
 
     Returns:
-        立绘图片；缺失季节图时回退默认立绘，全部缺失返回 `None`。
+        立绘图片；缺失季节图时回退默认立绘，全部缺失或已禁用返回 `None`。
     """
+    if enabled is None:
+        enabled = branding.standing_enabled()
+    if not enabled and index is None:
+        return None
+
     if index is not None:
         return _load_index(index) or _load_index(DEFAULT_STANDING_INDEX)
 
@@ -190,6 +209,7 @@ def draw_standing(
     max_h: int | None = None,
     seasonal: bool | None = None,
     index: int | None = None,
+    enabled: bool | None = None,
 ) -> None:
     """右下角绘制看板娘立绘 — 对应 Java drawStandingDrawing()。
 
@@ -203,7 +223,7 @@ def draw_standing(
         seasonal: 是否跟随现实季节换装，`None` 取模块开关。
         index: 显式指定立绘编号（优先级最高），用于按数据季节换装的卡片。
     """
-    img = pick_standing_image(seasonal, index)
+    img = pick_standing_image(seasonal, index, enabled)
     if img is None:
         return
 
@@ -246,6 +266,7 @@ def draw_standing_at(
     max_h: int,
     seasonal: bool | None = None,
     index: int | None = None,
+    enabled: bool | None = None,
 ) -> None:
     """在指定位置绘制缩放的看板娘立绘。
 
@@ -256,7 +277,7 @@ def draw_standing_at(
         seasonal: 是否跟随现实季节换装，`None` 取模块开关。
         index: 显式指定立绘编号（优先级最高）。
     """
-    img = pick_standing_image(seasonal, index)
+    img = pick_standing_image(seasonal, index, enabled)
     if img is None:
         return
 

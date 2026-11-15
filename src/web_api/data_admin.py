@@ -9,6 +9,7 @@ from typing import Any
 
 from astrbot.api import logger
 
+from ..util import get_plugin_name
 from ..util.alias_cache import invalidate_alias_cache
 from ..util.search_index import invalidate as invalidate_search_index
 from astrbot.api.star import Context
@@ -53,7 +54,9 @@ from ..service import (
 )
 from ..service.data_admin import DataAdminService
 
-PLUGIN_NAME = "astrbot_plugin_nyxbot"
+#: 路由前缀：与 ``settings.py`` 同源（metadata.yaml 的 name），缺失时兜底。
+#: 审查 P2-3：不要硬编码插件名，否则改元数据后两组接口前缀会分叉。
+PLUGIN_NAME = get_plugin_name() or "astrbot_plugin_nyxbot"
 
 _INDEXED_MODELS = frozenset(
     {"alias", "orders_items", "riven_items", "lich_sister_weapons",
@@ -162,15 +165,33 @@ def register_data_apis(context: Context) -> None:
     )
 
     # ── Riven ──
-    _register_model("riven_tion", RivenTion, search_fields=["effect", "url_name"], sync_func=RivenService.sync_tion_data)
-    _register_model("riven_tion_alias", RivenTionAlias, search_fields=["en", "cn"], sync_func=RivenService.sync_tion_alias_data)
-    _register_model("riven_analyse_trend", RivenAnalyseTrend, search_fields=["name"], sync_func=RivenService.sync_analyse_trend_data)
-    _register_model("riven_items", RivenItems, search_fields=["name", "slug"], sync_func=RivenService.sync_items_data)
+    _register_model(
+        "riven_tion", RivenTion, search_fields=["effect", "url_name"], sync_func=RivenService.sync_tion_data
+    )
+    _register_model(
+        "riven_tion_alias", RivenTionAlias, search_fields=["en", "cn"], sync_func=RivenService.sync_tion_alias_data
+    )
+    _register_model(
+        "riven_analyse_trend",
+        RivenAnalyseTrend,
+        search_fields=["name"],
+        sync_func=RivenService.sync_analyse_trend_data,
+    )
+    _register_model(
+        "riven_items", RivenItems, search_fields=["name", "slug"], sync_func=RivenService.sync_items_data
+    )
 
     # ── Market ──
-    _register_model("orders_items", OrdersItems, search_fields=["name", "slug"], sync_func=MarketSyncService.sync_orders_items)
+    _register_model(
+        "orders_items", OrdersItems, search_fields=["name", "slug"], sync_func=MarketSyncService.sync_orders_items
+    )
     _register_model("ephemeras", Ephemeras, search_fields=["name", "slug"], sync_func=MarketSyncService.sync_ephemeras)
-    _register_model("lich_sister_weapons", LichSisterWeapons, search_fields=["name", "slug"], sync_func=MarketSyncService.sync_lich_sister_weapons)
+    _register_model(
+        "lich_sister_weapons",
+        LichSisterWeapons,
+        search_fields=["name", "slug"],
+        sync_func=MarketSyncService.sync_lich_sister_weapons,
+    )
 
     # ── Translation ──
     _register_model(
@@ -181,7 +202,9 @@ def register_data_apis(context: Context) -> None:
     )
 
     # ── Exprot ──
-    _register_model("night_wave", NightWave, search_fields=["name", "unique_name"], sync_func=NightWaveService.sync_data)
+    _register_model(
+        "night_wave", NightWave, search_fields=["name", "unique_name"], sync_func=NightWaveService.sync_data
+    )
     _register_model("relics", Relics, search_fields=["name", "unique_name"], sync_func=RelicsService.sync_data)
     _register_model("relic_rewards", RelicRewards, search_fields=["reward_name"], sync_func=None)
     _register_model("sentinels", Sentinels, search_fields=["name", "unique_name"], sync_func=SentinelsService.sync_data)
@@ -202,10 +225,14 @@ def register_data_apis(context: Context) -> None:
 
         models = []
         for name, meta in _MODEL_REGISTRY.items():
+            model_cls = meta["class"]
             models.append({
                 "name": name,
                 "search_fields": meta["search_fields"],
                 "has_sync": meta["sync_func"] is not None,
+                # CodeRabbit R5：暴露全部数据字段（与 _serialize_instance 的
+                # 行键同口径），空模型（零记录）也能生成可提交的新增表单
+                "fields": sorted(model_cls._meta.db_fields),
             })
         return jsonify({"models": models})
 

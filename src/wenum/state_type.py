@@ -31,8 +31,8 @@ class StateTypeEnum(StrEnum):
     WEAPONS_TENNO_MELEE_SKIN = ("WEAPONS_TENNO_MELEE_SKIN", "/Lotus/Weapons/Tenno/Melee/.*Skin", "武器外观")
     KUBROW_PET_PATTERNS = ("KUBROW_PET_PATTERNS", "/Lotus/Types/Game/KubrowPet/Patterns/.*", "库狛花纹")
     CATBROW_PET_PATTERNS = ("CATBROW_PET_PATTERNS", "/Lotus/Types/Game/CatbrowPet/Patterns/.*", "库娃花纹")
-    INFESTED_KAVAT_PET_PATTERNS = ("INFESTED_KAVAT_PET_PATTERNS", "/Lotus/Types/Game/InfestedKavatPet/Patterns/.*", "狐帕菲拉花纹")
-    INFESTED_PREDATORS_PET_PATTERNS = ("INFESTED_PREDATORS_PET_PATTERNS", "/Lotus/Types/Game/InfestedPredatorPet/Patterns/.*", "扑猎达赛花纹")
+    INFESTED_KAVAT_PET_PATTERNS = ("INFESTED_KAVAT_PET_PATTERNS", "/Lotus/Types/Game/InfestedKavatPet/Patterns/.*", "狐帕菲拉花纹")  # noqa: E501
+    INFESTED_PREDATORS_PET_PATTERNS = ("INFESTED_PREDATORS_PET_PATTERNS", "/Lotus/Types/Game/InfestedPredatorPet/Patterns/.*", "扑猎达赛花纹")  # noqa: E501
     BACKGROUNDS = ("BACKGROUNDS", "/Lotus/Interface/Graphics/CustomUI/Backgrounds/.*", "背景")
     CURSORS = ("CURSORS", "/Lotus/Interface/Graphics/CustomUI/Cursors/.*", "指针")
     SOUNDS = ("SOUNDS", "/Lotus/Interface/Graphics/CustomUI/Sounds/.*", "登录音效")

@@ -1,18 +1,19 @@
 """钢铁之路卡片渲染器 — 迁移自 Java DefaultDrawSteelPathImage
 
-采用简单列表布局：
-  - 居中标题 + 双层装饰边框
-  - 当前轮换奖励 + 下一个奖励 + 剩余时间
-  - 看板娘立绘 + 底部署名
+版式（design + components）：
+  - 页头「钢铁奖励」+ 分割线
+  - 键值块：当前奖励 / 下一个奖励 / 剩余时间
+  - 内容下方看板娘（md）+ 页脚署名（读品牌设置）
 """
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .draw_constant import LayoutConstants, ThemeColor
-from .font_manager import FontManager
-from .image_combiner import ImageCombiner
-from .standing import draw_standing
+from . import card_frame as frame
+from . import components as C
+from .card_size import CardSpec, KvBlock, measure_card_size
+from .design import SPACE
+from .theme import current_theme
 
 if TYPE_CHECKING:
     from PIL import Image
@@ -21,29 +22,6 @@ if TYPE_CHECKING:
     from .card_renderer import CardRenderer
 
 
-# ---------------------------------------------------------------------------
-# 布局常量
-# ---------------------------------------------------------------------------
-
-_CANVAS_W = 1200
-_CONTENT_X, _CONTENT_W = LayoutConstants.get_content_bounds(_CANVAS_W)
-
-_ROW_H = 55
-_MIN_HEIGHT = 400
-
-_TITLE_Y = 70
-_DIVIDER_Y = 138
-_CONTENT_START_Y = 180
-_FOOTER_OFFSET = 55
-
-_STANDING_MAX_W = 260
-_STANDING_MAX_H = 390
-
-
-# ---------------------------------------------------------------------------
-# 主渲染函数
-# ---------------------------------------------------------------------------
-
 def render_steel_path_card(
     renderer: CardRenderer,
     steel_path: SteelPathOffering,
@@ -51,66 +29,34 @@ def render_steel_path_card(
     """绘制钢铁之路信息卡片 — 镜像 Java DefaultDrawSteelPathImage.drawSteelPathImage()。
 
     Args:
-        renderer: CardRenderer 实例。
+        renderer: CardRenderer 实例（保留参数以兼容渲染入口）。
         steel_path: SteelPathOffering 模型。
 
     Returns:
         PIL Image 对象。
     """
-    # ---- 计算行数（当前奖励 + 下一个奖励 + 剩余时间） ----
-    row_count = 0
+    theme = current_theme()
+    palette = theme.palette
+
+    rows: list[tuple] = []
     if steel_path.current_reward:
-        row_count += 1
+        rows.append(("当前奖励", steel_path.current_reward.name))
     if steel_path.next_reward:
-        row_count += 1
-    row_count += 1  # 剩余时间始终显示
+        rows.append(("下一个奖励", steel_path.next_reward.name))
+    rows.append(("剩余时间", steel_path.remaining or "未知", palette.amber))
 
-    # ---- 动态高度 ----
-    content_h = _CONTENT_START_Y + row_count * _ROW_H + _STANDING_MAX_H + _FOOTER_OFFSET
-    canvas_h = max(content_h, _MIN_HEIGHT)
+    size = measure_card_size(
+        CardSpec(
+            title="钢铁奖励",
+            blocks=[KvBlock(rows)],
+            standing="md",
+            header_gap=SPACE["md"],
+        )
+    )
 
-    # ---- 字体 ----
-    title_font = FontManager.get_text_font(48)
-    body_font = FontManager.get_text_font(28)
-    FontManager.get_text_font(20)
-
-    # ---- 画布 ----
-    cb = ImageCombiner(_CANVAS_W, canvas_h, ThemeColor.BG_DARK)
-
-    # ---- 双层边框 ----
-    cb.draw_default_double_border()
-
-    # ---- 标题 ----
-    cb.set_color(ThemeColor.ACCENT_BLUE).set_font(title_font)
-    cb.add_centered_text("钢铁奖励", _TITLE_Y)
-
-    # ---- 分割线 ----
-    cb.draw_content_divider(_DIVIDER_Y, _CONTENT_X, _CONTENT_W)
-
-    # ---- 数据行 ----
-    current_y = _CONTENT_START_Y
-
-    # 当前奖励
-    if steel_path.current_reward:
-        cb.set_color(ThemeColor.TEXT_PRIMARY).set_font(body_font)
-        cb.add_text(f"当前奖励: {steel_path.current_reward.name}", _CONTENT_X, current_y + 10)
-        current_y += _ROW_H
-
-    # 下一个奖励
-    if steel_path.next_reward:
-        cb.set_color(ThemeColor.TEXT_PRIMARY).set_font(body_font)
-        cb.add_text(f"下一个奖励: {steel_path.next_reward.name}", _CONTENT_X, current_y + 10)
-        current_y += _ROW_H
-
-    # 剩余时间
-    remaining = steel_path.remaining or "未知"
-    cb.set_color(ThemeColor.WARNING).set_font(body_font)
-    cb.add_text(f"剩余时间: {remaining}", _CONTENT_X, current_y + 10)
-
-    # ---- 看板娘 ----
-    draw_standing(cb, max_w=_STANDING_MAX_W, max_h=_STANDING_MAX_H)
-
-    # ---- 底部署名 ----
-    cb.draw_card_footer(canvas_h)
-
-    return cb.to_image()
+    page = C.new_page(theme, size.width, size.height)
+    y = C.draw_header(page, "钢铁奖励")
+    y = C.draw_kv(page, rows, y + SPACE["md"])
+    frame.draw_standing_block(page, y, "md")
+    frame.draw_footer_block(page)
+    return page.cb.to_image()

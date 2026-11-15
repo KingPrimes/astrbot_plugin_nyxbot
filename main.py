@@ -20,6 +20,7 @@ from .src.service import (
     ArbitrationService,
     WorldStateService,
 )
+from .src.render.theme import apply_plugin_config
 from .src.util.log_filter import install_reload_noise_filter
 from .src.util.search_index import shutdown as search_index_shutdown
 from .src.web_api.registry import register_web_apis
@@ -36,6 +37,21 @@ class NyxBotPlugin(Star):
         self._config = config
         self._init_task: asyncio.Task | None = None
         self._disable_task: asyncio.Task | None = None
+        # 卡片主题：配置在构造时就要生效，否则首张卡片会用到默认暗色
+        self.apply_theme_config()
+
+    def apply_theme_config(self) -> None:
+        """把 ``wf_card_theme``（dark / light）应用到渲染层。
+
+        注意两种保存路径的行为差异（审查 P2-5）：
+        AstrBot 原生配置面板保存后会重载插件，``__init__`` 再走一次；
+        而管理页的 ``POST /config/update`` 只调 ``reload_plugin_config()``
+        刷新 ``PluginConfig`` 单例，**不重载插件**——``requires_reload``
+        的启动期项（含主题）在该路径下需手动重载插件才生效。
+        渲染层读的是 ``theme.THEME_MANAGER``，不需要每张卡片重新取配置。
+        """
+        theme = apply_plugin_config(self._config)
+        logger.info(f"卡片主题: {theme.name}")
 
     async def initialize(self):
         """Plugin initialization / 插件初始化（非阻塞）
@@ -59,6 +75,8 @@ class NyxBotPlugin(Star):
         数据导入内部按阶段隔离异常，单个数据源失败不会阻塞其它数据源。
         """
         try:
+            # 构造期的日志可能早于插件 logger 就绪，这里再应用一次并显式记录
+            self.apply_theme_config()
             mode = get_data_init_mode()
             logger.info(f"NyxBot 数据初始化模式: {mode}")
 
@@ -66,7 +84,7 @@ class NyxBotPlugin(Star):
             await get_engine()
 
             # 注册数据管理 API（Plugin Pages 后端）
-            register_web_apis(cast(Context, self.context))
+            register_web_apis(cast(Context, self.context), self._config)
             logger.info("数据管理 API 已注册")
 
             tasks: list = [bootstrap_data(mode=mode)]
