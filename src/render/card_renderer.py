@@ -66,12 +66,12 @@ class CardRenderer:
         if cls._FACTION_LOOKUP:
             return
         for fe in FactionEnum:
-            rgb = hex_to_rgb(fe.color)
+            rgb = hex_to_rgb(fe.color, fallback=ThemeColor.TEXT_MUTED)
             cls._FACTION_LOOKUP[fe.display_name.lower()] = (fe.icon, rgb)
             cls._FACTION_LOOKUP[fe.name.lower()] = (fe.icon, rgb)
             cls._FACTION_LOOKUP[fe.name.removeprefix("FC_").lower()] = (fe.icon, rgb)
         for mt in MissionTypeEnum:
-            rgb = hex_to_rgb(mt.color)
+            rgb = hex_to_rgb(mt.color, fallback=ThemeColor.TEXT_MUTED)
             cls._MISSION_TYPE_LOOKUP[mt.display_name] = rgb
             cls._MISSION_TYPE_LOOKUP[mt.name.lower()] = rgb
             cls._MISSION_TYPE_LOOKUP[mt.name.removeprefix("MT_").lower().replace("_", " ")] = rgb
@@ -116,7 +116,7 @@ class CardRenderer:
             return ("", ThemeColor.TEXT_MUTED)
 
         if isinstance(faction, FactionEnum):
-            return (faction.icon, hex_to_rgb(faction.color))
+            return (faction.icon, hex_to_rgb(faction.color, fallback=ThemeColor.TEXT_MUTED))
 
         CardRenderer._build_lookup_caches()
         key = faction.lower().strip()
@@ -132,7 +132,7 @@ class CardRenderer:
             return ThemeColor.TEXT_SECONDARY
 
         if isinstance(mission_type, MissionTypeEnum):
-            return hex_to_rgb(mission_type.color)
+            return hex_to_rgb(mission_type.color, fallback=ThemeColor.TEXT_MUTED)
 
         CardRenderer._build_lookup_caches()
         key = mission_type.strip()

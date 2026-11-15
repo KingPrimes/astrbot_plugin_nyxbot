@@ -15,6 +15,7 @@
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -241,10 +242,30 @@ def contrast(a: RGB, b: RGB) -> float:
     return (high + 0.05) / (low + 0.05)
 
 
-def hex_to_rgb(value: str) -> RGB:
-    """``#RRGGBB`` → RGB。"""
-    text = value.lstrip("#")
+#: 合法十六进制色值：``#RRGGBB`` 或 ``RRGGBB``（3 位缩写历史上就不支持，
+#: ``semantic_color`` 把 ``#000`` 列入「未配置色」，无需在此放宽）。
+_HEX_COLOR_RE = re.compile(r"^#?[0-9A-Fa-f]{6}$")
+
+
+def parse_hex(value: object) -> RGB | None:
+    """``#RRGGBB`` → RGB；非法输入返回 ``None``（调用方决定兜底色）。
+
+    游戏数据里的色值无法在编译期发现（任务类型、派系、稀有度），
+    这里只做校验不抛异常——一个错别字不值得让群里的图崩掉。
+    """
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if not _HEX_COLOR_RE.match(text):
+        return None
+    text = text.lstrip("#")
     return int(text[0:2], 16), int(text[2:4], 16), int(text[4:6], 16)
+
+
+def hex_to_rgb(value: object, fallback: RGB = (0, 0, 0)) -> RGB:
+    """``#RRGGBB`` → RGB；非法输入（``#FFF`` / ``#GGGGGG`` / 空串 / ``None``）
+    回退 ``fallback``，不抛异常。"""
+    return parse_hex(value) or fallback
 
 
 def adapt_color(value: str | RGB, theme: Theme, target: float = 4.5) -> RGB:
@@ -259,7 +280,9 @@ def adapt_color(value: str | RGB, theme: Theme, target: float = 4.5) -> RGB:
         theme: 目标主题（用其 ``surface`` 作底色）。
         target: 目标对比度，默认 4.5（AA 正文）。
     """
-    rgb = hex_to_rgb(value) if isinstance(value, str) else value
+    rgb = parse_hex(value) if isinstance(value, str) else value
+    if rgb is None:  # 非法色值：退回中性色，不让脏数据打断渲染
+        return theme.palette.text_muted
     background = theme.palette.surface
     if contrast(rgb, background) >= target:
         return rgb
@@ -309,14 +332,21 @@ def semantic_color(
     Returns:
         适配后的 RGB。
     """
-    if value is None:
-        return fallback
     if isinstance(value, str):
         if value.strip().lower() in _UNSET_COLORS:
             return fallback
-    elif tuple(value) == (0, 0, 0):
-        return fallback
-    return adapt_color(value, theme, target)
+        if parse_hex(value) is None:  # 非法色值同样按「没有颜色」处理
+            return fallback
+        return adapt_color(value, theme, target)
+    if (
+        isinstance(value, tuple)
+        and len(value) == 3
+        and all(isinstance(v, int) for v in value)
+    ):
+        if tuple(value) == (0, 0, 0):
+            return fallback
+        return adapt_color(value, theme, target)
+    return fallback  # 其余类型（int / 长度不对的 tuple 等）按「没有颜色」处理
 
 
 def icon_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:

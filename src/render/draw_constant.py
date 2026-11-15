@@ -150,25 +150,25 @@ class ThemeColor(metaclass=_ThemeColorMeta):
 # 工具函数 / Utility Functions
 # ============================================================================
 
-def hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
+def hex_to_rgb(hex_color: object, fallback: tuple[int, int, int] = (0, 0, 0)) -> tuple[int, int, int]:
     """将十六进制颜色字符串转换为 RGB 元组。
 
     支持格式: "#RRGGBB"、"RRGGBB"。
 
+    审查 P1-3：色值可能来自游戏数据（派系 / 任务类型），无法在编译期
+    发现脏值——非法输入（``#FFF`` / ``#GGGGGG`` / 空串 / ``None``）回退
+    ``fallback``，不再抛 ``ValueError`` 打断渲染。
+
     Args:
         hex_color: 十六进制颜色字符串。
+        fallback: 非法输入时的替代色。
 
     Returns:
         (R, G, B) 元组，每个分量 0-255。
     """
-    hex_color = hex_color.lstrip("#")
-    if len(hex_color) != 6:
-        raise ValueError(f"无效的十六进制颜色: {hex_color!r}，需要 6 位十六进制")
-    return (
-        int(hex_color[0:2], 16),
-        int(hex_color[2:4], 16),
-        int(hex_color[4:6], 16),
-    )
+    from .design import parse_hex
+
+    return parse_hex(hex_color) or fallback
 
 
 def rgb_to_hex(rgb: tuple[int, int, int]) -> str:
