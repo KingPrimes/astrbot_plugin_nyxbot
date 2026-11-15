@@ -141,11 +141,23 @@ ENTRIES: tuple[IconEntry, ...] = (
     # ---------------------------------------------------------------- 派系 FACTION
     IconEntry("GRINEER", 0xE401, ("grineer", "fc_grineer"), "#870507", IconGroup.FACTION, "Grineer"),
     IconEntry("CORPUS", 0xE402, ("corpus", "fc_corpus"), "#5AB0CB", IconGroup.FACTION, "Corpus"),
-    IconEntry("INFESTATION", 0xE403, ("infestation", "infested", "fc_infestation"), "#61814B", IconGroup.FACTION, "Infested"),
-    IconEntry("OROKIN", 0xE404, ("orokin", "fc_orokin", "corrupted", "fc_corrupted", "奥罗金", "堕落者"), "#B6A019", IconGroup.FACTION, "奥罗金 / 堕落者"),
+    IconEntry(
+        "INFESTATION", 0xE403,
+        ("infestation", "infested", "fc_infestation"),
+        "#61814B", IconGroup.FACTION, "Infested",
+    ),
+    IconEntry(
+        "OROKIN", 0xE404,
+        ("orokin", "fc_orokin", "corrupted", "fc_corrupted", "奥罗金", "堕落者"),
+        "#B6A019", IconGroup.FACTION, "奥罗金 / 堕落者",
+    ),
     IconEntry("SENTIENT", 0xE405, ("sentient", "fc_sentient"), "#931B1B", IconGroup.FACTION, "Sentient"),
     IconEntry("NARMER", 0xE409, ("narmer", "fc_narmer", "合一众"), "#A35F27", IconGroup.FACTION, "合一众"),
-    IconEntry("MURMUR", 0xE410, ("murmur", "the murmur", "fc_murmur", "低语者"), "#B59B6D", IconGroup.FACTION, "低语者"),
+    IconEntry(
+        "MURMUR", 0xE410,
+        ("murmur", "the murmur", "fc_murmur", "低语者"),
+        "#B59B6D", IconGroup.FACTION, "低语者",
+    ),
     IconEntry("SCALDRA", 0xE411, ("scaldra", "fc_scaldra", "炽蛇军"), "#DC8E12", IconGroup.FACTION, "炽蛇军"),
     IconEntry("TECHROT", 0xE412, ("techrot", "fc_techrot", "科腐者"), "#17A36A", IconGroup.FACTION, "科腐者"),
     IconEntry("TENNO", 0xE400, ("tenno", "fc_tenno"), NEUTRAL_COLOR, IconGroup.FACTION, "TENNO"),
@@ -192,26 +204,102 @@ ENTRIES: tuple[IconEntry, ...] = (
     IconEntry("NIGHT", 0xE102, ("night",), NEUTRAL_COLOR, IconGroup.RESOURCE, "Night"),
 
     # ---------------------------------------------------------------- 集团 SYNDICATE
-    IconEntry("ARBITERS", 0xE500, ("arbiters", "arbiters of hexis", "arbiterssyndicate", "均衡仲裁者"), NEUTRAL_COLOR, IconGroup.SYNDICATE, "均衡仲裁者"),
-    IconEntry("CEPHALON_SUDA", 0xE501, ("cephalon_suda", "cephalon suda", "cephalonsudasyndicate", "中枢苏达"), NEUTRAL_COLOR, IconGroup.SYNDICATE, "中枢苏达"),
-    IconEntry("NEW_LOKA", 0xE502, ("new_loka", "new loka", "newlokasyndicate", "新世间"), NEUTRAL_COLOR, IconGroup.SYNDICATE, "新世间"),
-    IconEntry("RED_VEIL", 0xE503, ("red_veil", "red veil", "redveilsyndicate", "血色面纱"), NEUTRAL_COLOR, IconGroup.SYNDICATE, "血色面纱"),
-    IconEntry("STEEL_MERIDIAN", 0xE504, ("steel_meridian", "steel meridian", "steelmeridiansyndicate", "钢铁防线"), NEUTRAL_COLOR, IconGroup.SYNDICATE, "钢铁防线"),
-    IconEntry("PERRIN_SEQUENCE", 0xE505, ("perrin_sequence", "the perrin sequence", "perrinsyndicate", "佩兰数列"), NEUTRAL_COLOR, IconGroup.SYNDICATE, "佩兰数列"),
-    IconEntry("SYNDICATE_EVENT", 0xE407, ("syndicate_event", "syndicates", "eventsyndicate", "集团事件", "集团"), NEUTRAL_COLOR, IconGroup.SYNDICATE, "集团事件"),
+    IconEntry(
+        "ARBITERS", 0xE500,
+        ("arbiters", "arbiters of hexis", "arbiterssyndicate", "均衡仲裁者"),
+        NEUTRAL_COLOR, IconGroup.SYNDICATE, "均衡仲裁者",
+    ),
+    IconEntry(
+        "CEPHALON_SUDA", 0xE501,
+        ("cephalon_suda", "cephalon suda", "cephalonsudasyndicate", "中枢苏达"),
+        NEUTRAL_COLOR, IconGroup.SYNDICATE, "中枢苏达",
+    ),
+    IconEntry(
+        "NEW_LOKA", 0xE502,
+        ("new_loka", "new loka", "newlokasyndicate", "新世间"),
+        NEUTRAL_COLOR, IconGroup.SYNDICATE, "新世间",
+    ),
+    IconEntry(
+        "RED_VEIL", 0xE503,
+        ("red_veil", "red veil", "redveilsyndicate", "血色面纱"),
+        NEUTRAL_COLOR, IconGroup.SYNDICATE, "血色面纱",
+    ),
+    IconEntry(
+        "STEEL_MERIDIAN", 0xE504,
+        ("steel_meridian", "steel meridian", "steelmeridiansyndicate", "钢铁防线"),
+        NEUTRAL_COLOR, IconGroup.SYNDICATE, "钢铁防线",
+    ),
+    IconEntry(
+        "PERRIN_SEQUENCE", 0xE505,
+        ("perrin_sequence", "the perrin sequence", "perrinsyndicate", "佩兰数列"),
+        NEUTRAL_COLOR, IconGroup.SYNDICATE, "佩兰数列",
+    ),
+    IconEntry(
+        "SYNDICATE_EVENT", 0xE407,
+        ("syndicate_event", "syndicates", "eventsyndicate", "集团事件", "集团"),
+        NEUTRAL_COLOR, IconGroup.SYNDICATE, "集团事件",
+    ),
     IconEntry("OSTRON", 0xE508, ("ostron", "cetus", "cetussyndicate"), NEUTRAL_COLOR, IconGroup.SYNDICATE, "Ostron"),
-    IconEntry("QUILLS", 0xE509, ("quills", "the quills", "quillssyndicate", "夜羽"), NEUTRAL_COLOR, IconGroup.SYNDICATE, "夜羽"),
-    IconEntry("SOLARIS_UNITED", 0xE510, ("solaris_united", "solaris united", "solarissyndicate", "索拉里斯联盟"), NEUTRAL_COLOR, IconGroup.SYNDICATE, "索拉里斯联盟"),
-    IconEntry("VOX_SOLARIS", 0xE512, ("vox_solaris", "vox solaris", "voxsyndicate", "索拉里斯之声"), NEUTRAL_COLOR, IconGroup.SYNDICATE, "索拉里斯之声"),
-    IconEntry("VENTKIDS", 0xE511, ("ventkids", "ventkidssyndicate", "通风小子"), NEUTRAL_COLOR, IconGroup.SYNDICATE, "通风小子"),
-    IconEntry("NIGHTCAP", 0xE513, ("nightcap", "nightcapjournalsyndicate", "夜帽"), NEUTRAL_COLOR, IconGroup.SYNDICATE, "夜帽"),
-    IconEntry("ENTRATI", 0xE514, ("entrati", "entratisyndicate", "英择谛"), NEUTRAL_COLOR, IconGroup.SYNDICATE, "英择谛"),
-    IconEntry("ENTRATI_LAB", 0xE517, ("entrati_lab", "entratilabsyndicate", "cavia", "科维兽"), NEUTRAL_COLOR, IconGroup.SYNDICATE, "科维兽"),
-    IconEntry("NECRALOID", 0xE515, ("necraloid", "necraloidsyndicate", "殁世械灵"), NEUTRAL_COLOR, IconGroup.SYNDICATE, "殁世械灵"),
-    IconEntry("ZARIMAN", 0xE516, ("zariman", "zarimansyndicate", "the holdfasts", "坚守者"), NEUTRAL_COLOR, IconGroup.SYNDICATE, "坚守者"),
-    IconEntry("KAHL", 0xE518, ("kahl", "kahlsyndicate", "kahl's garrison", "卡尔驻军"), NEUTRAL_COLOR, IconGroup.SYNDICATE, "卡尔驻军"),
-    IconEntry("HEX", 0xE519, ("hex", "hexsyndicate", "the hex", "六人组"), NEUTRAL_COLOR, IconGroup.SYNDICATE, "六人组"),
-    IconEntry("NIGHTWAVE", 0xE520, ("nightwave", "radiolegion", "nora", "午夜电波", "土星六号之狼"), NEUTRAL_COLOR, IconGroup.SYNDICATE, "午夜电波"),
+    IconEntry(
+        "QUILLS", 0xE509,
+        ("quills", "the quills", "quillssyndicate", "夜羽"),
+        NEUTRAL_COLOR, IconGroup.SYNDICATE, "夜羽",
+    ),
+    IconEntry(
+        "SOLARIS_UNITED", 0xE510,
+        ("solaris_united", "solaris united", "solarissyndicate", "索拉里斯联盟"),
+        NEUTRAL_COLOR, IconGroup.SYNDICATE, "索拉里斯联盟",
+    ),
+    IconEntry(
+        "VOX_SOLARIS", 0xE512,
+        ("vox_solaris", "vox solaris", "voxsyndicate", "索拉里斯之声"),
+        NEUTRAL_COLOR, IconGroup.SYNDICATE, "索拉里斯之声",
+    ),
+    IconEntry(
+        "VENTKIDS", 0xE511,
+        ("ventkids", "ventkidssyndicate", "通风小子"),
+        NEUTRAL_COLOR, IconGroup.SYNDICATE, "通风小子",
+    ),
+    IconEntry(
+        "NIGHTCAP", 0xE513,
+        ("nightcap", "nightcapjournalsyndicate", "夜帽"),
+        NEUTRAL_COLOR, IconGroup.SYNDICATE, "夜帽",
+    ),
+    IconEntry(
+        "ENTRATI", 0xE514,
+        ("entrati", "entratisyndicate", "英择谛"),
+        NEUTRAL_COLOR, IconGroup.SYNDICATE, "英择谛",
+    ),
+    IconEntry(
+        "ENTRATI_LAB", 0xE517,
+        ("entrati_lab", "entratilabsyndicate", "cavia", "科维兽"),
+        NEUTRAL_COLOR, IconGroup.SYNDICATE, "科维兽",
+    ),
+    IconEntry(
+        "NECRALOID", 0xE515,
+        ("necraloid", "necraloidsyndicate", "殁世械灵"),
+        NEUTRAL_COLOR, IconGroup.SYNDICATE, "殁世械灵",
+    ),
+    IconEntry(
+        "ZARIMAN", 0xE516,
+        ("zariman", "zarimansyndicate", "the holdfasts", "坚守者"),
+        NEUTRAL_COLOR, IconGroup.SYNDICATE, "坚守者",
+    ),
+    IconEntry(
+        "KAHL", 0xE518,
+        ("kahl", "kahlsyndicate", "kahl's garrison", "卡尔驻军"),
+        NEUTRAL_COLOR, IconGroup.SYNDICATE, "卡尔驻军",
+    ),
+    IconEntry(
+        "HEX", 0xE519,
+        ("hex", "hexsyndicate", "the hex", "六人组"),
+        NEUTRAL_COLOR, IconGroup.SYNDICATE, "六人组",
+    ),
+    IconEntry(
+        "NIGHTWAVE", 0xE520,
+        ("nightwave", "radiolegion", "nora", "午夜电波", "土星六号之狼"),
+        NEUTRAL_COLOR, IconGroup.SYNDICATE, "午夜电波",
+    ),
 )
 
 

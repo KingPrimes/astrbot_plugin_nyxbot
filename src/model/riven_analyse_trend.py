@@ -28,4 +28,7 @@ class RivenAnalyseTrend(Model):
     @property
     def equation(self) -> str:
         """序列化全部字段"""
-        return f"{self.archwing}{self.melle}{self.name}{self.pistol}{self.prefix}{self.rifle}{self.shotgun}{self.suffix}"
+        return (
+            f"{self.archwing}{self.melle}{self.name}{self.pistol}"
+            f"{self.prefix}{self.rifle}{self.shotgun}{self.suffix}"
+        )

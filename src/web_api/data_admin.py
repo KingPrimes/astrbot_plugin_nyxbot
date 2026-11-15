@@ -165,15 +165,33 @@ def register_data_apis(context: Context) -> None:
     )
 
     # ── Riven ──
-    _register_model("riven_tion", RivenTion, search_fields=["effect", "url_name"], sync_func=RivenService.sync_tion_data)
-    _register_model("riven_tion_alias", RivenTionAlias, search_fields=["en", "cn"], sync_func=RivenService.sync_tion_alias_data)
-    _register_model("riven_analyse_trend", RivenAnalyseTrend, search_fields=["name"], sync_func=RivenService.sync_analyse_trend_data)
-    _register_model("riven_items", RivenItems, search_fields=["name", "slug"], sync_func=RivenService.sync_items_data)
+    _register_model(
+        "riven_tion", RivenTion, search_fields=["effect", "url_name"], sync_func=RivenService.sync_tion_data
+    )
+    _register_model(
+        "riven_tion_alias", RivenTionAlias, search_fields=["en", "cn"], sync_func=RivenService.sync_tion_alias_data
+    )
+    _register_model(
+        "riven_analyse_trend",
+        RivenAnalyseTrend,
+        search_fields=["name"],
+        sync_func=RivenService.sync_analyse_trend_data,
+    )
+    _register_model(
+        "riven_items", RivenItems, search_fields=["name", "slug"], sync_func=RivenService.sync_items_data
+    )
 
     # ── Market ──
-    _register_model("orders_items", OrdersItems, search_fields=["name", "slug"], sync_func=MarketSyncService.sync_orders_items)
+    _register_model(
+        "orders_items", OrdersItems, search_fields=["name", "slug"], sync_func=MarketSyncService.sync_orders_items
+    )
     _register_model("ephemeras", Ephemeras, search_fields=["name", "slug"], sync_func=MarketSyncService.sync_ephemeras)
-    _register_model("lich_sister_weapons", LichSisterWeapons, search_fields=["name", "slug"], sync_func=MarketSyncService.sync_lich_sister_weapons)
+    _register_model(
+        "lich_sister_weapons",
+        LichSisterWeapons,
+        search_fields=["name", "slug"],
+        sync_func=MarketSyncService.sync_lich_sister_weapons,
+    )
 
     # ── Translation ──
     _register_model(
@@ -184,7 +202,9 @@ def register_data_apis(context: Context) -> None:
     )
 
     # ── Exprot ──
-    _register_model("night_wave", NightWave, search_fields=["name", "unique_name"], sync_func=NightWaveService.sync_data)
+    _register_model(
+        "night_wave", NightWave, search_fields=["name", "unique_name"], sync_func=NightWaveService.sync_data
+    )
     _register_model("relics", Relics, search_fields=["name", "unique_name"], sync_func=RelicsService.sync_data)
     _register_model("relic_rewards", RelicRewards, search_fields=["reward_name"], sync_func=None)
     _register_model("sentinels", Sentinels, search_fields=["name", "unique_name"], sync_func=SentinelsService.sync_data)
