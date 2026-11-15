@@ -465,6 +465,7 @@ def draw_table(
     y: int,
     x: int | None = None,
     width: int | None = None,
+    widths: list[int] | None = None,
 ) -> int:
     """绘制表格（表头 + 斑马纹行）。
 
@@ -476,6 +477,9 @@ def draw_table(
         y: 表格顶部 y。
         x: 表格左边界，默认内容区左边（用于并排双表）。
         width: 表格宽度，默认内容区宽。
+        widths: 显式列宽向量（与 ``columns`` 等长）。并排双表需要列边界
+            对齐时，调用方先用**合并数据**测一次再传给两张表（审查 P2-9）；
+            缺省时按本表数据自行分配。
 
     Returns:
         表格底部 y。
@@ -489,7 +493,8 @@ def draw_table(
     cb = page.cb
     content_w = width if width is not None else page.content_w
     x0 = x if x is not None else page.content_x
-    widths = distribute_columns(columns, rows, content_w)
+    if widths is None:
+        widths = distribute_columns(columns, rows, content_w)
 
     header_h = FONT["base"] + SPACE["xl"]
     row_h = FONT["md"] + SPACE["2xl"] + SPACE["xs"]

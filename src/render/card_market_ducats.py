@@ -83,7 +83,9 @@ def render_market_ducats_card(
     hour_rows = build_rows(hour_items)
     max_rows = max(len(day_rows), len(hour_rows), 1)
 
-    natural = C.measure_table(columns, day_rows or hour_rows)
+    # 审查 P2-9：左右双表用**合并数据**测一次，列宽向量共用，列边界才对齐
+    combined_rows = day_rows + hour_rows
+    natural = C.measure_table(columns, combined_rows)
     gap = SPACE["xl"]
     label_h = FONT["sm"] + SPACE["sm"]
     size = measure_card_size(
@@ -113,10 +115,13 @@ def render_market_ducats_card(
     cb.add_text("每小时", right_x, y)
 
     table_y = y + label_h
+    shared_widths = C.distribute_columns(columns, combined_rows, half_w)
     left_bottom = C.draw_table(
-        page, columns, day_rows, table_y, x=C.content_left(), width=half_w
+        page, columns, day_rows, table_y, x=C.content_left(), width=half_w, widths=shared_widths
     )
-    right_bottom = C.draw_table(page, columns, hour_rows, table_y, x=right_x, width=half_w)
+    right_bottom = C.draw_table(
+        page, columns, hour_rows, table_y, x=right_x, width=half_w, widths=shared_widths
+    )
 
     frame.draw_standing_block(page, max(left_bottom, right_bottom), "sm")
     frame.draw_footer_block(page)
