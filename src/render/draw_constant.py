@@ -1,7 +1,8 @@
 """Draw constants / 绘图常量模块
 
 标准化绘图常量，对应 Java DrawConstants.java。
-保持暗色主题风格（与现有 CardRenderer.COLORS 一致）。
+配色走 ``ThemeColor`` 主题代理（跟随当前主题，单一来源见 ``design.THEMES``），
+尺寸常量保留为 ``Final`` 常量。
 """
 from __future__ import annotations
 

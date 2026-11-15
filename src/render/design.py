@@ -171,7 +171,19 @@ _FONT_CANDIDATES: tuple[tuple[str, int, bool], ...] = (
     ("Deng.ttf", 0, False),
 )
 
-_FONT_SEARCH_DIRS: tuple[Path, ...] = (_FONT_DIR, Path("C:/Windows/Fonts"))
+#: 字体搜索目录：项目内置字体优先，再按平台兜底（审查 P3-2：
+#: 只搜 C:/Windows/Fonts 时，Linux/macOS 上内置字体缺失会退到无中文
+#: 字形的 Pillow 默认字体；目录不存在时循环自然跳过，无副作用）。
+_FONT_SEARCH_DIRS: tuple[Path, ...] = (
+    _FONT_DIR,
+    Path("C:/Windows/Fonts"),
+    Path("/usr/share/fonts/truetype"),
+    Path("/usr/share/fonts/truetype/noto"),
+    Path("/usr/share/fonts"),
+    Path("/usr/local/share/fonts"),
+    Path("/System/Library/Fonts"),
+    Path("/System/Library/Fonts/Supplemental"),
+)
 _font_cache: dict[tuple[str, int, int], ImageFont.FreeTypeFont | ImageFont.ImageFont] = {}
 _font_pick: tuple[str, int, bool] | None = None
 

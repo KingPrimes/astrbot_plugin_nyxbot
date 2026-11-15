@@ -227,6 +227,8 @@ def register_settings_apis(context: Context, config: Any = None) -> None:
     # ------------------------------------------------------------------ 读取
     async def get_config():
         """返回配置项元信息与当前值。"""
+        # quart 是「仅运行时可用」的宿主依赖（测试环境无此包），按规范
+        # 延迟到函数内导入，属合理例外而非局部导入（审查 P3-3）。
         from quart import jsonify
 
         schema = _load_schema()
@@ -268,6 +270,7 @@ def register_settings_apis(context: Context, config: Any = None) -> None:
     # ------------------------------------------------------------------ 写入
     async def update_config():
         """校验并保存配置项。"""
+        # quart 仅运行时可用（同 get_config 内说明，审查 P3-3）。
         from quart import jsonify, request
 
         payload = await request.get_json(silent=True) or {}
@@ -328,6 +331,7 @@ def register_settings_apis(context: Context, config: Any = None) -> None:
         只返回本视图（``nyxbot-admin``）的文案；语言列表来自 i18n 目录，
         前端据此判断 AstrBot 当前语言是否有对应文件，没有就回退英文。
         """
+        # quart 仅运行时可用（同 get_config 内说明，审查 P3-3）。
         from quart import jsonify
 
         pages: dict[str, Any] = {}
