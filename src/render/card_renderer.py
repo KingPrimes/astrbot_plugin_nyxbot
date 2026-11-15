@@ -22,12 +22,9 @@ from PIL import Image, ImageDraw, ImageFont
 if TYPE_CHECKING:
     from astrbot.api.message_components import BaseMessageComponent
 
-    from .design import Theme
-
 from ..wenum.faction import FactionEnum
 from ..wenum.mission_type import MissionTypeEnum
 from .draw_constant import ThemeColor, hex_to_rgb
-from .theme import current_theme
 from .font_manager import FontManager
 
 
@@ -40,10 +37,7 @@ class CardRenderer:
 
     # 卡片主题（dark / light）统一由 theme.THEME_MANAGER 提供，
     # 历史常量请用 draw_constant.ThemeColor，它已是主题代理。
-    @property
-    def theme(self) -> "Theme":
-        """当前卡片主题 — 配置驱动，见 :mod:`src.render.theme`。"""
-        return current_theme()
+    # （审查 P2-6：CardRenderer.theme 属性全仓零引用，已删除。）
 
     # 字体大小预设
     FONT_SIZES = {

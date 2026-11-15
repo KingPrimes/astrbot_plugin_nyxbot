@@ -185,11 +185,6 @@ def distribute_columns(
     return widths
 
 
-def measure_text_block(text: str, text_font: FontLike) -> int:
-    """单行文本的宽度，等价于 ``measure``，供卡片直接调用时语义更清楚。"""
-    return measure(text, text_font)
-
-
 # ---------------------------------------------------------------- 文本
 
 
@@ -596,31 +591,6 @@ RARITY_ORDER: dict[str, int] = {
 def rarity_rank(value: str | None) -> int:
     """稀有度排序键：COMMON < UNCOMMON < RARE < LEGENDARY，未知值按常见处理。"""
     return RARITY_ORDER.get((value or "").upper(), 0)
-
-
-def split_rarity_columns(
-    items: list, rarity=lambda item: None  # noqa: ANN001
-) -> tuple[list, list]:
-    """把奖励拆成两列：左列全常见，右列罕见在上、稀有在下。
-
-    Args:
-        items: 奖励列表。
-        rarity: 从元素取稀有度字符串的函数。
-
-    Returns:
-        ``(左列, 右列)``，两列长度可以不等。
-
-    Note:
-        右列为空（全是常见）或左列明显比右列长时，退化为「排序后左右均分」，
-        避免出现一条极长、一条空着的单列。
-    """
-    ranked = sorted(items, key=lambda item: rarity_rank(rarity(item)))
-    left = [item for item in ranked if rarity_rank(rarity(item)) == 0]
-    right = [item for item in ranked if rarity_rank(rarity(item)) > 0]
-    if not right or len(left) > len(right) + 1:
-        half = (len(ranked) + 1) // 2
-        return ranked[:half], ranked[half:]
-    return left, right
 
 
 # ---------------------------------------------------------------- 卡片网格
