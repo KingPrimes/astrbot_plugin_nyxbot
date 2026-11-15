@@ -81,6 +81,8 @@ const state = {
   // 侧栏分组折叠：默认全部收起；搜索时全展开，searchClosed 记被手动收起的
   openGroups: new Set(),
   searchClosed: new Set(),
+  // 加载期间到达的新查询意图（CodeRabbit R4：结束后补发）
+  pendingLoad: false,
   // 插件设置
   configItems: [],
   configValues: {},
@@ -239,7 +241,10 @@ const el = {
 function escapeHtml(value) {
   const div = document.createElement("div");
   div.textContent = value == null ? "" : String(value);
-  return div.innerHTML;
+  // CodeRabbit R3：textContent→innerHTML 不转义引号。本函数同时用于
+  // 属性插值（value="…" / title="…" 等），值含 `"` 会截断属性、保存丢数据，
+  // 因此补齐双引号与单引号转义；文本上下文渲染结果不变。
+  return div.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 function icon(name) {
@@ -640,7 +645,13 @@ function setToolbar() {
 }
 
 async function loadData() {
-  if (!state.model || state.loading) return;
+  if (!state.model) return;
+  if (state.loading) {
+    // CodeRabbit R4：加载期间查询词可能已变化——不能直接丢弃，
+    // 记录待执行意图，本次请求结束后补发最新查询。
+    state.pendingLoad = true;
+    return;
+  }
   const token = ++requestSeq;
   state.loading = true;
   setToolbar();
@@ -707,6 +718,10 @@ async function loadData() {
     if (token === requestSeq) {
       state.loading = false;
       setToolbar();
+    }
+    if (state.pendingLoad) {
+      state.pendingLoad = false;
+      loadData(); // 补发加载期间的最新查询（CodeRabbit R4）
     }
   }
 }
@@ -810,7 +825,11 @@ function goToPage(page) {
 
 /* ---------------------------------------------------------------- 表单 */
 function currentColumns() {
-  return state.rows.length ? Object.keys(state.rows[0]) : [];
+  if (state.rows.length) return Object.keys(state.rows[0]);
+  // CodeRabbit R5：空模型（零记录）时回退到后端模型元数据的字段列表，
+  // 让「新增记录」也能生成可提交的表单，而不是被 no_fields 卡死。
+  const meta = state.models.find((model) => model.name === state.model);
+  return meta && Array.isArray(meta.fields) ? meta.fields : [];
 }
 
 function openForm(recordId) {
@@ -1222,6 +1241,7 @@ async function saveConfig() {
 
   state.configSaving = true;
   state.configErrors = {};
+  const submittedSnapshot = { ...state.configValues }; // CodeRabbit R6：提交时的控件快照
   updateConfigButtons();
   try {
     const raw = await apiPost("config/update", { values: payload });
@@ -1234,9 +1254,21 @@ async function saveConfig() {
     const result = unwrapResult(raw);
     if (!result.ok) throw new Error(result.error || t("toast.operation_failed"));
 
-    const values = raw && raw.values ? raw.values : payload;
-    state.configValues = normalizeConfigValues(state.configItems, values);
-    state.configOriginal = { ...state.configValues };
+    // CodeRabbit R6：保存请求期间控件仍可编辑。基准（configOriginal）取
+    // 「本次提交的快照」而非响应值；控件仅同步提交后未被改动的键为服务端
+    // 权威值（让服务端强制修正生效），提交后的编辑保留并保持未保存高亮。
+    const serverValues = raw && raw.values
+      ? normalizeConfigValues(state.configItems, raw.values)
+      : null;
+    state.configOriginal = normalizeConfigValues(state.configItems, payload);
+    if (serverValues) {
+      for (const item of state.configItems) {
+        const key = item.key;
+        if (submittedSnapshot[key] === state.configValues[key]) {
+          state.configValues[key] = serverValues[key];
+        }
+      }
+    }
     state.reloadKeys = Array.isArray(raw.reload_keys) ? raw.reload_keys : [];
     renderSettings();
 

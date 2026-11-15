@@ -225,10 +225,14 @@ def register_data_apis(context: Context) -> None:
 
         models = []
         for name, meta in _MODEL_REGISTRY.items():
+            model_cls = meta["class"]
             models.append({
                 "name": name,
                 "search_fields": meta["search_fields"],
                 "has_sync": meta["sync_func"] is not None,
+                # CodeRabbit R5：暴露全部数据字段（与 _serialize_instance 的
+                # 行键同口径），空模型（零记录）也能生成可提交的新增表单
+                "fields": sorted(model_cls._meta.db_fields),
             })
         return jsonify({"models": models})
 
