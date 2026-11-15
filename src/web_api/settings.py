@@ -152,13 +152,39 @@ def _coerce(key: str, item: dict[str, Any], raw: Any) -> tuple[Any, str | None]:
 _COMMAND_PREFIX_RE = re.compile(r"^[A-Za-z0-9_]{0,16}$")
 
 
+def _atomic_write_text(path: Path, payload: str) -> None:
+    """「同目录临时文件 + fsync + ``os.replace``」的原子写盘（P1-4 / R2 共用）。
+
+    任何时刻磁盘上都有一份完整文件；``os.replace`` 在同目录内是原子操作
+    （POSIX rename / Windows ReplaceFile）。
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_name: str | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            "w",
+            encoding="utf-8",  # 无 BOM；框架两端读取均为 utf-8-sig（BOM 容忍），兼容
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as tmp:
+            tmp_name = tmp.name
+            tmp.write(payload)
+            tmp.flush()
+            os.fsync(tmp.fileno())
+        os.replace(tmp_name, path)
+        tmp_name = None
+    finally:
+        if tmp_name is not None:  # replace 失败时清理残留临时文件
+            Path(tmp_name).unlink(missing_ok=True)
+
+
 def _write_config_file(values: dict[str, Any]) -> None:
     """没有 AstrBotConfig 时直接改配置文件（保留其它未知键）。
 
     审查 P1-4：配置文件是插件设置的唯一持久化载体，直接覆盖写盘一旦
     中途断电 / 崩溃，会留下截断的 JSON，下次启动解析失败、配置全丢。
-    改为「同目录临时文件 + fsync + ``os.replace``」原子替换，
-    任何时刻磁盘上都有一份完整配置。
     """
     path = _config_file_path()
     data: dict[str, Any] = {}
@@ -169,30 +195,28 @@ def _write_config_file(values: dict[str, Any]) -> None:
             raise RuntimeError(f"配置文件解析失败: {exc}") from exc
     data.update(values)
 
-    path.parent.mkdir(parents=True, exist_ok=True)
     payload = orjson.dumps(
         data, option=orjson.OPT_INDENT_2 | orjson.OPT_NON_STR_KEYS
     ).decode()
+    _atomic_write_text(path, payload)
 
-    tmp_name: str | None = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            "w",
-            encoding="utf-8",
-            dir=path.parent,
-            prefix=f".{path.name}.",
-            suffix=".tmp",
-            delete=False,
-        ) as tmp:
-            tmp_name = tmp.name
-            tmp.write(payload)
-            tmp.flush()
-            os.fsync(tmp.fileno())
-        os.replace(tmp_name, path)  # 同目录替换是原子操作（POSIX rename / Windows ReplaceFile）
-        tmp_name = None
-    finally:
-        if tmp_name is not None:  # replace 失败时清理残留临时文件
-            Path(tmp_name).unlink(missing_ok=True)
+
+def _persist_config_atomically(config: Any) -> None:
+    """对 AstrBotConfig 的实际 ``config_path`` 做原子落盘（审查 R2）。
+
+    已核对 v4.23.5 源码：``save_config()`` 是 ``open(path, "w") +
+    json.dump`` 的**非原子**覆盖写，进程中断会留下截断 JSON。这里
+    跳过框架写盘，直接对同一文件做原子替换——内容与框架会写的完全
+    一致（``dict(config)`` 原顺序 + indent 2 + ensure_ascii=False），
+    且 ``save_config`` 除写盘外无其他副作用。若属性缺失（版本漂移）
+    则退回调用框架的 ``save_config()``。
+    """
+    config_path = getattr(config, "config_path", None)
+    if not config_path:
+        raise RuntimeError("AstrBotConfig 未提供 config_path，无法原子落盘")
+
+    payload = orjson.dumps(dict(config), option=orjson.OPT_INDENT_2).decode()
+    _atomic_write_text(Path(config_path), payload)
 
 
 async def _persist(config: Any, values: dict[str, Any]) -> None:
@@ -204,11 +228,14 @@ async def _persist(config: Any, values: dict[str, Any]) -> None:
             except Exception as exc:  # noqa: BLE001 - 只读配置对象
                 raise RuntimeError(f"配置项 {key} 不可写: {exc}") from exc
 
-    save = getattr(config, "save_config", None)
-    if callable(save):
-        result = save()
-        if inspect.isawaitable(result):
-            await result
+    if config is not None and callable(getattr(config, "save_config", None)):
+        if getattr(config, "config_path", None):
+            # 主路径：自行原子落盘，绕开框架的非原子 save_config（审查 R2）
+            _persist_config_atomically(config)
+        else:
+            result = config.save_config()
+            if inspect.isawaitable(result):
+                await result
     else:
         _write_config_file(values)
 
