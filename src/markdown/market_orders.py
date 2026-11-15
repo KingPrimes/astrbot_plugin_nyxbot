@@ -51,13 +51,23 @@ def _status_text(status: object) -> str:
     return _STATUS_STYLES.get(key, "❔未知")
 
 
+def _cell(text: str) -> str:
+    """表格单元格安全化 / Make external text safe for a pipe table cell.
+
+    卖家名（``ingame_name``）等是外部 API 数据：``|`` 会拆出多余的列，
+    换行会直接断行破坏整张表。QQ 方言没有标准的转义序列（``\\|`` 是否
+    被还原视解析器而定），这里直接替换为形近字符，保证列结构永远完整。
+    """
+    return text.replace("|", "｜").replace("\r", " ").replace("\n", " ")
+
+
 def _order_row(index: int, order) -> str:
     """一行订单表格 / One table row for an order."""
     price = f"{order.platinum}p" if order.platinum is not None else _EMPTY_CELL
     quantity = str(order.quantity) if order.quantity else _EMPTY_CELL
     rank = str(order.rank) if order.rank is not None else _EMPTY_CELL
     user = order.user
-    seller = (user.ingame_name if user else None) or _EMPTY_CELL
+    seller = _cell((user.ingame_name if user else None) or _EMPTY_CELL)
     status = _status_text(user.status) if user else "❔未知"
     return (
         f"| {_number_badge(index)} | {price} | {quantity} | {rank} "
