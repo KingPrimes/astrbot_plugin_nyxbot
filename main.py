@@ -43,9 +43,12 @@ class NyxBotPlugin(Star):
     def apply_theme_config(self) -> None:
         """把 ``wf_card_theme``（dark / light）应用到渲染层。
 
-        配置保存后 AstrBot 会重载插件，``__init__`` 会再走一次，因此这里
-        既是初始化入口，也是配置变更入口；渲染层读的是
-        ``theme.THEME_MANAGER``，不需要每张卡片重新取配置。
+        注意两种保存路径的行为差异（审查 P2-5）：
+        AstrBot 原生配置面板保存后会重载插件，``__init__`` 再走一次；
+        而管理页的 ``POST /config/update`` 只调 ``reload_plugin_config()``
+        刷新 ``PluginConfig`` 单例，**不重载插件**——``requires_reload``
+        的启动期项（含主题）在该路径下需手动重载插件才生效。
+        渲染层读的是 ``theme.THEME_MANAGER``，不需要每张卡片重新取配置。
         """
         theme = apply_plugin_config(self._config)
         logger.info(f"卡片主题: {theme.name}")
