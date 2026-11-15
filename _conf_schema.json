@@ -72,14 +72,14 @@
   "wf_help_logo_url": {
     "description": "帮助消息顶部的项目图标",
     "type": "string",
-    "hint": "QQ 官方 Markdown 的图片只支持公网 URL（开放平台会下载转存该资源），本地路径无效；留空则不携带图标。默认为仓库内 banner.png（透明底、logo 居中）的 jsDelivr 地址。",
-    "default": "https://testingcf.jsdelivr.net/gh/KingPrimes/astrbot_plugin_nyxbot@master/banner.png"
+    "hint": "QQ 官方 Markdown 的图片只支持公网 URL（开放平台会下载转存该资源），本地路径无效；留空则不携带图标。默认为仓库内 logo.png 的 jsDelivr 地址。",
+    "default": "https://testingcf.jsdelivr.net/gh/KingPrimes/astrbot_plugin_nyxbot@master/logo.png"
   },
   "wf_help_logo_size": {
     "description": "帮助顶部图标的显示尺寸",
     "type": "string",
-    "hint": "格式为「宽x高」，需与图片比例一致，否则会被平台居中裁切；大小不设上限，按需调整。默认 440x110 对应 banner.png（4:1 横幅）；方形 logo 建议 256x256 或更大（已实测 256x256 正常显示）。",
-    "default": "440x110"
+    "hint": "格式为「宽x高」，需与图片比例一致，否则会被平台居中裁切；大小不设上限，按需调整。默认 256x256 对应方形 logo.png（512x512 二倍图，显示清晰）。",
+    "default": "256x256"
   },
   "wf_help_inline_links": {
     "description": "帮助菜单可点击指令链接",

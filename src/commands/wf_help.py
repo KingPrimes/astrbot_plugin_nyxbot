@@ -63,8 +63,8 @@ async def wf_help(
         logo_size = get_wf_help_logo_size()
         if logo_url and parse_logo_size(logo_size) is None:
             logger.warning(
-                f"wf_help_logo_size 应为「宽x高」（如 440x110），当前 {logo_size!r} "
-                "将按默认 440x110 显示"
+                f"wf_help_logo_size 应为「宽x高」（如 256x256），当前 {logo_size!r} "
+                "将按默认 256x256 显示"
             )
         text = format_help_markdown(
             sections,

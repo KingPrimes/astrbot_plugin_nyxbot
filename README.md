@@ -230,8 +230,8 @@ uv sync
 | `db_debug` | 数据库调试日志，开启后输出 SQL 查询日志 | `bool` | `false` |
 | `qq_markdown_enabled` | 使用 Markdown 进行回复：帮助消息与市场订单查询（WM）以 Markdown 发送（链接菜单 / 表格 / 取句按钮依赖它），其余指令一律图片回复 | `bool` | `false` |
 | `wf_help_buttons` | 帮助消息附带可点击按钮（点击直接查询；QQ 官方按钮为独立权限，被拒时关闭） | `bool` | `true` |
-| `wf_help_logo_url` | 帮助消息顶部的横幅图（公网图片 URL，留空不显示；默认 banner.png 已把 logo 居中） | `string` | 仓库 banner 的 jsDelivr 地址 |
-| `wf_help_logo_size` | 顶部图标的显示尺寸「宽x高」，需与图片比例一致（否则被裁切；大小不设限，方形 logo 建议 256x256） | `string` | `440x110` |
+| `wf_help_logo_url` | 帮助消息顶部的项目图标（公网图片 URL，留空不显示） | `string` | 仓库 logo.png 的 jsDelivr 地址 |
+| `wf_help_logo_size` | 顶部图标的显示尺寸「宽x高」，需与图片比例一致（否则被裁切；大小不设限） | `string` | `256x256` |
 | `wf_help_inline_links` | 需要参数的指令以内联链接列在帮助正文（点击自动填入指令，补参数发送即可），无参数指令由按钮直接查询 | `bool` | `true` |
 
 ### 数据初始化模式

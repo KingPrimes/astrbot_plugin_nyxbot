@@ -23,8 +23,8 @@
   形态不依赖表格，维持现状；
 - 图片按 ``#宽px #高px`` 的**固定框**显示，比例不一致会被居中裁切——
   显示尺寸由配置 ``wf_help_logo_size`` 跟随图片比例调整；
-- QQ 没有居中/对齐语法，默认横幅 ``banner.png``（透明底、logo 居中）
-  靠图片本身实现视觉居中。
+- QQ 没有居中/对齐语法；默认用 256px 方形 logo 大尺寸展示，图占消息大半
+  宽度后左对齐与否几乎不可辨，不再依赖居中横幅（需要时可自备横幅图）。
 
 Layout is deliberately limited to headings, bullet lists, blockquotes, the
 ``***`` rule and bold (tables render fine on QQ since 2026-11 but the help
@@ -44,10 +44,10 @@ from ..help.catalog import HELP_TITLE, HelpEntry, HelpSection
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-#: 顶部横幅的默认显示尺寸（px，宽 x 高）。QQ 官方图片语法要求宽高带 ``px``
-#: 单位：``![text #208px #320px](url)``。``banner.png`` 为 2 倍图（880x220），
-#: 透明底、logo 水平居中（由 ``tools/make_help_banner.py`` 生成）。
-DEFAULT_LOGO_SIZE = (440, 110)
+#: 顶部图标的默认显示尺寸（px，宽 x 高）。QQ 官方图片语法要求宽高带 ``px``
+#: 单位：``![text #208px #320px](url)``。默认 ``256x256`` 对应仓库方形
+#: ``logo.png``（512x512 二倍图，显示清晰）；大小不设上限（已实测）。
+DEFAULT_LOGO_SIZE = (256, 256)
 
 #: ``wf_help_logo_size`` 的合法格式：``宽x高``（1~4 位数字）。
 _LOGO_SIZE_PATTERN = re.compile(r"^(\d{1,4})x(\d{1,4})$")
@@ -87,7 +87,7 @@ def parse_logo_size(raw: str) -> tuple[int, int] | None:
     """解析「宽x高」尺寸配置 / Parse the configured ``WxH`` display size.
 
     Args:
-        raw: 配置原文，如 ``440x110``；空白会自动去除。
+        raw: 配置原文，如 ``256x256``；空白会自动去除。
 
     Returns:
         ``(宽, 高)``（至少 1px）；格式非法时返回 ``None``，调用方回退默认值。
@@ -104,7 +104,7 @@ def _entry_line(entry: HelpEntry) -> str:
 
 
 def _logo_lines(logo_url: str, logo_size: tuple[int, int]) -> list[str]:
-    """顶部横幅行 / Leading banner image line (empty when no URL configured)."""
+    """顶部图标行 / Leading logo image line (empty when no URL configured)."""
     if not logo_url:
         return []
     width, height = logo_size
@@ -215,7 +215,7 @@ def format_help_markdown(
             分节列表（按钮 / 链接都不可用时的兜底，内容不缺）。
         logo_url: 顶部图片的公网 URL（QQ 会下载转存）；空串表示不带图标。
         logo_size: 显示尺寸「宽x高」，需与图片比例一致（否则被居中裁切）；
-            非法时回退 :data:`DEFAULT_LOGO_SIZE`（440x110，对应仓库 banner）。
+            非法时回退 :data:`DEFAULT_LOGO_SIZE`（256x256，对应仓库 logo）。
         link_menu: 链接菜单模式。正文改为 ``mqqapi`` 内联指令链接列表，
             点击即把指令填入发送框；开启时 ``compact`` 被忽略。
         menu_params_only: 菜单只列需要参数的指令（按钮在场时）——无参数

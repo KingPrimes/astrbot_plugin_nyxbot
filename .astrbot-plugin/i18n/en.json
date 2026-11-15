@@ -358,7 +358,7 @@
           },
           "wf_help_logo_size": {
             "label": "Logo display size",
-            "hint": "Format WxH, matching the image aspect ratio or it gets center-cropped; no size cap. Use 440x110 for the banner, 256x256 or larger for a square logo."
+            "hint": "Format WxH, matching the image aspect ratio or it gets center-cropped; no size cap. Default 256x256 for the square logo."
           },
           "wf_help_inline_links": {
             "label": "Clickable command links in help",

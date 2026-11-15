@@ -232,13 +232,13 @@ class PluginConfig:
 
     @property
     def wf_help_logo_size(self) -> str:
-        """顶部图片的显示尺寸（「宽x高」，如 440x110）。
+        """顶部图片的显示尺寸（「宽x高」，如 256x256）。
 
-        QQ 按 ``#宽px #高px`` 固定框显示图片，比例不一致会被居中裁切：
-        横幅 ``banner.png``（4:1）用默认 ``440x110``；方形 ``logo.png``
-        建议 ``256x256`` 或更大（大小不设上限，实测 256x256 正常）。
+        QQ 按 ``#宽px #高px`` 固定框显示图片，比例不一致会被居中裁切；
+        大小不设上限（实测 256x256 正常）。默认 ``256x256`` 对应方形
+        ``logo.png``（512x512 二倍图）。
         """
-        return str(self.get("wf_help_logo_size", "440x110")).strip()
+        return str(self.get("wf_help_logo_size", "256x256")).strip()
 
     @property
     def card_theme(self) -> str:
