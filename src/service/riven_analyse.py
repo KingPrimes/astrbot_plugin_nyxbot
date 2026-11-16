@@ -68,7 +68,9 @@ _IS_ATTRIBUTE = re.compile(
 )
 _ATTRIBUTE_NUM = re.compile(r"[+-]?\d+(\.\d+)?%?")
 _IS_DISCRIMINATION = re.compile(
-    r"^x\d+(\.\d+)?%?.?[一-龥]*?.?（?[a-zA-Z]*?.?[一-龥]+$"
+    # 大小写都收：OCR 对「x1.06 对Grineer 伤害」的 x 给大写 X 很常见，
+    # 收不到就会退化成「0.06% 的普通词条」——不报错，静默算错。
+    r"^[xX]\d+(\.\d+)?%?.?[一-龥]*?.?（?[a-zA-Z]*?.?[一-龥]+$"
 )
 _IS_ATTRIBUTE_NAME = re.compile(
     r"[一-龥]*?（?[a-zA-Z]*?[一-龥]+$"
@@ -253,7 +255,7 @@ def _get_attribute_num(s: str) -> float:
 
 
 def _is_discrimination(s: str) -> bool:
-    """以 ``x`` 开头的属性视为歧视词条（如 ``x1.39 对Grineer 伤害``）。"""
+    """以倍率（``x`` / ``X``）开头的属性视为歧视词条（如 ``x1.39 对Grineer 伤害``）。"""
     return bool(_IS_DISCRIMINATION.match(s))
 
 
