@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import re
 from pathlib import Path
 
 from tortoise import Tortoise, connections
@@ -99,6 +100,23 @@ _COLUMN_RENAMES: tuple[tuple[str, str, str], ...] = (
 )
 
 
+def _ident(name: str) -> str:
+    """校验并原样返回 SQL 标识符（表名 / 列名）。
+
+    这些值当前全部来自本文件顶部的硬编码常量，不存在注入面；但
+    ``PRAGMA table_info({table})`` / ``DROP TABLE {table}`` /
+    ``ALTER TABLE ... ADD COLUMN {column}`` 是本仓库唯一一处
+    「拼接标识符执行 DDL」的地方——一旦以后有人把配置或外部输入接进来，
+    没有这道闸就是注入点。
+
+    Raises:
+        ValueError: 标识符不符合 ``[A-Za-z_][A-Za-z0-9_]*``。
+    """
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
+        raise ValueError(f"非法的 SQL 标识符: {name!r}")
+    return name
+
+
 async def _drop_incompatible_tables() -> None:
     """丢弃结构与当前模型不兼容的表，交给 ``generate_schemas()`` 重建。
 
@@ -113,7 +131,7 @@ async def _drop_incompatible_tables() -> None:
     )
     for table, required, reason in checks:
         try:
-            rows = await conn.execute_query_dict(f"PRAGMA table_info({table})")
+            rows = await conn.execute_query_dict(f"PRAGMA table_info({_ident(table)})")
         except Exception as exc:
             logger.debug(f"检查表 {table} 结构失败: {exc}")
             continue
@@ -123,7 +141,7 @@ async def _drop_incompatible_tables() -> None:
             continue
         try:
             counted = await conn.execute_query_dict(
-                f"SELECT COUNT(*) AS n FROM {table}"
+                f"SELECT COUNT(*) AS n FROM {_ident(table)}"
             )
             row_count = int(counted[0]["n"]) if counted else 0
         except Exception:
@@ -133,7 +151,7 @@ async def _drop_incompatible_tables() -> None:
                 f"{table} 结构过旧（{reason}），重建会丢弃 {row_count} 行旧数据"
             )
         try:
-            await conn.execute_script(f"DROP TABLE {table}")
+            await conn.execute_script(f"DROP TABLE {_ident(table)}")
             logger.info(f"数据库结构升级：{table} 结构过旧（{reason}），已删除待重建")
         except Exception as exc:
             logger.warning(f"删除旧表 {table} 失败: {exc}")
@@ -154,7 +172,7 @@ async def _apply_schema_upgrades() -> None:
     failed: list[str] = []
     for table, column, ddl in _SCHEMA_UPGRADES:
         try:
-            rows = await conn.execute_query_dict(f"PRAGMA table_info({table})")
+            rows = await conn.execute_query_dict(f"PRAGMA table_info({_ident(table)})")
         except Exception as exc:  # 表不存在等情况交给后续建表
             logger.debug(f"检查表 {table} 结构失败: {exc}")
             continue
@@ -164,7 +182,7 @@ async def _apply_schema_upgrades() -> None:
             continue
         try:
             await conn.execute_script(
-                f"ALTER TABLE {table} ADD COLUMN {column} {ddl}"
+                f"ALTER TABLE {_ident(table)} ADD COLUMN {_ident(column)} {ddl}"
             )
             logger.info(f"数据库升级：{table} 表新增 {column} 列")
         except Exception as exc:
@@ -176,7 +194,7 @@ async def _apply_schema_upgrades() -> None:
     # 列改名（与 API 字段名对齐）；SQLite 3.25+ 支持 RENAME COLUMN
     for table, old_name, new_name in _COLUMN_RENAMES:
         try:
-            rows = await conn.execute_query_dict(f"PRAGMA table_info({table})")
+            rows = await conn.execute_query_dict(f"PRAGMA table_info({_ident(table)})")
         except Exception:
             continue
         columns = {row.get("name") for row in rows}
@@ -184,7 +202,8 @@ async def _apply_schema_upgrades() -> None:
             continue
         try:
             await conn.execute_script(
-                f"ALTER TABLE {table} RENAME COLUMN {old_name} TO {new_name}"
+                f"ALTER TABLE {_ident(table)} RENAME COLUMN "
+                f"{_ident(old_name)} TO {_ident(new_name)}"
             )
             logger.info(f"数据库升级：{table} 表 {old_name} 列改名为 {new_name}")
         except Exception as exc:
