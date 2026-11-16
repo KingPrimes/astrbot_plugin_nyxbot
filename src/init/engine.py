@@ -7,6 +7,7 @@ Tortoise ORM Engine Lifecycle / Tortoise ORM 引擎生命周期
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from pathlib import Path
 
@@ -143,8 +144,14 @@ async def _apply_schema_upgrades() -> None:
 
     ``Tortoise.generate_schemas()`` 只建缺失的表，不会 ALTER 已有表，
     所以模型新增字段后旧库会缺列。这里按需补列，幂等。
+
+    Raises:
+        RuntimeError: 有必补的列没建成。此时 ORM 已指向缺列的旧表，
+            后续所有触碰到新列的查询都会失败——宁可启动失败让插件
+            停用、下次启动重试，也不要带着「缺列但已就绪」的假状态跑。
     """
     conn = connections.get("default")
+    failed: list[str] = []
     for table, column, ddl in _SCHEMA_UPGRADES:
         try:
             rows = await conn.execute_query_dict(f"PRAGMA table_info({table})")
@@ -161,7 +168,10 @@ async def _apply_schema_upgrades() -> None:
             )
             logger.info(f"数据库升级：{table} 表新增 {column} 列")
         except Exception as exc:
-            logger.warning(f"给 {table} 补列 {column} 失败: {exc}")
+            # 库被短暂锁住 / 不可写时会走到这里。不能只 warn 后继续——
+            # 那样 ORM 会被标记为已初始化，裂罅分析等查询到新列时才炸。
+            logger.error(f"给 {table} 补列 {column} 失败: {exc}")
+            failed.append(f"{table}.{column}")
 
     # 列改名（与 API 字段名对齐）；SQLite 3.25+ 支持 RENAME COLUMN
     for table, old_name, new_name in _COLUMN_RENAMES:
@@ -178,7 +188,14 @@ async def _apply_schema_upgrades() -> None:
             )
             logger.info(f"数据库升级：{table} 表 {old_name} 列改名为 {new_name}")
         except Exception as exc:
-            logger.warning(f"重命名 {table}.{old_name} 失败: {exc}")
+            logger.error(f"重命名 {table}.{old_name} 失败: {exc}")
+            failed.append(f"{table}.{old_name}→{new_name}")
+
+    if failed:
+        raise RuntimeError(
+            f"数据库结构升级失败（{len(failed)} 项：{', '.join(failed)}），"
+            "插件将在下次启动重试；请检查数据库文件是否被占用或只读"
+        )
 
     # ``Tortoise.generate_schemas()`` 用双引号包标识符。旧库还缺 ``suffix``
     # 列时，SQLite 的 DQS 会把 ``"suffix"`` 当字符串字面量，于是建出一个
@@ -353,13 +370,22 @@ async def get_engine():
                     logging.getLogger("tortoise").setLevel(logging.INFO)
 
                 db_url = f"sqlite://{_db_path}"
-                await Tortoise.init(
-                    db_url=db_url,
-                    modules={"models": _MODELS_MODULES},
-                )
-                await _drop_incompatible_tables()
-                await Tortoise.generate_schemas()
-                await _apply_schema_upgrades()
+                try:
+                    await Tortoise.init(
+                        db_url=db_url,
+                        modules={"models": _MODELS_MODULES},
+                    )
+                    await _drop_incompatible_tables()
+                    await Tortoise.generate_schemas()
+                    # 结构升级失败会在这里抛错。必须先把连接关掉再往外抛，
+                    # 否则 Tortoise 处于「已 init 但缺列」的半初始化状态，
+                    # `_tortoise_initialized` 保持 False 的下一次尝试会
+                    # 撞上「重复 init」而无法从干净状态重试。
+                    await _apply_schema_upgrades()
+                except Exception:
+                    with contextlib.suppress(Exception):
+                        await Tortoise.close_connections()
+                    raise
 
                 # 将 TortoiseContext 设为全局回退，使跨 asyncio task 均可访问
                 # 若其他插件已设置全局回退，则跳过（NyxBot 的 contextvars 仍会在子 task 中传播）
