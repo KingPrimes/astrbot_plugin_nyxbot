@@ -6,6 +6,7 @@ StateTranslation Model / 状态翻译模型
 from __future__ import annotations
 
 import re
+from typing import Any
 
 from tortoise import fields
 from tortoise.indexes import Index
@@ -33,11 +34,15 @@ class StateTranslation(Model):
         table = "statetranslation"
         indexes = [Index(fields=["suffix"], name="idx_statetranslation_suffix")]
 
-    async def save(self, *args: object, **kwargs: object) -> None:
+    async def save(self, *args: Any, **kwargs: Any) -> None:
         """保存前同步 ``suffix``，保证索引列与 ``uniqueName`` 一致。
 
         ``bulk_create`` / ``bulk_update`` 不会走这里，批量同步侧在
-        ``build_instance`` 中显式填值（见 ``StateTranslationService.sync_data``）。
+        ``build_instance`` 中显式填值（见 ``StateTranslationService.sync_data``），
+        ``src/init/engine.py`` 的启动回填也显式填值——新增写入路径时不要漏。
+
+        参数用 ``*args/**kwargs`` 透传而不是照抄 ``Model.save`` 的签名：
+        ``pyproject.toml`` 声明的是 ``tortoise-orm>=0.24.0``，签名可能随版本变化。
         """
         self.suffix = suffix_index_key(self.uniqueName)
         await super().save(*args, **kwargs)

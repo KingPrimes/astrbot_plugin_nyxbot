@@ -64,6 +64,14 @@ _INDEXED_MODELS = frozenset(
 )
 """改动这些表会改变搜索结果，增删改后必须让内存缓存失效。"""
 
+_INTERNAL_FIELDS = frozenset({"suffix"})
+"""不对外暴露的派生列。
+
+``statetranslation.suffix`` 是 ``uniqueName`` 的倒序索引键，只服务于查询；
+序列化出去会让管理页表格多出一列 ``Barrel/Braton/Weapons/Lotus/`` 这种机器键，
+而且手工改完会被下一次 ``save()`` 覆盖。
+"""
+
 
 def _invalidate_search_caches(model: str) -> None:
     """让搜索索引与别名缓存失效（只对参与搜索的表）。"""
@@ -109,8 +117,10 @@ def _serialize_instance(instance: Any) -> dict:
     if meta is None:
         return {}
 
-    # 序列化所有数据字段
+    # 序列化所有数据字段（跳过内部派生列）
     for field_name in meta.db_fields:
+        if field_name in _INTERNAL_FIELDS:
+            continue
         value = getattr(instance, field_name, None)
         data[field_name] = value
 
@@ -205,14 +215,28 @@ def register_data_apis(context: Context) -> None:
     _register_model(
         "night_wave", NightWave, search_fields=["name", "uniqueName"], sync_func=NightWaveService.sync_data
     )
-    _register_model("relics", Relics, search_fields=["name", "uniqueName"], sync_func=RelicsService.sync_data)
+    _register_model(
+        "relics", Relics, search_fields=["name", "uniqueName"], sync_func=RelicsService.sync_data
+    )
     _register_model("relic_rewards", RelicRewards, search_fields=["rewardName"], sync_func=None)
-    _register_model("sentinels", Sentinels, search_fields=["name", "uniqueName"], sync_func=SentinelsService.sync_data)
-    _register_model("upgrades", Upgrades, search_fields=["name", "uniqueName"], sync_func=UpgradesService.sync_data)
-    _register_model("warframes", Warframes, search_fields=["name", "uniqueName"], sync_func=WarframesService.sync_data)
-    _register_model("warframe_ability", WarframeAbility, search_fields=["abilityName"], sync_func=None)
-    _register_model("weapons", Weapons, search_fields=["name", "uniqueName"], sync_func=WeaponsService.sync_data)
-    _register_model("reward_pool", RewardPool, search_fields=["uniqueName"], sync_func=RewardService.sync_data)
+    _register_model(
+        "sentinels", Sentinels, search_fields=["name", "uniqueName"], sync_func=SentinelsService.sync_data
+    )
+    _register_model(
+        "upgrades", Upgrades, search_fields=["name", "uniqueName"], sync_func=UpgradesService.sync_data
+    )
+    _register_model(
+        "warframes", Warframes, search_fields=["name", "uniqueName"], sync_func=WarframesService.sync_data
+    )
+    _register_model(
+        "warframe_ability", WarframeAbility, search_fields=["abilityName"], sync_func=None
+    )
+    _register_model(
+        "weapons", Weapons, search_fields=["name", "uniqueName"], sync_func=WeaponsService.sync_data
+    )
+    _register_model(
+        "reward_pool", RewardPool, search_fields=["uniqueName"], sync_func=RewardService.sync_data
+    )
     _register_model("reward", Reward, search_fields=["id"])
 
     # ========================================================================

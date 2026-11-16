@@ -995,19 +995,6 @@ class WorldStateService:
         return None
 
     @classmethod
-    async def _translate_job_type(cls, type_key: str) -> str | None:
-        """翻译赏金任务类型（从 StateTranslation 表按 ``uniqueName`` 精确查询）。"""
-        if not type_key:
-            return None
-        with contextlib.suppress(Exception):
-            # get_state_translation 是精确匹配，必须传完整的 uniqueName；
-            # 这里曾传 get_last_three_segments(type_key)，与精确匹配的语义不符。
-            trans = await StateTranslationService.get_state_translation(type_key)
-            if trans:
-                return trans
-        return None
-
-    @classmethod
     async def _batch_translate_job_types(
         cls, type_keys: set[str],
     ) -> dict[str, str]:

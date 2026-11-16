@@ -120,14 +120,27 @@ async def _apply_schema_upgrades() -> None:
         except Exception as exc:
             logger.warning(f"重命名 {table}.{old_name} 失败: {exc}")
 
-    # 顺序不能改：先删索引 → 再回填 → 最后建索引。
-    # ``Tortoise.generate_schemas()`` 会对模型声明的索引无条件执行
-    # ``CREATE INDEX IF NOT EXISTS``；旧库还没有 ``suffix`` 列时，SQLite 会
-    # 建出一个引用不存在列的**空索引**，``ALTER TABLE ADD COLUMN`` 之后它
-    # 依然是空的，所有后缀查询都会静默查不到数据。
-    await _drop_state_translation_index()
-    await _backfill_state_translation_suffix()
-    await _ensure_state_translation_index()
+    # ``Tortoise.generate_schemas()`` 用双引号包标识符。旧库还缺 ``suffix``
+    # 列时，SQLite 的 DQS 会把 ``"suffix"`` 当字符串字面量，于是建出一个
+    # **建在常量上的索引**（``PRAGMA index_info`` → ``(0, -2, None)``）而不报
+    # 错；``ALTER TABLE ADD COLUMN`` 之后该索引被重新解析成正常的 suffix 索引，
+    # 但已有行没有索引项（``PRAGMA integrity_check`` 报
+    # "row N missing from index"），走索引的查询会静默漏行。
+    #
+    # 修复顺序不能改：先删索引 → 再回填 → 最后建索引。门控用 ``NOT INDEXED``
+    # 的统计而不是 ``filter(suffix=None)``：坏索引存在时后者会走索引返回 0，
+    # 正好掩盖要修的问题（见 ``_count_state_translation_missing_suffix``）。
+    pending = await _count_state_translation_missing_suffix()
+    if pending:
+        logger.info(f"数据库升级：statetranslation.suffix 待回填 {pending} 行")
+        await _drop_state_translation_index()
+        await _backfill_state_translation_suffix()
+        await _ensure_state_translation_index()
+        if remaining := await _count_state_translation_missing_suffix():
+            logger.warning(
+                f"statetranslation.suffix 仍有 {remaining} 行为空，"
+                "这些条目的后缀翻译会漏"
+            )
 
 
 _STATE_TRANSLATION_SUFFIX_INDEX = (
@@ -142,6 +155,27 @@ _STATE_TRANSLATION_BACKFILL_BATCH = 300
 ``bulk_update`` 每行产生 3 个参数（PK + 值 + IN 列表），300 行 ≈ 900 个，
 保守地留在 SQLite 常见 999 参数上限内。
 """
+
+
+async def _count_state_translation_missing_suffix() -> int:
+    """统计 ``suffix`` 仍为 NULL 的行数（对坏索引免疫）。
+
+    必须带 ``NOT INDEXED``：坏索引存在时 ``WHERE suffix IS NULL`` 会走索引并
+    返回 0，导致「看起来已经回填完」——这正是要绕开的假象。
+
+    Returns:
+        待回填行数；表尚不可用（新库首次启动等）时返回 0，交给后续启动处理。
+    """
+    conn = connections.get("default")
+    try:
+        rows = await conn.execute_query_dict(
+            "SELECT COUNT(*) AS pending FROM statetranslation NOT INDEXED "
+            "WHERE suffix IS NULL"
+        )
+    except Exception as exc:  # 表还没建好时交给后续建表
+        logger.debug(f"统计待回填的 statetranslation 失败: {exc}")
+        return 0
+    return int(rows[0]["pending"]) if rows else 0
 
 
 async def _drop_state_translation_index() -> None:

@@ -52,7 +52,13 @@ def _prefix_upper_bound(prefix: str) -> str:
 
     Returns:
         排在前缀之后的所有字符串之前的上界（开区间）。
+
+    Raises:
+        ValueError: 前缀为空或不以 ``/`` 结尾。上界算错的表现是**漏行**
+            而不是报错，因此这里显式拒绝，不做静默兜底。
     """
+    if not prefix.endswith("/"):
+        raise ValueError(f"前缀必须以分隔符结尾: {prefix!r}")
     return prefix[:-1] + chr(ord(prefix[-1]) + 1)
 
 
@@ -323,8 +329,11 @@ class StateTranslationService:
         ``uniqueName`` 的 ``endswith`` OR，无法命中索引，约 23 ms。
         复杂度：O(K·R)，K=关键词数，R=命中行数（通常几十条）。
 
-        语义与旧实现一致：
-        * 关键词可以是 1~3 段（更长也可以），段数不足时匹配全部；
+        与旧实现的差异（两个方向都只会「多命中」，不会少命中现有关键词）：
+        * 关键词段数：旧实现只注册最后 1~3 段，这里任意段数都能命中（超集）；
+        * 大小写：旧实现走 ``uniqueName__endswith`` → SQLite ``LIKE``，ASCII
+          大小写不敏感；这里走 BINARY 比较，大小写严格一致。调用方传入的
+          关键词与入库路径同源，正常不会出现大小写漂移。
         * 同一后缀命中多行时取查询结果里的第一行（旧实现是字典首个写入者）。
 
         Args:
@@ -337,27 +346,33 @@ class StateTranslationService:
         if not keywords:
             return {}
 
-        keyword_list = list(keywords)
+        # 前缀只算一次：查询阶段与匹配阶段共用，避免同一个 keyword 被反向
+        # 拼接两次。空前缀（空串、"/"、"///" 这类全分隔符）在这一步就被剔除，
+        # 因此不需要 ``if not conditions`` 这种守卫——``Q`` 没有实现
+        # ``__bool__``/``__len__``，空 Q 恒为真，那样写不但无效，还会让
+        # ``filter(Q())`` 退化成全表查询。
+        keyword_prefixes: list[tuple[str, str]] = [
+            (keyword, prefix)
+            for keyword in keywords
+            if (prefix := suffix_index_key(keyword))
+        ]
+        if not keyword_prefixes:
+            return {}
+
         rows: list[tuple[str, str]] = []
-        for start in range(0, len(keyword_list), _KEYWORD_CHUNK_SIZE):
+        for start in range(0, len(keyword_prefixes), _KEYWORD_CHUNK_SIZE):
+            chunk = keyword_prefixes[start : start + _KEYWORD_CHUNK_SIZE]
             conditions = Q()
-            for keyword in keyword_list[start : start + _KEYWORD_CHUNK_SIZE]:
-                prefix = suffix_index_key(keyword)
-                if prefix:
-                    conditions |= Q(
-                        suffix__gte=prefix, suffix__lt=_prefix_upper_bound(prefix)
-                    )
-            if not conditions:
-                continue
+            for _, prefix in chunk:
+                conditions |= Q(
+                    suffix__gte=prefix, suffix__lt=_prefix_upper_bound(prefix)
+                )
             rows.extend(
                 await StateTranslation.filter(conditions).values_list("suffix", "name")
             )
 
         result: dict[str, str] = {}
-        for keyword in keyword_list:
-            prefix = suffix_index_key(keyword)
-            if not prefix:
-                continue
+        for keyword, prefix in keyword_prefixes:
             for suffix, name in rows:
                 if name and suffix and suffix.startswith(prefix):
                     result[keyword] = name
