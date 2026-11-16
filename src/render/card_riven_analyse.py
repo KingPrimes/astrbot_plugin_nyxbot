@@ -534,9 +534,13 @@ def _build_card(group: list[RivenAnalyseResult], total: int, palette) -> _Card:
         if result.profile is not None and result.profile.mastery_req is not None:
             meta_parts.append(f"段位 {result.profile.mastery_req}")
 
+        # 「属性一致，仅名称不同」的退化只作用于第 2 张起的变体卡：
+        # 首张必须保留完整的属性 / 构成 / 估算，否则整张卡一行数据都没有，
+        # 只剩 N 个「属性一致」提示（改前每个变体都被清空）。
+        keep_full = not same_all or index == 0
         shares = (
             build_elements(result.profile, head.attributes, damage_bonus)
-            if result.profile is not None and not same_all
+            if result.profile is not None and keep_full
             else []
         )
         variants.append(
@@ -544,14 +548,16 @@ def _build_card(group: list[RivenAnalyseResult], total: int, palette) -> _Card:
                 name=main,
                 badge=badge,
                 meta=" · ".join(part for part in meta_parts if part),
-                stats=[] if same_all else stats[index],
-                secondary="" if same_all else _secondary_text(result.profile),
+                stats=stats[index] if keep_full else [],
+                secondary=(
+                    _secondary_text(result.profile) if keep_full else ""
+                ),
                 segments=shares,
                 hints=element_hints(shares) if shares else [],
                 estimate=build_estimate(result.profile, head.attributes)
-                if not same_all
+                if result.profile is not None and keep_full
                 else None,
-                same=same_all,
+                same=not keep_full,
             )
         )
 
