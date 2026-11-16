@@ -467,6 +467,26 @@ def _select_base(base: RivenBase, kind: str | None) -> float | None:
     return base.value_for(kind) if kind else None
 
 
+#: 无法拥有裂罅属性的武器类别：不进武器名匹配索引。
+#: 这些类别的 ``_weapon_kind`` 返回 None，区间恒为 (0, 0)；OCR 模糊匹配
+#: 命中它们时会画出一张全是 0 的卡、还报「分析成功」。
+_NO_RIVEN_CATEGORIES: frozenset[str | None] = frozenset({
+    ProductCategory.SPECIAL_ITEMS.value,
+    ProductCategory.CREW_SHIP_WEAPONS.value,
+})
+
+
+def _riven_index_rows(
+    rows: list[tuple[str, str, str | None]],
+) -> list[tuple[str, str]]:
+    """武器名匹配索引：剔除无紫卡类别（``productCategory`` 为 None 的行保留）。"""
+    return [
+        (name, uid)
+        for name, uid, category in rows
+        if name and category not in _NO_RIVEN_CATEGORIES
+    ]
+
+
 def _weapon_type_display(weapon: Weapons) -> str:
     """武器类型展示名（取 ``ProductCategory.display_name``）。"""
     cat = weapon.productCategory
@@ -682,10 +702,10 @@ class RivenAnalyseService:
         candidates = [
             cls._apply_char_replace(name) for name in parsed.weapon_candidates
         ]
-        rows = await Weapons.all().values_list("name", "uniqueName")
-        match = _match_weapon_name(
-            candidates, [(name, uid) for name, uid in rows if name]
+        rows = await Weapons.all().values_list(
+            "name", "uniqueName", "productCategory"
         )
+        match = _match_weapon_name(candidates, _riven_index_rows(rows))
         logger.debug(
             "武器匹配耗时 %.2fs, 候选=%s, 命中阶段=%s, 匹配到 %d 把",
             time.perf_counter() - weapon_t0,
