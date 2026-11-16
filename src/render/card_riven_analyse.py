@@ -821,6 +821,30 @@ def _draw_stat_rows(
     return y
 
 
+def _bar_widths(width: int, shares: list[ElementShare]) -> list[int]:
+    """堆叠条各段的像素宽度（只含**正向**段）。
+
+    负元素词条（诅咒）按设计稿 §10.3「减法并入」，值为负。若把它们也
+    计入分母，正段会被等比放大而溢出卡片——实测 282px 内容宽下
+    `-60% 火焰伤害` 能把首段撑到 352px（``fill_rect`` 不裁剪，两列布局
+    直接压到右卡）。负段不占宽度，只在图例里以负号呈现。
+
+    Returns:
+        与正向段等长的宽度列表；没有正向段时为空。末段吃掉剩余宽度，
+        因此总宽恒等于 ``width``（不足时补齐、超出时截断）。
+    """
+    positive = [share for share in shares if share.value > 0]
+    if not positive:
+        return []
+    total = sum(share.value for share in positive)
+    widths = [
+        min(max(2, round(width * share.value / total)), width)
+        for share in positive[:-1]
+    ]
+    widths.append(max(0, width - sum(widths)))
+    return widths
+
+
 def _draw_composition(page, variant: _Variant, x: int, y: int, width: int) -> int:
     """伤害构成：横向堆叠条 + 图例 + 复合元素提示（§3.2）。"""
     palette = page.palette
@@ -829,23 +853,18 @@ def _draw_composition(page, variant: _Variant, x: int, y: int, width: int) -> in
     _draw_section_label(page, "伤害构成", x, y)
     y += _LABEL_H + SPACE["sm"]
 
-    total = sum(share.value for share in variant.segments) or 1.0
-    colors = _segment_colors(variant.segments, palette)
+    bar_segments = [share for share in variant.segments if share.value > 0]
+    widths = _bar_widths(width, variant.segments)
+    colors = _segment_colors(bar_segments, palette)
     cursor = x
-    for index, (share, color) in enumerate(zip(variant.segments, colors, strict=True)):
-        last = index == len(variant.segments) - 1
-        segment_w = (
-            width - (cursor - x)
-            if last
-            else max(2, round(width * share.value / total))
-        )
+    for index, (segment_w, color) in enumerate(zip(widths, colors, strict=True)):
         cb.set_color(color)
-        cb.fill_rect(cursor, y, max(0, segment_w), _BAR_H)
-        # 段间留 1px 缝：同一色系的相邻段在 10px 高时几乎分不开
-        if not last:
-            cb.set_color(palette.surface_alt)
-            cb.fill_rect(cursor + segment_w - 1, y, 1, _BAR_H)
+        cb.fill_rect(cursor, y, segment_w, _BAR_H)
         cursor += segment_w
+        # 段间留 1px 缝：同一色系的相邻段在 10px 高时几乎分不开
+        if index < len(widths) - 1:
+            cb.set_color(palette.surface_alt)
+            cb.fill_rect(cursor - 1, y, 1, _BAR_H)
     y += _BAR_H + SPACE["sm"]
 
     legend_font = font_px(_LEGEND_SIZE)
