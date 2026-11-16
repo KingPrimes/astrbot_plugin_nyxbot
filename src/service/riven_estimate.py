@@ -11,6 +11,7 @@
 """
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -572,12 +573,12 @@ def profile_from_weapon(weapon: Weapons, *, melee: bool = False) -> WeaponProfil
             渲染与估算都要走另一套口径。
     """
     getter = getattr(weapon, "get_damage_per_shot_list", None)
-    try:
-        damage = (
-            tuple((item.name, item.damage) for item in getter()) if callable(getter) else ()
-        )
-    except Exception:  # pragma: no cover - 解析失败只影响构成条
-        damage = ()
+    damage: tuple[tuple[str, float], ...] = ()
+    if callable(getter):
+        # 解析失败只影响构成条，不该让整张卡崩掉；模型自身已拦 JSON 错误，
+        # 这里兜的是脏数据形状（如元素项缺字段）。
+        with contextlib.suppress(Exception):
+            damage = tuple((item.name, item.damage) for item in getter())
 
     def value(name: str) -> float | None:
         """按字段名读数值；导出缺列时返回 ``None``（按「无此属性」处理）。"""
