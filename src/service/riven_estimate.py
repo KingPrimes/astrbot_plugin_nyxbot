@@ -378,30 +378,34 @@ def build_estimate(profile: WeaponProfile | None, attributes) -> RivenEstimate |
     # 近战分支：震地 / 重击各自算一条，词条加成叠加在通用 +伤害% 之上。
     # 两段震地（直接命中 + 范围冲击波，随距离衰减）的公式还没钉死，
     # 只算直接命中，并在「未计」里说明范围伤害没算。
+    # 枪械根本没有震地 / 重击，不登记「未计」——那是噪音，不是缺失。
     slam: float | None = None
     heavy: float | None = None
     baseline_slam: float | None = None
     baseline_heavy: float | None = None
     element_factor = 1 + element_bonus / 100
-    if profile.slam_attack:
-        slam_bonus = damage_bonus + _sum_attr(attributes, SLAM_ATTR)
-        slam = profile.slam_attack * (1 + slam_bonus / 100) * element_factor * crit_factor
-        baseline_slam = profile.slam_attack * base_crit_factor
-    else:
-        skipped.append("震地")
-    if profile.heavy_attack_damage:
-        heavy_bonus = damage_bonus + _sum_attr(attributes, HEAVY_ATTR)
-        heavy = (
-            profile.heavy_attack_damage
-            * (1 + heavy_bonus / 100)
-            * element_factor
-            * crit_factor
-        )
-        baseline_heavy = profile.heavy_attack_damage * base_crit_factor
-    else:
-        skipped.append("重击")
-    if profile.slam_radial_damage:
-        skipped.append("震地范围伤害")
+    if profile.melee:
+        if profile.slam_attack:
+            slam_bonus = damage_bonus + _sum_attr(attributes, SLAM_ATTR)
+            slam = (
+                profile.slam_attack * (1 + slam_bonus / 100) * element_factor * crit_factor
+            )
+            baseline_slam = profile.slam_attack * base_crit_factor
+        else:
+            skipped.append("震地")
+        if profile.heavy_attack_damage:
+            heavy_bonus = damage_bonus + _sum_attr(attributes, HEAVY_ATTR)
+            heavy = (
+                profile.heavy_attack_damage
+                * (1 + heavy_bonus / 100)
+                * element_factor
+                * crit_factor
+            )
+            baseline_heavy = profile.heavy_attack_damage * base_crit_factor
+        else:
+            skipped.append("重击")
+        if profile.slam_radial_damage:
+            skipped.append("震地范围伤害")
 
     fire_rate = profile.fire_rate
     multishot = float(profile.multishot or 1)
