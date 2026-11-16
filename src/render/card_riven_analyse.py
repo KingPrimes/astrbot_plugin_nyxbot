@@ -86,6 +86,9 @@ _LEGEND_SIZE = 15
 _SWATCH = 8
 #: 估算的乘数分解 / DPS 副行字号。
 _DECOMP_SIZE = 14
+#: 页头：紫卡名字号与右侧信息两行的总高。
+_HEADER_TITLE_H = 30
+_HEADER_INFO_H = 36
 #: 变体身份第二行（类型 · 段位）字号。
 _META_SIZE = 16
 #: 属性一致时的退化提示字号。
@@ -568,8 +571,16 @@ def _build_card(group: list[RivenAnalyseResult], total: int, palette) -> _Card:
 
 
 def _header_height() -> int:
-    """页头高度（标题 30 + 副标题 20 + 分隔线与呼吸）。"""
-    return 30 + SPACE["xs"] + FONT["base"] + SPACE["xl"] + 1 + SPACE["xl"]
+    """页头高度：标题 + 右侧信息两行 + 副标题 + 分隔线与呼吸。"""
+    return (
+        _HEADER_TITLE_H
+        + SPACE["xs"]
+        + _HEADER_INFO_H
+        + FONT["base"]
+        + SPACE["xl"]
+        + 1
+        + SPACE["xl"]
+    )
 
 
 def _attr_block_height(rows: list[_AttrRow]) -> int:
@@ -663,17 +674,20 @@ def _draw_section_label(page, text: str, x: int, y: int) -> None:
     _draw_tracked(page.cb, text, x, y, font_px(_LABEL_SIZE, bold=True), _LABEL_TRACKING)
 
 
-def _draw_header(page, card: _Card) -> int:
-    """A 区：紫卡名 + 系属 + 右侧倾向信息。"""
+def _draw_header(page, card: _Card, y: int) -> int:
+    """A 区：紫卡名 + 系属 + 右侧倾向信息。
+
+    ``y`` 必须由调用方传入：词条跨类型时会拆成多张卡，若每张都从
+    ``page.content_y`` 起画，第二张起会直接盖在第一张头上。
+    """
     palette = page.palette
     cb = page.cb
     x = page.content_x
     right = x + page.content_w
-    y = page.content_y
 
     info_font = font_px(16)
     info_w = max(C.measure(line, info_font) for line in card.info)
-    title_font = font_px(30, bold=True)
+    title_font = font_px(_HEADER_TITLE_H, bold=True)
     title = C.fit_text(card.riven, page.content_w - info_w - SPACE["xl"], title_font)
 
     cb.set_color(palette.rarity_legendary).set_font(title_font)
@@ -683,7 +697,7 @@ def _draw_header(page, card: _Card) -> int:
         cb.set_color(palette.text_muted).set_font(info_font)
         cb.add_text(line, right - C.measure(line, info_font), y + index * 20)
 
-    y += 30 + SPACE["xs"]
+    y += _HEADER_TITLE_H + SPACE["xs"] + _HEADER_INFO_H
     sub_font = font("base")
     cb.set_color(palette.text_muted).set_font(sub_font)
     cb.add_text(C.fit_text(card.subtitle, page.content_w, sub_font), x, y)
@@ -1201,7 +1215,7 @@ def render_riven_analyse_card(
     for card_index, card in enumerate(cards):
         if card_index:
             y += SPACE["xl"]
-        y = _draw_header(page, card)
+        y = _draw_header(page, card, y)
         y = _draw_attributes(page, card.attrs, y)
         y = _draw_variant_header(page, card, y)
 
