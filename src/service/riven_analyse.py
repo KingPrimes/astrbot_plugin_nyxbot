@@ -413,6 +413,13 @@ def _format_diff(median: float, value: float, i: float) -> str:
 # =============================================================================
 
 def _dot_from_omega(omega: float | None) -> str:
+    """倾向点数（●○ 计数）。
+
+    自 44.1.3 移除倾向系统后，所有武器的 ``omega`` 都是常量
+    ``DISPOSITION = 1.2``，本函数只会走到 ``< 1.3`` 这一支、恒返回
+    ``●●●●○``；保留分段是为了将来若官方恢复按武器给倾向，直接改输入
+    即可，不用重写展示层。
+    """
     if omega is None:
         return "●○○○○"
     if omega < 0.7:

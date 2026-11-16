@@ -122,7 +122,6 @@ class _AttrRow:
     span: str
     diff: str
     color: RGB
-    known: bool
 
 
 @dataclass(frozen=True)
@@ -153,8 +152,6 @@ class _Variant:
     """复合元素组合提示。"""
     estimate: RivenEstimate | None = None
     """紫卡加成后的估算（§4.2）。"""
-    show_diff: bool = True
-    """本卡是否展示与基准的差异。"""
     stack_diff: bool = False
     """差异另起一行（列太窄，三段并排会把属性名截断）。"""
     same: bool = False
@@ -280,6 +277,7 @@ def _attr_rows(result: RivenAnalyseResult, palette) -> list[_AttrRow]:
     rows: list[_AttrRow] = []
     for attr in result.attributes or []:
         value, span = _format_roll(attr)
+        # 区间为 (0, 0) 表示查不到基础值，差异没有分母可比，留空
         known = not (attr.low == 0 and attr.high == 0)
         diff = f"| {attr.diff}" if known else ""
         rows.append(
@@ -289,7 +287,6 @@ def _attr_rows(result: RivenAnalyseResult, palette) -> list[_AttrRow]:
                 span=span,
                 diff=diff,
                 color=palette.red if diff.startswith("| -") else palette.green,
-                known=known,
             )
         )
     return rows
@@ -782,14 +779,12 @@ def _draw_stat_rows(
     y: int,
     width: int,
     scale: _Scale,
-    show_diff: bool,
     stacked: bool = False,
 ) -> int:
     """一栏属性行：标签左、数值右、差异贴右（金色）。
 
     Args:
-        stacked: 差异另起一行（3 列窄卡放不下三段并排时用），返回累加后的 y。
-        show_diff: 是否画差异。
+        stacked: 差异另起一行（窄卡放不下三段并排时用），返回累加后的 y。
 
     Returns:
         累加后的 y。
@@ -803,7 +798,7 @@ def _draw_stat_rows(
     row_h = _ATTR_ROW_H + _DIFF_LINE_H if stacked else _ATTR_ROW_H
 
     for row in rows:
-        diff = row.diff if show_diff else ""
+        diff = row.diff
         diff_w = 0 if stacked else (C.measure(diff, diff_font) + SPACE["sm"] if diff else 0)
         value_w = C.measure(row.value, value_font)
         text_y = y + (_ATTR_ROW_H - scale.stat_size) // 2
@@ -1029,7 +1024,7 @@ def _draw_variant(page, card: _Card, variant: _Variant, x: int, y: int, width: i
         if right:
             column_w = (inner_w - SPACE["3xl"]) // 2
             _draw_stat_rows(
-                page, left, inner_x, start_y, column_w, scale, variant.show_diff, variant.stack_diff
+                page, left, inner_x, start_y, column_w, scale, variant.stack_diff
             )
             _draw_stat_rows(
                 page,
@@ -1038,12 +1033,11 @@ def _draw_variant(page, card: _Card, variant: _Variant, x: int, y: int, width: i
                 start_y,
                 column_w,
                 scale,
-                variant.show_diff,
                 variant.stack_diff,
             )
         else:
             _draw_stat_rows(
-                page, left, inner_x, start_y, inner_w, scale, variant.show_diff, variant.stack_diff
+                page, left, inner_x, start_y, inner_w, scale, variant.stack_diff
             )
         cursor = start_y + max(len(left), len(right)) * row_h
 
