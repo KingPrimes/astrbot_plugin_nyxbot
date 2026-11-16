@@ -37,6 +37,9 @@ class HelpEntry:
     arg_example: str | None = None
     #: 是否在帮助消息里附带按钮。
     button: bool = True
+    #: 按钮上显示的文字；``None`` 表示直接用 ``command``。
+    #: 只影响显示宽度（QQ 键盘按 2 字/列排版），按钮回调仍用 ``command``。
+    button_label: str | None = None
 
 
 @dataclass(frozen=True)
@@ -56,11 +59,20 @@ class _EntrySpec:
     arg_hint: str | None = None
     arg_example: str | None = None
     button: bool = True
+    button_label: str | None = None
 
 
 #: 帮助正文：``(分节标题, (条目, ...))``。
 #: 指令名不带前缀，前缀由 :func:`build_help_sections` 统一拼接。
-#: 顺序与旧版 ``/wfhelp`` 文本一致，仅按主题分组，**不增删任何条目**。
+#: 条目必须与 ``src/commands`` 里注册的指令一一对应（测试按 AST 校验），
+#: 新增指令时同步补这里，否则帮助里看不到；``button=False`` 只用于
+#: 管理员运维指令与帮助自身（不占键盘位）。
+#:
+#: 刻意不列的两条（测试白名单里有登记）：
+#: - ``/w``：市场卡片配套的取句快捷指令，**只随卡片提示出现**——图片版在
+#:   表格下方印「回复 /w 序号」，Markdown 版直接把序号做成按钮，用户不需要
+#:   从帮助里学它（2026-11-16 用户要求）；
+#: - ``/RM``：紫卡市场功能尚未实现（stub），列出来只会让人点了空欢喜。
 _SECTIONS: tuple[tuple[str, tuple[_EntrySpec, ...]], ...] = (
     (
         "世界状态",
@@ -72,14 +84,26 @@ _SECTIONS: tuple[tuple[str, tuple[_EntrySpec, ...]], ...] = (
             _EntrySpec("裂隙", "查看虚空裂隙"),
             _EntrySpec("钢铁裂隙", "查看钢铁之路裂隙"),
             _EntrySpec("九重天裂隙", "查看虚空风暴（九重天）"),
+            _EntrySpec("入侵", "查看当前入侵"),
             _EntrySpec("奸商", "查看虚空商人"),
             _EntrySpec("钢铁", "查看钢铁之路"),
             _EntrySpec("仲裁", "查看仲裁任务"),
             _EntrySpec("仲裁表", "查看有价值的未来仲裁"),
-            # 管理员运维指令：会重拉全量数据，不放进按钮，避免误触
-            _EntrySpec("更新仲裁", "重拉仲裁时间表（管理员）", button=False),
-            _EntrySpec("更新分级", "重拉仲裁节点分级（管理员）", button=False),
+            _EntrySpec("执刑官猎杀", "查看本周执刑官猎杀（Archon Hunt）"),
             _EntrySpec("1999", "查看1999日历"),
+            _EntrySpec("每日特惠", "查看达尔沃每日特惠"),
+            _EntrySpec("轮换", "查看双衍王境周期"),
+            _EntrySpec("电波", "查看午夜电波"),
+        ),
+    ),
+    (
+        "赏金任务",
+        (
+            # 三条都是长标签（>2 字），QQ 键盘长标签一行只放 2 个，
+            # 因此排在第二个键盘页；正文不给参数提示，直接点按钮即可
+            _EntrySpec("希图斯", "查看希图斯（地球）赏金"),
+            _EntrySpec("英择谛", "查看英择谛（火卫二）赏金"),
+            _EntrySpec("索拉里斯", "查看索拉里斯（金星）赏金"),
         ),
     ),
     (
@@ -87,6 +111,7 @@ _SECTIONS: tuple[tuple[str, tuple[_EntrySpec, ...]], ...] = (
         (
             _EntrySpec("WM", "查询Warframe.Market订单", "物品名称", "膛线"),
             _EntrySpec("金垃圾", "查看杜卡德金币"),
+            _EntrySpec("银垃圾", "查看杜卡德银币"),
             _EntrySpec("CD", "查询赤毒巫妖拍卖", "武器名称", "布拉玛"),
             _EntrySpec("XT", "查询信条姐妹拍卖", "武器名称", "循环"),
             _EntrySpec("WR", "查询紫卡拍卖", "武器名称", "绝路"),
@@ -103,6 +128,14 @@ _SECTIONS: tuple[tuple[str, tuple[_EntrySpec, ...]], ...] = (
             ),
             # 帮助本身不需要按钮
             _EntrySpec("wfhelp", "显示本帮助", button=False),
+        ),
+    ),
+    (
+        "管理员",
+        (
+            # 会重拉全量数据，不放进按钮，避免误触
+            _EntrySpec("更新仲裁", "重拉仲裁时间表（管理员）", button=False),
+            _EntrySpec("更新分级", "重拉仲裁节点分级（管理员）", button=False),
         ),
     ),
 )
@@ -148,6 +181,7 @@ def build_help_sections(prefix: str = "") -> tuple[HelpSection, ...]:
                     arg_hint=spec.arg_hint,
                     arg_example=spec.arg_example,
                     button=spec.button,
+                    button_label=spec.button_label,
                 )
                 for spec in specs
             ),

@@ -135,7 +135,8 @@ class NyxBotPlugin(Star):
             await star_manager.turn_off_plugin(plugin_name)
             logger.warning(
                 f"插件 {plugin_name} 初始化数据失败，已自动停用。"
-                "请检查网络连接或数据源后重新启用插件尝试。"
+                "具体原因见上方日志——常见为数据目录被删或不可写、磁盘空间不足、"
+                "网络或数据源异常；处理后重新启用插件即可。"
             )
         except Exception as e:
             logger.error(f"自动停用插件 {plugin_name} 失败: {e}", exc_info=True)

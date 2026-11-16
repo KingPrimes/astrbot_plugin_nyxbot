@@ -62,13 +62,22 @@ _MENU_LABELS: dict[str, tuple[str, str]] = {
     "裂隙": ("🌀", "虚空裂隙"),
     "钢铁裂隙": ("🛡️", "钢铁裂隙"),
     "九重天裂隙": ("🚀", "九重天裂隙"),
+    "入侵": ("🚩", "入侵"),
     "奸商": ("🤑", "奸商"),
     "钢铁": ("🗡️", "钢铁"),
     "仲裁": ("⚖️", "仲裁"),
     "仲裁表": ("📋", "仲裁表"),
+    "执刑官猎杀": ("🎯", "执刑官猎杀"),
     "1999": ("📅", "1999日历"),
+    "每日特惠": ("🛍️", "每日特惠"),
+    "轮换": ("🌌", "双衍王境"),
+    "电波": ("📻", "电波"),
+    "希图斯": ("🏜️", "希图斯赏金"),
+    "英择谛": ("🦠", "英择谛赏金"),
+    "索拉里斯": ("❄️", "索拉里斯赏金"),
     "WM": ("🛒", "WM订单"),
     "金垃圾": ("✨", "金垃圾"),
+    "银垃圾": ("🪙", "银垃圾"),
     "CD": ("👹", "CD玄骸"),
     "XT": ("🧬", "XT姐妹"),
     "WR": ("🎴", "WR紫卡"),
@@ -138,6 +147,7 @@ def _menu_lines(
     logo_url: str,
     logo_size: tuple[int, int],
     params_only: bool = False,
+    page_hint: str = "",
 ) -> list[str]:
     """引用块内的链接菜单 / The tappable menu inside a blockquote.
 
@@ -147,6 +157,9 @@ def _menu_lines(
     ``params_only=True``（按钮在场时）：无参数指令由按钮直接查询，菜单只列
     需要参数的指令——``mqqapi`` 链接点击自动填入指令与空格，正是参数场景
     的最佳载体；``False``（按钮不可用）时菜单覆盖全部可查询指令。
+
+    ``page_hint`` 非空时作为按钮分页说明追加在引言后（如「共 2 页」），
+    让用户知道还有按钮在下一页，不会以为指令缺了。
     """
     lines: list[str] = []
     if logo_url:
@@ -155,6 +168,8 @@ def _menu_lines(
 
     if params_only:
         lines.append(_MENU_INTRO)
+        if page_hint:
+            lines.append(f"> {page_hint}")
         for section in sections:
             for entry in section.entries:
                 if entry.button and entry.arg_hint:
@@ -169,13 +184,21 @@ def _menu_lines(
     return lines
 
 
-def _compact_lines(sections: Sequence[HelpSection]) -> list[str]:
+def _compact_lines(
+    sections: Sequence[HelpSection], page_hint: str = ""
+) -> list[str]:
     """精简版正文：分割线后只列需要参数的指令 / Compact body: params only.
 
     无参数指令全部由按钮承载，正文不再介绍；管理员运维指令与
     ``wfhelp`` 也不做介绍（按钮能力由配色区分，见 ``src/help/buttons.py``）。
+
+    ``page_hint`` 非空时紧跟首句（与链接菜单形态同一位置）：关掉内联链接
+    之后，正文就只剩这一处能告诉用户"当前第几页、还有没有下一页"。
     """
-    lines: list[str] = ["点击下方按钮直接查询对应数据", ""]
+    lines: list[str] = ["点击下方按钮直接查询对应数据"]
+    if page_hint:
+        lines.append(f"> {page_hint}")
+    lines.append("")
 
     listed: list[str] = []
     example: str | None = None
@@ -205,6 +228,7 @@ def format_help_markdown(
     logo_size: str = "",
     link_menu: bool = False,
     menu_params_only: bool = False,
+    page_hint: str = "",
 ) -> str:
     """把帮助分节格式化为 Markdown 文本 / Format help sections as Markdown.
 
@@ -221,6 +245,8 @@ def format_help_markdown(
         menu_params_only: 菜单只列需要参数的指令（按钮在场时）——无参数
             指令由按钮承载，正文不重复；``False`` 时菜单覆盖全部可查询
             指令（按钮不可用时的完整菜单）。
+        page_hint: 按钮分页说明（如「共 2 页，点「更多 ›」查看其余指令」）；
+            链接菜单与 ``compact`` 精简正文都会追加，空串不显示。
 
     Returns:
         可直接交给 ``event.plain_result()`` 的 Markdown 文本；
@@ -232,12 +258,18 @@ def format_help_markdown(
         # 参考同类机器人：标题后紧跟引用块（不留空行），图片与菜单都在块内
         lines: list[str] = [
             f"# {HELP_TITLE}",
-            *_menu_lines(sections, logo_url, size, params_only=menu_params_only),
+            *_menu_lines(
+                sections,
+                logo_url,
+                size,
+                params_only=menu_params_only,
+                page_hint=page_hint,
+            ),
         ]
     else:
         lines = [*_logo_lines(logo_url, size), f"# {HELP_TITLE}", ""]
         if compact:
-            lines.extend(_compact_lines(sections))
+            lines.extend(_compact_lines(sections, page_hint))
         else:
             for section in sections:
                 if not section.entries:

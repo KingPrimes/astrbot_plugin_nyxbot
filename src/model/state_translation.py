@@ -6,10 +6,13 @@ StateTranslation Model / 状态翻译模型
 from __future__ import annotations
 
 import re
+from typing import Any
 
 from tortoise import fields
+from tortoise.indexes import Index
 from tortoise.models import Model
 
+from ..util.string_utils import suffix_index_key
 from ..wenum.state_type import StateTypeEnum
 
 
@@ -21,9 +24,28 @@ class StateTranslation(Model):
     description = fields.TextField(null=True, description="解释")
     type = fields.CharField(max_length=50, null=True, description="类型")
     parentName = fields.CharField(max_length=255, null=True, description="上级名称")
+    #: 倒序路径索引键（尾段在前 + 结尾 "/"），用于把「路径后缀匹配」
+    #: 变成可用 B 树索引的前缀范围查询；由 save() 与 sync_data 统一写入。
+    suffix = fields.CharField(
+        max_length=512, null=True, description="倒序路径索引键（尾段在前）"
+    )
 
     class Meta:
         table = "statetranslation"
+        indexes = [Index(fields=["suffix"], name="idx_statetranslation_suffix")]
+
+    async def save(self, *args: Any, **kwargs: Any) -> None:
+        """保存前同步 ``suffix``，保证索引列与 ``uniqueName`` 一致。
+
+        ``bulk_create`` / ``bulk_update`` 不会走这里，批量同步侧在
+        ``build_instance`` 中显式填值（见 ``StateTranslationService.sync_data``），
+        ``src/init/engine.py`` 的启动回填也显式填值——新增写入路径时不要漏。
+
+        参数用 ``*args/**kwargs`` 透传而不是照抄 ``Model.save`` 的签名：
+        ``pyproject.toml`` 声明的是 ``tortoise-orm>=0.24.0``，签名可能随版本变化。
+        """
+        self.suffix = suffix_index_key(self.uniqueName)
+        await super().save(*args, **kwargs)
 
     @property
     def type_enum(self) -> StateTypeEnum | None:

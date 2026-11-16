@@ -68,6 +68,8 @@ _SCHEMA_UPGRADES: tuple[tuple[str, str, str], ...] = (
     # ── lichsisterweapons：对齐 Lich/Sister Weapon 模型 ──
     ("lichsisterweapons", "enName", "VARCHAR(255)"),
     ("lichsisterweapons", "wikiLink", "VARCHAR(500)"),
+    # ── statetranslation：倒序路径索引列（把后缀匹配从全表扫变成索引范围查询）──
+    ("statetranslation", "suffix", "VARCHAR(512)"),
 )
 
 _COLUMN_RENAMES: tuple[tuple[str, str, str], ...] = (
@@ -118,6 +120,116 @@ async def _apply_schema_upgrades() -> None:
         except Exception as exc:
             logger.warning(f"重命名 {table}.{old_name} 失败: {exc}")
 
+    # ``Tortoise.generate_schemas()`` 用双引号包标识符。旧库还缺 ``suffix``
+    # 列时，SQLite 的 DQS 会把 ``"suffix"`` 当字符串字面量，于是建出一个
+    # **建在常量上的索引**（``PRAGMA index_info`` → ``(0, -2, None)``）而不报
+    # 错；``ALTER TABLE ADD COLUMN`` 之后该索引被重新解析成正常的 suffix 索引，
+    # 但已有行没有索引项（``PRAGMA integrity_check`` 报
+    # "row N missing from index"），走索引的查询会静默漏行。
+    #
+    # 修复顺序不能改：先删索引 → 再回填 → 最后建索引。门控用 ``NOT INDEXED``
+    # 的统计而不是 ``filter(suffix=None)``：坏索引存在时后者会走索引返回 0，
+    # 正好掩盖要修的问题（见 ``_count_state_translation_missing_suffix``）。
+    pending = await _count_state_translation_missing_suffix()
+    if pending:
+        logger.info(f"数据库升级：statetranslation.suffix 待回填 {pending} 行")
+        await _drop_state_translation_index()
+        await _backfill_state_translation_suffix()
+        await _ensure_state_translation_index()
+        if remaining := await _count_state_translation_missing_suffix():
+            logger.warning(
+                f"statetranslation.suffix 仍有 {remaining} 行为空，"
+                "这些条目的后缀翻译会漏"
+            )
+
+
+_STATE_TRANSLATION_SUFFIX_INDEX = (
+    "CREATE INDEX IF NOT EXISTS idx_statetranslation_suffix "
+    "ON statetranslation(suffix)"
+)
+"""``statetranslation.suffix`` 的索引；新库由模型 Meta 建，旧库在这里补。"""
+
+_STATE_TRANSLATION_BACKFILL_BATCH = 300
+"""回填时分批提交，避免一次性构造上万实例。
+
+``bulk_update`` 每行产生 3 个参数（PK + 值 + IN 列表），300 行 ≈ 900 个，
+保守地留在 SQLite 常见 999 参数上限内。
+"""
+
+
+async def _count_state_translation_missing_suffix() -> int:
+    """统计 ``suffix`` 仍为 NULL 的行数（对坏索引免疫）。
+
+    必须带 ``NOT INDEXED``：坏索引存在时 ``WHERE suffix IS NULL`` 会走索引并
+    返回 0，导致「看起来已经回填完」——这正是要绕开的假象。
+
+    Returns:
+        待回填行数；表尚不可用（新库首次启动等）时返回 0，交给后续启动处理。
+    """
+    conn = connections.get("default")
+    try:
+        rows = await conn.execute_query_dict(
+            "SELECT COUNT(*) AS pending FROM statetranslation NOT INDEXED "
+            "WHERE suffix IS NULL"
+        )
+    except Exception as exc:  # 表还没建好时交给后续建表
+        logger.debug(f"统计待回填的 statetranslation 失败: {exc}")
+        return 0
+    return int(rows[0]["pending"]) if rows else 0
+
+
+async def _drop_state_translation_index() -> None:
+    """删除 ``statetranslation.suffix`` 索引（幂等）。
+
+    必须在补列之后、回填之前调用：``generate_schemas()`` 可能在旧库上
+    建出一个引用尚不存在列的**空索引**（SQLite 允许这样建），留着它会让
+    ``suffix IS NULL`` 这类查询走索引而漏掉全部行。
+    """
+    conn = connections.get("default")
+    try:
+        await conn.execute_script("DROP INDEX IF EXISTS idx_statetranslation_suffix")
+    except Exception as exc:
+        logger.warning(f"删除 statetranslation.suffix 索引失败: {exc}")
+
+
+async def _ensure_state_translation_index() -> None:
+    """确保 ``statetranslation.suffix`` 索引存在且与数据一致（幂等）。"""
+    conn = connections.get("default")
+    try:
+        await conn.execute_script(_STATE_TRANSLATION_SUFFIX_INDEX)
+    except Exception as exc:  # 表还没建好时交给后续建表
+        logger.warning(f"创建 statetranslation.suffix 索引失败: {exc}")
+
+
+async def _backfill_state_translation_suffix() -> None:
+    """给旧库回填 ``statetranslation.suffix``（只处理 NULL，幂等）。
+
+    新库由 ``StateTranslationService.sync_data`` 在 ``build_instance``
+    里直接写入；从旧版本升级上来的库里该列是 NULL，后缀查询会全部漏掉，
+    这里在启动时补一次。
+    """
+    # 局部导入：engine 是基础设施层，不在导入期依赖具体模型包
+    from ..model.state_translation import StateTranslation
+    from ..util.string_utils import suffix_index_key
+
+    try:
+        rows = await StateTranslation.filter(suffix=None).only("uniqueName")
+    except Exception as exc:
+        logger.warning(f"查询待回填的 statetranslation 失败: {exc}")
+        return
+    if not rows:
+        return
+
+    for row in rows:
+        row.suffix = suffix_index_key(row.uniqueName)
+    try:
+        await StateTranslation.bulk_update(
+            rows, fields=["suffix"], batch_size=_STATE_TRANSLATION_BACKFILL_BATCH
+        )
+        logger.info(f"数据库升级：回填 statetranslation.suffix {len(rows)} 行")
+    except Exception as exc:
+        logger.warning(f"回填 statetranslation.suffix 失败: {exc}")
+
 
 # ============================================================
 # Tortoise ORM 模型模块路径
@@ -154,7 +266,14 @@ async def get_engine():
     """
     global _tortoise_initialized, _engine_lock
 
-    _db_path: str = str(Path(get_public_data_path()) / "nyxbot.db")
+    # SQLite 不会创建目录，缺目录时只报 "unable to open database file"，
+    # 看不出是路径问题。这里与其它写入点（export_downloader / arbitration /
+    # settings）保持一致，打开库之前先确保数据目录存在——不能只依赖
+    # ``get_public_data_path()`` 里 ``StarTools.get_data_dir()`` 的建目录副作用，
+    # 它被进程内缓存包着，目录被删（用户清理、迁移、重装）之后不会再触发。
+    _data_dir = Path(get_public_data_path())
+    _data_dir.mkdir(parents=True, exist_ok=True)
+    _db_path: str = str(_data_dir / "nyxbot.db")
     logger.debug(f"数据库路径: {_db_path}")
     if not _tortoise_initialized:
         if _engine_lock is None:

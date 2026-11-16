@@ -995,19 +995,6 @@ class WorldStateService:
         return None
 
     @classmethod
-    async def _translate_job_type(cls, type_key: str) -> str | None:
-        """翻译赏金任务类型（从 StateTranslation 表查询，回退到 Nodes 表）。"""
-        if not type_key:
-            return None
-        with contextlib.suppress(Exception):
-            key = get_last_three_segments(type_key)
-            if key:
-                trans = await StateTranslationService.get_state_translation(key)
-                if trans:
-                    return trans
-        return None
-
-    @classmethod
     async def _batch_translate_job_types(
         cls, type_keys: set[str],
     ) -> dict[str, str]:

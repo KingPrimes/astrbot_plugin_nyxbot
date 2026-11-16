@@ -64,6 +64,26 @@ _INDEXED_MODELS = frozenset(
 )
 """改动这些表会改变搜索结果，增删改后必须让内存缓存失效。"""
 
+_INTERNAL_FIELDS = frozenset({"suffix"})
+"""不对外暴露的派生列。
+
+``statetranslation.suffix`` 是 ``uniqueName`` 的倒序索引键，只服务于查询；
+序列化出去会让管理页表格多出一列 ``Barrel/Braton/Weapons/Lotus/`` 这种机器键，
+而且手工改完会被下一次 ``save()`` 覆盖。
+"""
+
+
+def _public_fields(meta: Any) -> list[str]:
+    """模型对外暴露的数据字段名（按名排序，跳过内部派生列）。
+
+    ``/models`` 的 ``fields`` 与 ``_serialize_instance`` 的行键必须同口径：
+    前者用于空表时生成新增表单，漏过滤就会给用户一个 ``suffix`` 输入框，
+    而该列会被下一次 ``save()`` 覆盖。
+    """
+    return sorted(
+        field for field in meta.db_fields if field not in _INTERNAL_FIELDS
+    )
+
 
 def _invalidate_search_caches(model: str) -> None:
     """让搜索索引与别名缓存失效（只对参与搜索的表）。"""
@@ -109,8 +129,10 @@ def _serialize_instance(instance: Any) -> dict:
     if meta is None:
         return {}
 
-    # 序列化所有数据字段
+    # 序列化所有数据字段（跳过内部派生列）
     for field_name in meta.db_fields:
+        if field_name in _INTERNAL_FIELDS:
+            continue
         value = getattr(instance, field_name, None)
         data[field_name] = value
 
@@ -197,22 +219,36 @@ def register_data_apis(context: Context) -> None:
     _register_model(
         "state_translation",
         StateTranslation,
-        search_fields=["name", "unique_name"],
+        search_fields=["name", "uniqueName"],
         sync_func=StateTranslationService.sync_data,
     )
 
     # ── Exprot ──
     _register_model(
-        "night_wave", NightWave, search_fields=["name", "unique_name"], sync_func=NightWaveService.sync_data
+        "night_wave", NightWave, search_fields=["name", "uniqueName"], sync_func=NightWaveService.sync_data
     )
-    _register_model("relics", Relics, search_fields=["name", "unique_name"], sync_func=RelicsService.sync_data)
-    _register_model("relic_rewards", RelicRewards, search_fields=["reward_name"], sync_func=None)
-    _register_model("sentinels", Sentinels, search_fields=["name", "unique_name"], sync_func=SentinelsService.sync_data)
-    _register_model("upgrades", Upgrades, search_fields=["name", "unique_name"], sync_func=UpgradesService.sync_data)
-    _register_model("warframes", Warframes, search_fields=["name", "unique_name"], sync_func=WarframesService.sync_data)
-    _register_model("warframe_ability", WarframeAbility, search_fields=["ability_name"], sync_func=None)
-    _register_model("weapons", Weapons, search_fields=["name", "unique_name"], sync_func=WeaponsService.sync_data)
-    _register_model("reward_pool", RewardPool, search_fields=["unique_name"], sync_func=RewardService.sync_data)
+    _register_model(
+        "relics", Relics, search_fields=["name", "uniqueName"], sync_func=RelicsService.sync_data
+    )
+    _register_model("relic_rewards", RelicRewards, search_fields=["rewardName"], sync_func=None)
+    _register_model(
+        "sentinels", Sentinels, search_fields=["name", "uniqueName"], sync_func=SentinelsService.sync_data
+    )
+    _register_model(
+        "upgrades", Upgrades, search_fields=["name", "uniqueName"], sync_func=UpgradesService.sync_data
+    )
+    _register_model(
+        "warframes", Warframes, search_fields=["name", "uniqueName"], sync_func=WarframesService.sync_data
+    )
+    _register_model(
+        "warframe_ability", WarframeAbility, search_fields=["abilityName"], sync_func=None
+    )
+    _register_model(
+        "weapons", Weapons, search_fields=["name", "uniqueName"], sync_func=WeaponsService.sync_data
+    )
+    _register_model(
+        "reward_pool", RewardPool, search_fields=["uniqueName"], sync_func=RewardService.sync_data
+    )
     _register_model("reward", Reward, search_fields=["id"])
 
     # ========================================================================
@@ -230,9 +266,9 @@ def register_data_apis(context: Context) -> None:
                 "name": name,
                 "search_fields": meta["search_fields"],
                 "has_sync": meta["sync_func"] is not None,
-                # CodeRabbit R5：暴露全部数据字段（与 _serialize_instance 的
-                # 行键同口径），空模型（零记录）也能生成可提交的新增表单
-                "fields": sorted(model_cls._meta.db_fields),
+                # 暴露全部数据字段（与 _serialize_instance 的行键同口径），
+                # 空模型（零记录）也能生成可提交的新增表单
+                "fields": _public_fields(model_cls._meta),
             })
         return jsonify({"models": models})
 
