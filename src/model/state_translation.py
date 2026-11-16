@@ -8,8 +8,10 @@ from __future__ import annotations
 import re
 
 from tortoise import fields
+from tortoise.indexes import Index
 from tortoise.models import Model
 
+from ..util.string_utils import suffix_index_key
 from ..wenum.state_type import StateTypeEnum
 
 
@@ -21,9 +23,24 @@ class StateTranslation(Model):
     description = fields.TextField(null=True, description="解释")
     type = fields.CharField(max_length=50, null=True, description="类型")
     parentName = fields.CharField(max_length=255, null=True, description="上级名称")
+    #: 倒序路径索引键（尾段在前 + 结尾 "/"），用于把「路径后缀匹配」
+    #: 变成可用 B 树索引的前缀范围查询；由 save() 与 sync_data 统一写入。
+    suffix = fields.CharField(
+        max_length=512, null=True, description="倒序路径索引键（尾段在前）"
+    )
 
     class Meta:
         table = "statetranslation"
+        indexes = [Index(fields=["suffix"], name="idx_statetranslation_suffix")]
+
+    async def save(self, *args: object, **kwargs: object) -> None:
+        """保存前同步 ``suffix``，保证索引列与 ``uniqueName`` 一致。
+
+        ``bulk_create`` / ``bulk_update`` 不会走这里，批量同步侧在
+        ``build_instance`` 中显式填值（见 ``StateTranslationService.sync_data``）。
+        """
+        self.suffix = suffix_index_key(self.uniqueName)
+        await super().save(*args, **kwargs)
 
     @property
     def type_enum(self) -> StateTypeEnum | None:

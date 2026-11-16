@@ -68,6 +68,8 @@ _SCHEMA_UPGRADES: tuple[tuple[str, str, str], ...] = (
     # ── lichsisterweapons：对齐 Lich/Sister Weapon 模型 ──
     ("lichsisterweapons", "enName", "VARCHAR(255)"),
     ("lichsisterweapons", "wikiLink", "VARCHAR(500)"),
+    # ── statetranslation：倒序路径索引列（把后缀匹配从全表扫变成索引范围查询）──
+    ("statetranslation", "suffix", "VARCHAR(512)"),
 )
 
 _COLUMN_RENAMES: tuple[tuple[str, str, str], ...] = (
@@ -117,6 +119,82 @@ async def _apply_schema_upgrades() -> None:
             logger.info(f"数据库升级：{table} 表 {old_name} 列改名为 {new_name}")
         except Exception as exc:
             logger.warning(f"重命名 {table}.{old_name} 失败: {exc}")
+
+    # 顺序不能改：先删索引 → 再回填 → 最后建索引。
+    # ``Tortoise.generate_schemas()`` 会对模型声明的索引无条件执行
+    # ``CREATE INDEX IF NOT EXISTS``；旧库还没有 ``suffix`` 列时，SQLite 会
+    # 建出一个引用不存在列的**空索引**，``ALTER TABLE ADD COLUMN`` 之后它
+    # 依然是空的，所有后缀查询都会静默查不到数据。
+    await _drop_state_translation_index()
+    await _backfill_state_translation_suffix()
+    await _ensure_state_translation_index()
+
+
+_STATE_TRANSLATION_SUFFIX_INDEX = (
+    "CREATE INDEX IF NOT EXISTS idx_statetranslation_suffix "
+    "ON statetranslation(suffix)"
+)
+"""``statetranslation.suffix`` 的索引；新库由模型 Meta 建，旧库在这里补。"""
+
+_STATE_TRANSLATION_BACKFILL_BATCH = 300
+"""回填时分批提交，避免一次性构造上万实例。
+
+``bulk_update`` 每行产生 3 个参数（PK + 值 + IN 列表），300 行 ≈ 900 个，
+保守地留在 SQLite 常见 999 参数上限内。
+"""
+
+
+async def _drop_state_translation_index() -> None:
+    """删除 ``statetranslation.suffix`` 索引（幂等）。
+
+    必须在补列之后、回填之前调用：``generate_schemas()`` 可能在旧库上
+    建出一个引用尚不存在列的**空索引**（SQLite 允许这样建），留着它会让
+    ``suffix IS NULL`` 这类查询走索引而漏掉全部行。
+    """
+    conn = connections.get("default")
+    try:
+        await conn.execute_script("DROP INDEX IF EXISTS idx_statetranslation_suffix")
+    except Exception as exc:
+        logger.warning(f"删除 statetranslation.suffix 索引失败: {exc}")
+
+
+async def _ensure_state_translation_index() -> None:
+    """确保 ``statetranslation.suffix`` 索引存在且与数据一致（幂等）。"""
+    conn = connections.get("default")
+    try:
+        await conn.execute_script(_STATE_TRANSLATION_SUFFIX_INDEX)
+    except Exception as exc:  # 表还没建好时交给后续建表
+        logger.warning(f"创建 statetranslation.suffix 索引失败: {exc}")
+
+
+async def _backfill_state_translation_suffix() -> None:
+    """给旧库回填 ``statetranslation.suffix``（只处理 NULL，幂等）。
+
+    新库由 ``StateTranslationService.sync_data`` 在 ``build_instance``
+    里直接写入；从旧版本升级上来的库里该列是 NULL，后缀查询会全部漏掉，
+    这里在启动时补一次。
+    """
+    # 局部导入：engine 是基础设施层，不在导入期依赖具体模型包
+    from ..model.state_translation import StateTranslation
+    from ..util.string_utils import suffix_index_key
+
+    try:
+        rows = await StateTranslation.filter(suffix=None).only("uniqueName")
+    except Exception as exc:
+        logger.warning(f"查询待回填的 statetranslation 失败: {exc}")
+        return
+    if not rows:
+        return
+
+    for row in rows:
+        row.suffix = suffix_index_key(row.uniqueName)
+    try:
+        await StateTranslation.bulk_update(
+            rows, fields=["suffix"], batch_size=_STATE_TRANSLATION_BACKFILL_BATCH
+        )
+        logger.info(f"数据库升级：回填 statetranslation.suffix {len(rows)} 行")
+    except Exception as exc:
+        logger.warning(f"回填 statetranslation.suffix 失败: {exc}")
 
 
 # ============================================================

@@ -108,3 +108,56 @@ def get_last_three_segments(path: str, sep: str = "/") -> str | None:
     if len(parts) <= 3:
         return sep.join(parts)
     return sep.join(parts[-3:])
+
+
+def reverse_path(text: str, sep: str = "/") -> str:
+    """把路径按分隔符倒序拼接（尾段在前）。
+
+    用于「后缀匹配」的索引列：原路径 ``/Lotus/Weapons/Braton/Barrel``
+    变成 ``Barrel/Braton/Weapons/Lotus``，这样「路径以某几段结尾」
+    就等价于「倒序字符串以该几段的倒序开头」，可以用 B 树索引做前缀范围查询，
+    不再需要 ``LIKE '%kw'`` 全表扫描。
+
+    示例::
+
+        >>> reverse_path("/Lotus/Weapons/Braton/Barrel")
+        'Barrel/Braton/Weapons/Lotus'
+        >>> reverse_path("A/B")
+        'B/A'
+        >>> reverse_path("")
+        ''
+
+    Args:
+        text: 分隔符分隔的路径字符串。
+        sep: 分隔符，默认 "/"。
+
+    Returns:
+        倒序后的字符串；空路径返回空串。
+    """
+    return sep.join(reversed([part for part in text.split(sep) if part]))
+
+
+def suffix_index_key(text: str, sep: str = "/") -> str:
+    """构造 ``suffix`` 索引列的键：倒序路径 + 结尾分隔符。
+
+    结尾补一个分隔符，是为了让「路径恰好只有这几段」也能用一条前缀范围
+    命中（``suffix`` 以 ``key + sep`` 开头即可），不必再单独做等值查询。
+
+    示例::
+
+        >>> suffix_index_key("/Lotus/Weapons/Braton/Barrel")
+        'Barrel/Braton/Weapons/Lotus/'
+        >>> suffix_index_key("A/B")
+        'B/A/'
+        >>> suffix_index_key("")
+        ''
+
+    Args:
+        text: 分隔符分隔的路径字符串。
+        sep: 分隔符，默认 "/"。
+
+    Returns:
+        索引键；空路径返回空串（调用方应跳过）。
+    """
+    reversed_path = reverse_path(text, sep)
+    return f"{reversed_path}{sep}" if reversed_path else ""

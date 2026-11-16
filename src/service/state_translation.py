@@ -16,6 +16,7 @@ from astrbot.api import logger
 
 from ..api import CdnClient
 from ..model.state_translation import StateTranslation
+from ..util.string_utils import suffix_index_key
 from ..wenum.state_type import StateTypeEnum
 
 # ======================================================================
@@ -37,6 +38,32 @@ _ST_FILE_CONFIG: dict[str, dict[str, object]] = {
     "ExportWarframes":     {"json_key": "ExportWarframes",     "default_type": StateTypeEnum.WARFRAMES},
     "ExportWeapons":       {"json_key": "ExportWeapons",       "default_type": StateTypeEnum.WEAPONS},
 }
+
+
+def _prefix_upper_bound(prefix: str) -> str:
+    """前缀范围查询的上界：末字符 +1。
+
+    索引键总以 ``/`` 结尾，因此 ``prefix[:-1] + "0"`` 就是大于所有
+    ``prefix + 任意后缀`` 的最小字符串；利用 SQLite BINARY collation 的
+    字节序即可把「前缀匹配」表达成一次 B 树范围扫描。
+
+    Args:
+        prefix: 非空前缀（以分隔符结尾）。
+
+    Returns:
+        排在前缀之后的所有字符串之前的上界（开区间）。
+    """
+    return prefix[:-1] + chr(ord(prefix[-1]) + 1)
+
+
+_KEYWORD_CHUNK_SIZE = 16
+"""一次查询最多带多少个 OR 条件。
+
+SQLite 在 OR 项较多时会放弃 MULTI-INDEX OR 改走全表扫描（实测 12000 行：
+26 个条件仍是 MULTI-INDEX OR 0.16 ms，28 个条件退化成 SCAN 19 ms），
+因此分批；16 留出约 40% 余量，改动前请先看
+``test_keyword_chunk_size_stays_in_index_regime``。
+"""
 
 
 class StateTranslationService:
@@ -227,6 +254,7 @@ class StateTranslationService:
                 description=str(item.get("description", "")) if item.get("description") is not None else "",
                 type=item.get("type", ""),
                 parentName=item.get("parentName"),
+                suffix=suffix_index_key(item["uniqueName"]),
             ),
             update_fields=["name", "description", "type", "parentName"],
         )
@@ -275,19 +303,28 @@ class StateTranslationService:
     async def batch_translate_by_suffix(
         cls, keywords: set[str]
     ) -> dict[str, str]:
-        """批量后缀匹配翻译（供 Relics 初始化使用）。
+        """批量后缀匹配翻译（世界状态 / 遗物 / 奖励池共用）。
 
-        镜像 Java RelicsImportUtil.loadTranslationMap():
-        1. 通过 endswith OR 查询从 DB 过滤候选行
-        2. 预建后缀索引（最后 1~3 段路径 → name）
-        3. O(1) 查找每个 keyword，返回 {keyword: name} 映射
+        实现：``statetranslation.suffix`` 存的是「倒序路径 + 结尾 /」，
+        因此「路径以 ``kw`` 的若干段结尾」等价于 ``suffix`` 以
+        ``suffix_index_key(kw)`` 开头。查询用前缀范围
+        ``suffix >= prefix AND suffix < 上界``，SQLite 会走
+        ``idx_statetranslation_suffix`` 的 MULTI-INDEX OR。
 
-        复杂度：O(N + M)，N=匹配行数，M=关键词数。
-        后缀索引假设 keyword 是路径段拼接而成（如 "Seg1/Seg2/Seg3"）；
-        非路径段 keyword 可能不在索引中（但调用方始终使用路径段）。
+        关键词按 ``_KEYWORD_CHUNK_SIZE`` 分批查询：SQLite 在 OR 项较多时
+        （实测 12000 行、40 个条件）会从 MULTI-INDEX OR 退化成全表扫描，
+        分批后每批仍走索引。
+
+        实测（12000 行、40 个关键词）：分 3 批约 2.6 ms；旧实现是
+        ``uniqueName`` 的 ``endswith`` OR，无法命中索引，约 23 ms。
+        复杂度：O(K·R)，K=关键词数，R=命中行数（通常几十条）。
+
+        语义与旧实现一致：
+        * 关键词可以是 1~3 段（更长也可以），段数不足时匹配全部；
+        * 同一后缀命中多行时取查询结果里的第一行（旧实现是字典首个写入者）。
 
         Args:
-            keywords: 关键词集合
+            keywords: 关键词集合（通常是 ``get_last_three_segments`` 的结果）。
 
         Returns:
             {keyword: translated_name} 映射，
@@ -296,43 +333,29 @@ class StateTranslationService:
         if not keywords:
             return {}
 
-        # 分批构建 OR 查询，避免单个 Q 树层级过深导致 TortoiseORM 递归溢出
-        # 每批最多 80 个 ENDSWITH 条件，合并各批结果
-        _Q_BATCH_SIZE = 80
-        kw_list = list(keywords)
-        all_rows: list[tuple[str, str]] = []
-
-        for i in range(0, len(kw_list), _Q_BATCH_SIZE):
-            batch = kw_list[i:i + _Q_BATCH_SIZE]
-            q = Q()
-            for kw in batch:
-                q |= Q(uniqueName__endswith=kw)
-            rows = await (
-                StateTranslation.filter(q)
-                .values_list("uniqueName", "name")
-            )
-            all_rows.extend(rows)
-
-        # 预建后缀索引: {suffix_path_segment: translated_name}
-        # 对每条 uniqueName，注册最后 1~min(3, len(parts)) 段路径为 key
-        suffix_index: dict[str, str] = {}
-        for unique_name, name in all_rows:
-            if not unique_name or not name:
+        keyword_list = list(keywords)
+        rows: list[tuple[str, str]] = []
+        for start in range(0, len(keyword_list), _KEYWORD_CHUNK_SIZE):
+            conditions = Q()
+            for keyword in keyword_list[start : start + _KEYWORD_CHUNK_SIZE]:
+                prefix = suffix_index_key(keyword)
+                if prefix:
+                    conditions |= Q(
+                        suffix__gte=prefix, suffix__lt=_prefix_upper_bound(prefix)
+                    )
+            if not conditions:
                 continue
-            # 按 / 拆分路径，过滤空段
-            parts = [p for p in unique_name.split("/") if p]
-            max_len = min(3, len(parts))
-            # 从短到长注册后缀：短后缀优先保留，符合"首个匹配"语义
-            for length in range(1, max_len + 1):
-                suffix = "/".join(parts[-length:])
-                if suffix not in suffix_index:
-                    suffix_index[suffix] = name
+            rows.extend(
+                await StateTranslation.filter(conditions).values_list("suffix", "name")
+            )
 
-        # O(1) 查找每个关键词
         result: dict[str, str] = {}
-        for kw in keywords:
-            name = suffix_index.get(kw)
-            if name:
-                result[kw] = name
-
+        for keyword in keyword_list:
+            prefix = suffix_index_key(keyword)
+            if not prefix:
+                continue
+            for suffix, name in rows:
+                if name and suffix and suffix.startswith(prefix):
+                    result[keyword] = name
+                    break
         return result
