@@ -45,12 +45,21 @@ COMMAND_HANDLERS: dict[str, tuple[str, str]] = {
     "裂隙": ("wf_fissures", "wf_fissures"),
     "钢铁裂隙": ("wf_fissures", "wf_fissures_steel_path"),
     "九重天裂隙": ("wf_fissures", "wf_fissures_void_storms"),
+    "入侵": ("wf_invasions", "wf_invasions"),
     "奸商": ("wf_void_trader", "wf_void_trader"),
     "钢铁": ("wf_steel_path", "wf_steel_path"),
     "仲裁": ("wf_arbitration", "wf_arbitration"),
     "仲裁表": ("wf_arbitration", "wf_arbitration_table"),
+    "执刑官猎杀": ("wf_lite_sortie", "wf_lite_sortie"),
     "1999": ("wf_calendar_seasons", "wf_calendar_1999"),
+    "每日特惠": ("wf_daily_deals", "wf_daily_deals"),
+    "轮换": ("wf_duviri", "wf_duviri"),
+    "电波": ("wf_season_info", "wf_season_info"),
+    "希图斯": ("wf_syndicate", "wf_syndicate_cetus"),
+    "英择谛": ("wf_syndicate", "wf_syndicate_entrati"),
+    "索拉里斯": ("wf_syndicate", "wf_syndicate_solaris"),
     "金垃圾": ("wf_market_dump", "wf_market_god_dump"),
+    "银垃圾": ("wf_market_dump", "wf_market_silver_dump"),
 }
 
 
