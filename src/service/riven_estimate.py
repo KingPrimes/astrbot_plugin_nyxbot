@@ -332,7 +332,9 @@ def build_estimate(profile: WeaponProfile | None, attributes) -> RivenEstimate |
         持续 DPS   = 单发期望 × 射速 × 多重 × 装填占空比
 
     * 元素词条以修改后的基础伤害为基数；
-    * ``暴击率' = min(原暴击率 + Σ暴击率词条, 1.0)``，超出部分记「未计」；
+    * 词条百分比一律**相对于基础值**（wiki ``Total = Base × (1 + Σ Bonus)``），
+      不是直接加到最终值上的百分点；
+    * ``暴击率' = min(原暴击率 × (1 + Σ暴击率词条%), 1.0)``，超出部分记「未计」；
     * 多重按等效乘算（独立弹丸，期望可加）。
 
     Args:
@@ -360,7 +362,12 @@ def build_estimate(profile: WeaponProfile | None, attributes) -> RivenEstimate |
         skipped.append("暴击")
         base_crit_factor = 1.0
     else:
-        raw_chance = profile.critical_chance + _sum_attr(attributes, CRIT_CHANCE_ATTR) / 100
+        # 暴击率词条是**相对基础暴击率**的加成（wiki：Braton 12% 配 Point Strike
+        # +150% 与 Argon Scope +135% 得 12% × (1 + 150% + 135%) = 46.2%），
+        # 不是往最终值上加百分点。写成加法会把 20% + 50% 算成 70%（应为 30%）。
+        raw_chance = profile.critical_chance * (
+            1 + _sum_attr(attributes, CRIT_CHANCE_ATTR) / 100
+        )
         crit_chance = min(raw_chance, 1.0)
         if raw_chance > 1.0:
             skipped.append("暴击率溢出")
