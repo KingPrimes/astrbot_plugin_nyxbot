@@ -30,6 +30,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from ..service.riven_estimate import (
+    DAMAGE_ATTR,
+    build_elements,
+    element_hints,
+)
 from . import card_frame as frame
 from . import components as C
 from .card_size import CardSpec, CustomBlock, measure_card_size
@@ -50,7 +55,7 @@ if TYPE_CHECKING:
     from PIL import Image
 
     from ..service.riven_analyse import RivenAnalyseResult
-    from ..service.riven_estimate import WeaponProfile
+    from ..service.riven_estimate import ElementShare, WeaponProfile
     from .card_renderer import CardRenderer
 
 # ---------------------------------------------------------------- 版式常量
@@ -72,6 +77,12 @@ _DIFF_LINE_H = 16
 _STAT_SIZE = 19
 #: 次要属性串字号。
 _SECONDARY_SIZE = 15
+#: 构成条高度。
+_BAR_H = 10
+#: 图例字号。
+_LEGEND_SIZE = 15
+#: 图例色块边长（色块承担颜色语义，文字保持可读的中性色）。
+_SWATCH = 8
 #: 变体身份第二行（类型 · 段位）字号。
 _META_SIZE = 16
 #: 属性一致时的退化提示字号。
@@ -127,6 +138,12 @@ class _Variant:
     stats: list[_StatRow] = field(default_factory=list)
     secondary: str = ""
     secondary_lines: list[str] = field(default_factory=list)
+    segments: list[ElementShare] = field(default_factory=list)
+    """构成条分段（伤害类型 + 数值 + 来源）。"""
+    legend_lines: list[list[tuple[str, RGB]]] = field(default_factory=list)
+    """图例，已按宽度折行。"""
+    hints: list[str] = field(default_factory=list)
+    """复合元素组合提示。"""
     show_diff: bool = True
     """本卡是否展示与基准的差异。"""
     stack_diff: bool = False
@@ -329,6 +346,73 @@ def _secondary_text(profile: WeaponProfile | None) -> str:
     return " · ".join(parts)
 
 
+def _blend(first: RGB, second: RGB, ratio: float) -> RGB:
+    """两色线性混合（``ratio=0`` 取 first）。"""
+    return tuple(  # type: ignore[return-value]
+        round(a + (b - a) * ratio) for a, b in zip(first, second, strict=True)
+    )
+
+
+def _tint(palette, index: int, total: int) -> RGB:
+    """灰蓝色系取档：自带元素用同色系不同明度区分，不抢紫卡的紫色。
+
+    色带刻意走「蓝 → 青蓝 → 银蓝」，避开紫调——紫色是紫卡新增元素的
+    专用语义，自带元素若也偏紫，条上就分不清哪一段是紫卡带来的。
+    """
+    ramp = [
+        palette.blue,
+        _blend(palette.blue, palette.icon_credits, 0.6),
+        palette.icon_credits,
+        palette.icon_platinum,
+    ]
+    if total <= 1:
+        return ramp[0]
+    position = index / (total - 1) * (len(ramp) - 1)
+    left = min(int(position), len(ramp) - 2)
+    return _blend(ramp[left], ramp[left + 1], position - left)
+
+
+def _segment_colors(shares: list[ElementShare], palette) -> list[RGB]:
+    """每段伤害的颜色：自带元素灰蓝，紫卡新增元素紫色。"""
+    weapon_total = sum(1 for share in shares if not share.from_riven)
+    colors: list[RGB] = []
+    weapon_index = 0
+    for share in shares:
+        if share.from_riven:
+            colors.append(palette.rarity_legendary)
+        else:
+            colors.append(_tint(palette, weapon_index, weapon_total))
+            weapon_index += 1
+    return colors
+
+
+def _legend_lines(
+    shares: list[ElementShare],
+    colors: list[RGB],
+    max_width: int,
+    text_font,
+) -> list[list[tuple[str, RGB]]]:
+    """图例按宽度折行（``元素名 数值 (来源)`` 之间用大间距分隔）。
+
+    每项前面带一个色块，宽度按「色块 + 间隙 + 文字」计入。
+    """
+    lines: list[list[tuple[str, RGB]]] = []
+    current: list[tuple[str, RGB]] = []
+    cursor = 0
+    for share, color in zip(shares, colors, strict=True):
+        text = share.label
+        item_w = _SWATCH + SPACE["xs"] + C.measure(text, text_font)
+        gap = SPACE["lg"] if current else 0
+        if current and cursor + gap + item_w > max_width:
+            lines.append(current)
+            current, cursor, gap = [], 0, 0
+        current.append((text, color))
+        cursor += gap + item_w
+    if current:
+        lines.append(current)
+    return lines
+
+
 def _wrap_parts(text: str, max_width: int, text_font, max_lines: int = 2) -> list[str]:
     """按 ``·`` 分段换行。
 
@@ -408,6 +492,9 @@ def _build_card(group: list[RivenAnalyseResult], total: int, palette) -> _Card:
         )
     )
     stats = _stat_matrix(profiles)
+    damage_bonus = sum(
+        attr.attr for attr in head.attributes or [] if attr.name == DAMAGE_ATTR
+    )
 
     variants: list[_Variant] = []
     for index, result in enumerate(group):
@@ -415,6 +502,12 @@ def _build_card(group: list[RivenAnalyseResult], total: int, palette) -> _Card:
         meta_parts = [result.weapon_type]
         if result.profile is not None and result.profile.mastery_req is not None:
             meta_parts.append(f"段位 {result.profile.mastery_req}")
+
+        shares = (
+            build_elements(result.profile, head.attributes, damage_bonus)
+            if result.profile is not None and not same_all
+            else []
+        )
         variants.append(
             _Variant(
                 name=main,
@@ -422,6 +515,8 @@ def _build_card(group: list[RivenAnalyseResult], total: int, palette) -> _Card:
                 meta=" · ".join(part for part in meta_parts if part),
                 stats=[] if same_all else stats[index],
                 secondary="" if same_all else _secondary_text(result.profile),
+                segments=shares,
+                hints=element_hints(shares) if shares else [],
                 same=same_all,
             )
         )
@@ -461,7 +556,7 @@ def _variant_height(card: _Card, variant: _Variant) -> int:
     height += _META_SIZE  # 类型 · 段位
     if variant.same:
         return height + SPACE["lg"] + _HINT_SIZE
-    if not variant.stats and not variant.secondary_lines:
+    if not variant.stats and not variant.secondary_lines and not variant.segments:
         return height
     height += SPACE["xl"]
     if variant.stats:
@@ -473,6 +568,18 @@ def _variant_height(card: _Card, variant: _Variant) -> int:
         height += SPACE["sm"]
         height += len(variant.secondary_lines) * _SECONDARY_SIZE
         height += (len(variant.secondary_lines) - 1) * SPACE["xs"]
+    if variant.segments:
+        height += SPACE["xl"]
+        height += _composition_height(variant)
+    return height
+
+
+def _composition_height(variant: _Variant) -> int:
+    """伤害构成段高度：小标题 + 条 + 图例 + 组合提示（不含段前间距）。"""
+    height = _LABEL_H + SPACE["sm"] + _BAR_H + SPACE["sm"]
+    height += len(variant.legend_lines) * (_LEGEND_SIZE + SPACE["xs"])
+    if variant.hints:
+        height += SPACE["xs"] + len(variant.hints) * (_HINT_SIZE + 2)
     return height
 
 
@@ -651,6 +758,55 @@ def _draw_stat_rows(
     return y
 
 
+def _draw_composition(page, variant: _Variant, x: int, y: int, width: int) -> int:
+    """伤害构成：横向堆叠条 + 图例 + 复合元素提示（§3.2）。"""
+    palette = page.palette
+    cb = page.cb
+
+    _draw_section_label(page, "伤害构成", x, y)
+    y += _LABEL_H + SPACE["sm"]
+
+    total = sum(share.value for share in variant.segments) or 1.0
+    colors = _segment_colors(variant.segments, palette)
+    cursor = x
+    for index, (share, color) in enumerate(zip(variant.segments, colors, strict=True)):
+        last = index == len(variant.segments) - 1
+        segment_w = (
+            width - (cursor - x)
+            if last
+            else max(2, round(width * share.value / total))
+        )
+        cb.set_color(color)
+        cb.fill_rect(cursor, y, max(0, segment_w), _BAR_H)
+        # 段间留 1px 缝：同一色系的相邻段在 10px 高时几乎分不开
+        if not last:
+            cb.set_color(palette.surface_alt)
+            cb.fill_rect(cursor + segment_w - 1, y, 1, _BAR_H)
+        cursor += segment_w
+    y += _BAR_H + SPACE["sm"]
+
+    legend_font = font_px(_LEGEND_SIZE)
+    for line in variant.legend_lines:
+        cursor = x
+        for text, color in line:
+            cb.set_color(color)
+            cb.fill_rect(cursor, y + (_LEGEND_SIZE - _SWATCH) // 2, _SWATCH, _SWATCH)
+            cursor += _SWATCH + SPACE["xs"]
+            cb.set_color(palette.text_muted).set_font(legend_font)
+            cb.add_text(text, cursor, y)
+            cursor += C.measure(text, legend_font) + SPACE["lg"]
+        y += _LEGEND_SIZE + SPACE["xs"]
+
+    if variant.hints:
+        y += SPACE["xs"]
+        hint_font = font_px(_HINT_SIZE)
+        for hint in variant.hints:
+            cb.set_color(palette.text_dim).set_font(hint_font)
+            cb.add_text(C.fit_text(hint, width, hint_font), x, y)
+            y += _HINT_SIZE + 2
+    return y
+
+
 def _draw_variant(page, card: _Card, variant: _Variant, x: int, y: int, width: int) -> None:
     """D 区：一张变体卡。"""
     palette = page.palette
@@ -716,6 +872,10 @@ def _draw_variant(page, card: _Card, variant: _Variant, x: int, y: int, width: i
         for line in variant.secondary_lines:
             cb.add_text(line, inner_x, cursor)
             cursor += _SECONDARY_SIZE + SPACE["xs"]
+
+    if variant.segments:
+        cursor += SPACE["xl"]
+        cursor = _draw_composition(page, variant, inner_x, cursor, inner_w)
 
 
 def _draw_variant_header(page, card: _Card, y: int) -> int:
@@ -797,7 +957,7 @@ def _diff_fits(card: _Card, variant: _Variant, inner_w: int) -> bool:
     return True
 
 
-def _finalize_card(card: _Card, content_w: int) -> None:
+def _finalize_card(card: _Card, content_w: int, palette) -> None:
     """定稿：按最终列宽切次要属性串、决定是否画差异、算出卡高。"""
     columns = card.scale.columns
     available = (content_w - (columns - 1) * _GAP) // columns
@@ -812,12 +972,23 @@ def _finalize_card(card: _Card, content_w: int) -> None:
 
     inner_w = card.scale.card_w - _CARD_PAD * 2
     sec_font = font_px(_SECONDARY_SIZE)
+    legend_font = font_px(_LEGEND_SIZE)
     # 是否折行按整卡决定：只要有一张卡的差异放不下，全部卡都折行，
     # 否则同一行里各卡行高不同，跨列纵向对齐立刻崩掉。
     stack = any(not _diff_fits(card, variant, inner_w) for variant in card.variants)
     for variant in card.variants:
         variant.secondary_lines = (
             _wrap_parts(variant.secondary, inner_w, sec_font) if variant.secondary else []
+        )
+        variant.legend_lines = (
+            _legend_lines(
+                variant.segments,
+                _segment_colors(variant.segments, palette),
+                inner_w,
+                legend_font,
+            )
+            if variant.segments
+            else []
         )
         variant.stack_diff = stack
 
@@ -867,7 +1038,7 @@ def render_riven_analyse_card(
     content_w = canvas_w - PAD * 2
 
     for card in cards:
-        _finalize_card(card, content_w)
+        _finalize_card(card, content_w, palette)
 
     total_h = sum(card.height for card in cards) + max(0, len(cards) - 1) * SPACE["xl"]
     size = measure_card_size(
