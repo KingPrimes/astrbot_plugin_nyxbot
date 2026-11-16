@@ -92,8 +92,9 @@ _META_SIZE = 16
 _HINT_SIZE = 15
 #: 注脚字号。
 _FOOTNOTE_SIZE = 14
-#: 每列变体卡宽度（§5）。
-_COLUMN_WIDTH = {1: 640, 2: 330, 3: 216}
+#: 变体卡宽度（§5）：单变体占满内容区，其余一律两列。
+#: 三列曾试过，216px 下属性名与差异必然互相挤，视觉上又臃肿，已废弃。
+_COLUMN_WIDTH = {1: 640, 2: 330}
 
 #: 变体徽标：这些词是变体标识，永不截断（区分变体靠的就是它们）。
 _BADGES: tuple[str, ...] = ("Prime", "亡魂", "赤毒", "破坏者", "圣洁", "棱晶", "亡者")
@@ -443,21 +444,20 @@ def _wrap_parts(text: str, max_width: int, text_font, max_lines: int = 2) -> lis
 
 
 def _scale_for(columns: int, card_w: int) -> _Scale:
-    """按列数取字号规格（§5：3 列时变体名降到 20，估算数字降到 26）。"""
-    if columns >= 3:
-        return _Scale(columns, card_w, name_size=20, stat_size=16, diff_size=13, estimate_size=26)
+    """字号规格：变体名 21（比武器名的 24 略降一档，仍是正文档位）。"""
     return _Scale(
-        columns, card_w, name_size=21, stat_size=_STAT_SIZE, diff_size=14, estimate_size=32
+        columns,
+        card_w,
+        name_size=21,
+        stat_size=_STAT_SIZE,
+        diff_size=14,
+        estimate_size=32,
     )
 
 
 def _columns_for(count: int) -> int:
-    """变体数 → 列数（§5：1 / 2 / 3 列，4 个以上走 2 列网格）。"""
-    if count <= 1:
-        return 1
-    if count == 3:
-        return 3
-    return 2
+    """变体数 → 列数：单变体占满，其余一律两列（§5，最多两列）。"""
+    return 1 if count <= 1 else 2
 
 
 def _family_name(results: list[RivenAnalyseResult]) -> str:
@@ -591,7 +591,7 @@ def _estimate_height(variant: _Variant, scale: _Scale) -> int:
     height += scale.estimate_size + SPACE["xs"]
     height += _DECOMP_SIZE
     if variant.estimate is not None and variant.estimate.dps is not None:
-        height += _DECOMP_SIZE + 2
+        height += _DECOMP_SIZE + SPACE["xs"]
     if variant.estimate is not None and variant.estimate.skipped:
         height += SPACE["xs"] + _LABEL_SIZE + 2
     # 末行字形会比标称行高多下探几像素，补一点避免贴边
@@ -892,7 +892,7 @@ def _draw_estimate(page, variant: _Variant, scale: _Scale, x: int, y: int, width
     y += _DECOMP_SIZE
 
     if dps_line:
-        y += 2
+        y += SPACE["xs"]
         cb.set_color(palette.text_muted).set_font(decomp_font)
         cb.add_text(C.fit_text(dps_line, width, decomp_font), x, y)
         y += _DECOMP_SIZE
@@ -1168,12 +1168,15 @@ def render_riven_analyse_card(
         for start in range(0, len(card.variants), columns):
             row = card.variants[start : start + columns]
             row_h = max(_variant_height(card, variant) for variant in row)
+            # 末行不足一整行时居中，避免孤零零贴在左边
+            row_w = len(row) * card.scale.card_w + (len(row) - 1) * _GAP
+            row_x = grid_x + max(0, (grid_w - row_w) // 2)
             for index, variant in enumerate(row):
                 _draw_variant(
                     page,
                     card,
                     variant,
-                    grid_x + index * (card.scale.card_w + _GAP),
+                    row_x + index * (card.scale.card_w + _GAP),
                     y + offset,
                     card.scale.card_w,
                 )
