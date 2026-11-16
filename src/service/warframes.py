@@ -137,6 +137,14 @@ class WarframesService:
         if not warframes:
             logger.warning("战甲数据为空，跳过")
             return False
+        if not abilities:
+            # 导出里有战甲却没有任何技能：多半是下载不完整、或来源格式变了。
+            # 若照常重建，会先删光现有技能、再跳过插入、并返回 True——静默清库。
+            # 这里整次同步按失败处理，保留库里的旧数据，等下次启动重试。
+            logger.warning(
+                f"{filename} 未解析出任何战甲技能，视为异常导出，跳过战甲同步"
+            )
+            return False
 
         logger.info(
             f"已解析 {filename}: {len(warframes)} 个战甲、{len(abilities)} 条技能"
