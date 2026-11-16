@@ -283,12 +283,21 @@ def _is_riven_name_ex(s: str) -> bool:
 # 布局判定
 # =============================================================================
 
-def _is_negative_attr(attr: _ParsedAttribute) -> bool:
+def _is_negative_attr(attr: _ParsedAttribute, base: RivenBase | None = None) -> bool:
     """判断一条词条是不是负词条。
 
+    * **仅负向词条**（wiki 表脚注 ³，如「几率不获得连击数」）：无论卡面
+      数值正负都算负词条——它只存在负向版本，卡面显示正数是 OCR 把
+      符号读丢了，按符号判定会套上正向布局系数（0.99 / 0.75），
+      区间与整卡布局全错；
     * 歧视词条卡面是倍率：``x0.5`` 是减半（诅咒），``x1.06`` 是正词条；
     * 后坐力这类反向词条：数值为正反而是负词条（后坐力变大）。
+
+    ``RivenBase.positive_only`` 故意**不**参与判定：负的复合元素
+    （爆炸 / 腐蚀 / 毒气…）是合法的诅咒词条，强制取正会把真实数据改错。
     """
+    if base is not None and base.negative_only:
+        return True
     if _is_discrimination(attr.raw):
         return attr.attribute < 1
     return _is_negative_attribute(attr.attribute_name, attr.attribute)
@@ -323,7 +332,7 @@ def _fit_layout(
             low, high = compute_range(
                 base.value_for(kind) if kind else None,
                 layout,
-                _is_negative_attr(attr),
+                _is_negative_attr(attr, base),
             )
             if low == 0 and high == 0:
                 continue
@@ -831,7 +840,9 @@ class RivenAnalyseService:
         kind = _weapon_kind(weapon)
         pairs = [(attr, lookup_base(attr.name)) for attr in parsed.attributes]
 
-        negative_count = sum(1 for attr, _ in pairs if _is_negative_attr(attr))
+        negative_count = sum(
+            1 for attr, base in pairs if _is_negative_attr(attr, base)
+        )
         positive_count = len(pairs) - negative_count
 
         # 布局先按「正负条数」定，再用实际数值校验（OCR 漏掉负词条时纠正）
@@ -846,7 +857,7 @@ class RivenAnalyseService:
         attrs: list[ResultAttribute] = []
         for attr, base in pairs:
             base_value = _select_base(base, kind) if base is not None else None
-            is_neg = _is_negative_attr(attr)
+            is_neg = _is_negative_attr(attr, base)
             low, high = compute_range(base_value, layout, is_neg)
 
             attrs.append(
