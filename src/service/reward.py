@@ -50,8 +50,9 @@ class RewardService:
 
         new_pool_count = 0
         if new_pools:
-            created = await RewardPool.bulk_create(new_pools)
-            new_pool_count = len(created) if created else 0
+            await RewardPool.bulk_create(new_pools)
+            # 同 simple_upsert：bulk_create 的返回值不可依赖（手动主键模型返回 None）
+            new_pool_count = len(new_pools)
 
         # Phase 2: 批量插入 Reward + 建立 M2M 关联（增量 diff 模式）
         # ─────────────────────────────────────────────────────────────

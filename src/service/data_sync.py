@@ -96,8 +96,11 @@ class DataSyncService:
             ]
             new_count = 0
             if new_instances:
-                created = await model_cls.bulk_create(new_instances)
-                new_count = len(created) if created else 0
+                # 计数用待插入列表长度，**不要**依赖 ``bulk_create`` 的返回值：
+                # tortoise 1.1.7 对「手动指定主键」的模型返回 None（SQLite 实测），
+                # 照它计数会恒为 0——日志里插了 122 行却写「本次新增 0 条」。
+                await model_cls.bulk_create(new_instances)
+                new_count = len(new_instances)
 
             # Update: 脏检测（仅当提供 update_fields 时）
             # bulk_update 使用 CASE WHEN 语法，需分批避免 SQLite 参数上限
