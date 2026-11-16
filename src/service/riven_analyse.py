@@ -492,6 +492,33 @@ def _riven_index_rows(
     ]
 
 
+#: 武器名索引缓存的生存期（秒）。武器数据只在数据同步时变化，但分析层
+#: 感知不到同步完成时刻，用短 TTL 自愈：同步后台跑完最多一分钟内生效，
+#: 不需要跨模块的失效回调。
+_WEAPON_INDEX_TTL = 60.0
+_weapon_index_cache: tuple[float, list[tuple[str, str]]] | None = None
+
+
+async def _weapon_match_index() -> list[tuple[str, str]]:
+    """武器名匹配索引（带 TTL 缓存）。
+
+    每次分析都全表拉 ~839 行 ``weapons`` 只为做模糊匹配；这个成本可以省。
+    """
+    global _weapon_index_cache
+    now = time.monotonic()
+    if (
+        _weapon_index_cache is not None
+        and now - _weapon_index_cache[0] < _WEAPON_INDEX_TTL
+    ):
+        return _weapon_index_cache[1]
+    rows = await Weapons.all().values_list(
+        "name", "uniqueName", "productCategory"
+    )
+    index = _riven_index_rows(rows)
+    _weapon_index_cache = (now, index)
+    return index
+
+
 def _weapon_type_display(weapon: Weapons) -> str:
     """武器类型展示名（取 ``ProductCategory.display_name``）。"""
     cat = weapon.productCategory
@@ -714,10 +741,7 @@ class RivenAnalyseService:
         candidates = [
             cls._apply_char_replace(name) for name in parsed.weapon_candidates
         ]
-        rows = await Weapons.all().values_list(
-            "name", "uniqueName", "productCategory"
-        )
-        match = _match_weapon_name(candidates, _riven_index_rows(rows))
+        match = _match_weapon_name(candidates, await _weapon_match_index())
         logger.debug(
             "武器匹配耗时 %.2fs, 候选=%s, 命中阶段=%s, 匹配到 %d 把",
             time.perf_counter() - weapon_t0,
