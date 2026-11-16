@@ -58,6 +58,19 @@ class RetryLogLevel(Enum):
     ERROR = "error"
 
 
+class NonRetryableHttpError(Exception):
+    """4xx 客户端错误 — 重试不会改变结果，直接放弃。
+
+    典型场景：CDN 地址拼错（空版本号）、仓库/文件不存在、鉴权失败。
+    以前这类错误也被当作可重试，一次初始化要白等 3 次退避（5/10/20 秒）。
+    """
+
+    def __init__(self, status: int, url: str) -> None:
+        self.status = status
+        self.url = url
+        super().__init__(f"HTTP {status}: {url}")
+
+
 class HttpMethod(str, Enum):
     """HTTP 请求方法枚举。
 
@@ -154,6 +167,8 @@ async def _fetch(
     params: dict[str, Any] | None = None,
     headers: dict[str, str] | None = None,
     timeout: aiohttp.ClientTimeout = DEFAULT_TIMEOUT,
+    *,
+    raise_on_client_error: bool = False,
 ) -> Any | None:
     """内部通用 GET 请求 — 统一会话获取、状态码检查、异常处理。
 
@@ -175,8 +190,14 @@ async def _fetch(
         ) as resp:
             if resp.status < 200 or resp.status >= 300:
                 logger.warning(f"HTTP {resp.status} 请求失败: {url}")
+                # 4xx 是客户端错误（地址拼错、文件不存在、鉴权失败），重试无意义；
+                # 429（限流）除外，它过一会儿是可能恢复的。
+                if raise_on_client_error and 400 <= resp.status < 500 and resp.status != 429:
+                    raise NonRetryableHttpError(resp.status, url)
                 return None
             return await response_handler(resp)
+    except NonRetryableHttpError:
+        raise
     except asyncio.TimeoutError:
         logger.error(f"请求超时: {url}")
         return None
@@ -194,6 +215,8 @@ async def fetch_json(
     headers: dict[str, str] | None = None,
     timeout: aiohttp.ClientTimeout = DEFAULT_TIMEOUT,
     content_type: str | None = None,
+    *,
+    raise_on_client_error: bool = False,
 ) -> Any | None:
     """发送 GET 请求并返回 JSON 响应。
 
@@ -203,13 +226,19 @@ async def fetch_json(
         headers: 额外请求头。
         timeout: 超时设置。
         content_type: 强制指定 content_type（某些 API 返回类型不标准）。
+        raise_on_client_error: 4xx（429 除外）抛 ``NonRetryableHttpError``
+            而不是返回 None，供重试层区分"重试无意义"。
 
     Returns:
         解析后的 JSON 数据，失败返回 None。
+
+    Raises:
+        NonRetryableHttpError: ``raise_on_client_error=True`` 且响应为 4xx 时。
     """
     return await _fetch(
         url, lambda resp: resp.json(content_type=content_type),
         params, headers, timeout,
+        raise_on_client_error=raise_on_client_error,
     )
 
 
@@ -276,10 +305,16 @@ async def fetch_json_with_retry(
     templates = {**_DEFAULT_LOG_TEMPLATES, **(log_templates or {})}
 
     for attempt in range(1, max_retries + 1):
-        data = await fetch_json(
-            url, params=params, headers=headers,
-            timeout=timeout, content_type=content_type,
-        )
+        try:
+            data = await fetch_json(
+                url, params=params, headers=headers,
+                timeout=timeout, content_type=content_type,
+                raise_on_client_error=True,
+            )
+        except NonRetryableHttpError as exc:
+            # 4xx：地址拼错 / 文件不存在 / 鉴权失败，重试只会白等退避时间
+            logger.error(f"HTTP {exc.status} 不可重试，放弃: {exc.url}")
+            return None
         if data is not None:
             info_tpl = templates.get(RetryLogLevel.INFO)
             if info_tpl:

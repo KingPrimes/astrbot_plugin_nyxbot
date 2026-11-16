@@ -47,13 +47,15 @@ class CdnClient:
                         "获取最新版本号失败（第 {attempt}/{max_retries} 次），"
                         "{retry_delay} 秒后重试..."
                     ),
-                    RetryLogLevel.ERROR: "获取最新版本号失败，已重试 {max_retries} 次，将使用无版本号的 CDN 地址",
+                    RetryLogLevel.ERROR: "获取最新版本号失败，已重试 {max_retries} 次，将回退使用 @latest",
                 },
             )
             tag: str = data[0]["name"] if data else ""
             _tag_cache[cache_key] = tag
             if tag:
                 logger.info(f"获取到 DataSource 最新版本: {tag}")
+            else:
+                logger.warning("未能获取 DataSource 版本号，将回退使用 @latest")
             return tag
 
     @classmethod
@@ -63,12 +65,22 @@ class CdnClient:
 
     @classmethod
     async def _base_url(cls) -> str:
-        """获取当前配置的 CDN 基础 URL，自动拼接最新版本号。"""
+        """获取当前配置的 CDN 基础 URL，自动拼接最新版本号。
+
+        配置默认值以 ``@`` 结尾（``.../DataSource@``），正常路径拼成
+        ``...@v1.0.3`` 精确 pin 到 tag。拿不到 tag 时**不能**保留结尾的
+        ``@``——jsDelivr 会把空版本号当坏请求返回 400（曾导致整套 CDN 数据
+        静默全部丢失）；也不宜直接去掉 ``@``，那会落到默认分支 HEAD（可能是
+        未发布的半成品）。改用 ``@latest``，由 jsDelivr 解析到最新 tag，
+        语义与正常路径一致。
+        """
         base = get_wf_data_source_cdn()
         if base.endswith("@"):
             tag = await cls._get_latest_tag()
             if tag:
                 return base + tag
+            # 回退 @latest（失败提示由 _get_latest_tag 打一次，这里不重复刷屏）
+            return base + "latest"
         return base
 
     @classmethod
