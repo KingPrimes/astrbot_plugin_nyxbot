@@ -45,6 +45,7 @@ from .riven_base import (
     compute_range,
     lookup as lookup_base,
 )
+from .riven_estimate import WeaponProfile, profile_from_weapon
 
 if TYPE_CHECKING:
     from PIL import Image as PILImage
@@ -123,7 +124,12 @@ class ResultAttribute:
 
 @dataclass
 class RivenAnalyseResult:
-    """单把武器的紫卡分析结果。"""
+    """单把武器的紫卡分析结果。
+
+    同一张紫卡能装在全部同族变体上，且 44.1.3 起倾向统一为 1.2，
+    词条部分在所有变体上逐字相同。因此卡片按「一条结果 = 一个变体」
+    组织，词条由渲染层从首个变体上提到共享层，只画一次。
+    """
 
     weapon_name: str
     riven_name: str | None
@@ -136,6 +142,17 @@ class RivenAnalyseResult:
 
     layout_source: str = "count"
     """布局来源：``count``（按词条正负计数）/ ``fit``（按数值反推）。"""
+
+    profile: WeaponProfile | None = None
+    """武器基础属性快照（卡片属性区与估算的输入）；离线构造结果时可为 ``None``。"""
+
+    def attribute_signature(self) -> tuple[tuple[str, float], ...]:
+        """词条指纹（名称 + 数值），用于判定变体之间词条是否一致。
+
+        跨武器类型时（极少数情况）同一条词条的区间会不同，卡片据此
+        把变体分组，避免把「不一致的词条」当共享层画出去。
+        """
+        return tuple((attr.name, round(attr.attr, 4)) for attr in self.attributes)
 
 
 class AnalyseStatus(StrEnum):
@@ -860,4 +877,5 @@ class RivenAnalyseService:
             attributes=attrs,
             layout=layout.label,
             layout_source=layout_source,
+            profile=profile_from_weapon(weapon),
         )

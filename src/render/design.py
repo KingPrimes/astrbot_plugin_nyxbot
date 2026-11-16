@@ -202,16 +202,8 @@ def _resolve_font() -> tuple[str, int, bool] | None:
     return None
 
 
-def font(
-    size_key: str, bold: bool = False
-) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    """按字阶取字体（带缓存）。
-
-    Args:
-        size_key: ``FONT`` 的键（xs/sm/base/md/lg/xl/2xl）。
-        bold: 是否用粗体。可变字体按权重轴切换（400 / 700）。
-    """
-    size = FONT[size_key]
+def _face(size: int, bold: bool) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    """按像素取字体（内部实现，``font`` / ``font_px`` 共用缓存）。"""
     weight = 700 if bold else 400
     picked = _resolve_font()
     if picked is None:
@@ -228,6 +220,35 @@ def font(
                 pass
         _font_cache[cache_key] = face
     return _font_cache[cache_key]
+
+
+def font(
+    size_key: str, bold: bool = False
+) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    """按字阶取字体（带缓存）。
+
+    Args:
+        size_key: ``FONT`` 的键（xs/sm/base/md/lg/xl/2xl）。
+        bold: 是否用粗体。可变字体按权重轴切换（400 / 700）。
+    """
+    return _face(FONT[size_key], bold)
+
+
+def font_px(
+    size: int, bold: bool = False
+) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    """按像素取字体（带缓存），用于设计稿给出非 7 档数值的场景。
+
+    ``FONT`` 是全局字阶，绝大多数卡片只该用它；但个别卡片的版式文档
+    会钉死中间值（如紫卡卡片的变体名 21 / 属性行 19 / 估算数字 32），
+    这些数值属于该卡片自身的视觉规格，不适合塞进全局字阶。此函数让
+    这类卡片仍走同一套字体解析与缓存，不必自己 ``ImageFont.truetype``。
+
+    Args:
+        size: 像素字号。
+        bold: 是否用粗体。
+    """
+    return _face(int(size), bold)
 
 
 #: 图标 → 调色板字段。图标身份（青 / 金 / 银蓝）固定，明暗只调明度。
