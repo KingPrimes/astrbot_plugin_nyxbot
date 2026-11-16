@@ -435,6 +435,11 @@ def _weapon_kind(weapon: Weapons) -> str | None:
 
     守护武器按描述/名称归并到 shotgun / melee / rifle；
     带 ``霰弹枪`` / ``散弹枪`` 描述的武器统一走 shotgun。
+
+    曲翼近战（``SpaceMelee``）走 **melee** 列：基础值表的 archwing 列是
+    「曲翼枪械」，而估算层对 SpaceMelee 按 ``melee=True`` 处理（无多重 /
+    无弹匣、``fireRate`` 是攻击速度）——两处必须同一口径，否则曲翼近战
+    会拿着枪械数值走近战公式。
     """
     cat = weapon.productCategory
     desc = weapon.description or ""
@@ -455,7 +460,7 @@ def _weapon_kind(weapon: Weapons) -> str | None:
         ProductCategory.LONG_GUNS.value: "rifle",
         ProductCategory.MELEE.value: "melee",
         ProductCategory.SPACE_GUNS.value: "archwing",
-        ProductCategory.SPACE_MELEE.value: "archwing",
+        ProductCategory.SPACE_MELEE.value: "melee",
         ProductCategory.SHOTGUNS.value: "shotgun",
         ProductCategory.SPECIAL_ITEMS.value: None,
         ProductCategory.CREW_SHIP_WEAPONS.value: None,
