@@ -152,12 +152,7 @@ class WarframesService:
 
         # 技能是纯参考数据，且同一技能可挂多个战甲——单键 upsert 表达不了
         # 这种多对一关系，直接全量重建最稳妥（也顺带刷新技能文案）。
-        await WarframeAbility.all().delete()
-        if abilities:
-            await WarframeAbility.bulk_create(
-                [WarframeAbility(**item) for item in abilities],
-                batch_size=_ABILITY_BATCH_SIZE,
-            )
+        await cls._rebuild_abilities(abilities)
 
         total_w = await Warframes.all().count()
         total_a = await WarframeAbility.all().count()
@@ -165,3 +160,21 @@ class WarframesService:
             f"战甲数据初始化完成，共 {total_w} 个战甲、{total_a} 条技能"
         )
         return True
+
+    @classmethod
+    async def _rebuild_abilities(cls, abilities: list[dict]) -> None:
+        """技能表全量重建：删除与重建在**同一事务**里。
+
+        否则 ``bulk_create`` 失败（或进程中断）时删除已提交，技能表留空，
+        调用方看到的是「无技能」而不是「同步失败」——与
+        ``data_sync`` / ``relics`` / ``reward`` 的多步写约定一致。
+        """
+        from tortoise.transactions import in_transaction
+
+        async with in_transaction():
+            await WarframeAbility.all().delete()
+            if abilities:
+                await WarframeAbility.bulk_create(
+                    [WarframeAbility(**item) for item in abilities],
+                    batch_size=_ABILITY_BATCH_SIZE,
+                )
