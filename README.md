@@ -6,7 +6,7 @@
 
 AstrBot 的 Warframe 助手插件，提供世界状态查询、市场交易、紫卡分析、订阅通知等功能。
 
-[![AstrBot](https://img.shields.io/badge/AstrBot-%3E%3D4.23.5-blue)](https://github.com/AstrBotDevs/AstrBot)
+[![AstrBot](https://img.shields.io/badge/AstrBot-%3E%3D4.23.5%2C%3C5-blue)](https://github.com/AstrBotDevs/AstrBot)
 [![Python](https://img.shields.io/badge/Python-%3E%3D3.12-green)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
 
@@ -311,7 +311,7 @@ astrbot_plugin_nyxbot/
 
 | 类别 | 技术 | 说明 |
 |------|------|------|
-| 框架 | [AstrBot](https://github.com/AstrBotDevs/AstrBot) | 插件框架（`>=4.23.5`） |
+| 框架 | [AstrBot](https://github.com/AstrBotDevs/AstrBot) | 插件框架（`>=4.23.5,<5`） |
 | 数据库 | TortoiseORM + SQLite | 异步 ORM，本地 SQLite 存储 |
 | 渲染 | Pillow | 信息卡片直接绘制，无需浏览器 |
 | OCR | PaddleOCR PP-OCRv5 | 移动端模型，CPU 推理 |
