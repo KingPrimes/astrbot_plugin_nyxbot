@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 import orjson
@@ -12,6 +13,12 @@ import orjson
 from astrbot.api import logger
 
 from ..model.export.warframes import WarframeAbility, Warframes
+
+#: 同一进程内战甲同步互斥。
+#: 启动导入与后台数据管理的「同步」按钮可能并发触发；技能表没有唯一约束，
+#: 两个 delete + create 交错（都在对方插入前完成删除）会插入两份完整列表。
+#: 战甲表的 batch_upsert 是按键幂等的，不需要锁，只锁技能重建这一段。
+_SYNC_LOCK = asyncio.Lock()
 
 #: 战甲表需要 upsert 的字段（``uniqueName`` 是主键，不列入）。
 _WARFRAME_UPDATE_FIELDS: tuple[str, ...] = (
@@ -160,7 +167,8 @@ class WarframesService:
 
         # 技能是纯参考数据，且同一技能可挂多个战甲——单键 upsert 表达不了
         # 这种多对一关系，直接全量重建最稳妥（也顺带刷新技能文案）。
-        await cls._rebuild_abilities(abilities)
+        async with _SYNC_LOCK:
+            await cls._rebuild_abilities(abilities)
 
         total_w = await Warframes.all().count()
         total_a = await WarframeAbility.all().count()
