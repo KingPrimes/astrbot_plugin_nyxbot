@@ -270,16 +270,20 @@ class StateTranslationService:
     async def get_state_translation(
         cls, unique_name: str
     ) -> str | None:
-        """根据唯一名称获取状态翻译名称。
+        """根据唯一名称（``uniqueName``，精确匹配）获取状态翻译名称。
+
+        注意：字段名是 ``uniqueName``，不是 ``unique_name``。写错时
+        Tortoise 会抛 ``FieldError``（不是 ``DoesNotExist``），调用方若用
+        ``contextlib.suppress(Exception)`` 兜住就会静默失效。
 
         Args:
-            unique_name: 唯一名称。
+            unique_name: 唯一名称（完整 ``uniqueName``）。
 
         Returns:
             翻译后的名称，未找到返回 None。
         """
         try:
-            st = await StateTranslation.get(unique_name=unique_name)
+            st = await StateTranslation.get(uniqueName=unique_name)
             return st.name
         except DoesNotExist:
             return None
