@@ -146,13 +146,18 @@ class RivenAnalyseResult:
     profile: WeaponProfile | None = None
     """武器基础属性快照（卡片属性区与估算的输入）；离线构造结果时可为 ``None``。"""
 
-    def attribute_signature(self) -> tuple[tuple[str, float], ...]:
-        """词条指纹（名称 + 数值），用于判定变体之间词条是否一致。
+    def attribute_signature(self) -> tuple[tuple[str, float, float, float], ...]:
+        """词条指纹（名称 + OCR 数值 + 理论区间），用于判定变体之间词条是否一致。
 
-        跨武器类型时（极少数情况）同一条词条的区间会不同，卡片据此
-        把变体分组，避免把「不一致的词条」当共享层画出去。
+        只有名称与 OCR 数值相同**不代表**区间相同：不同武器类型查的是基础值表
+        的不同列（步枪 / 手枪 / 近战…），算出的 ``(low, high)`` 会不同。指纹若
+        不含区间，``_group_results`` 会把这些变体合进一组，``_build_card`` 只展示
+        首个变体的区间与差异，其余候选的分析结果被静默丢弃。
         """
-        return tuple((attr.name, round(attr.attr, 4)) for attr in self.attributes)
+        return tuple(
+            (attr.name, round(attr.attr, 4), round(attr.low, 4), round(attr.high, 4))
+            for attr in self.attributes
+        )
 
 
 class AnalyseStatus(StrEnum):
