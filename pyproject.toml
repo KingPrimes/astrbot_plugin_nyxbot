@@ -5,9 +5,13 @@ description = "astrbot的warframe助手插件，目标实现与nyxbot功能相�
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    # 注意：aiohttp / pydantic / Pillow 与 AstrBot Core 共享。
+    # AstrBot >= 4.29 会用「Core 已安装版本」作为硬约束安装插件依赖，
+    # 因此这里的下限必须 <= Core 允许的最低版本，且不能升级为精确版本，
+    # 否则会触发 DependencyConflictError（核心依赖降级保护）。
+    # 详细规则见 requirements.txt 顶部说明。
     # Web / Network
-    "aiohttp>=3.13.5",
-    "httpx>=0.28.0",
+    "aiohttp>=3.11.18",
     # Data / Serialization
     "orjson>=3.11.8",
     "pydantic>=2.0.0",
@@ -17,13 +21,10 @@ dependencies = [
     "Pillow>=11.0.0",
     # Caching
     "cachetools>=5.5.0",
-    # Scheduling
-    "apscheduler>=3.11.0",
     # OCR (PaddleOCR / PP-OCRv5)
     "paddlepaddle>=3.0.0",
     "paddleocr>=2.9.0",
     # Utility
-    "python-dateutil>=2.9.0",
     "pyyaml>=6.0",
     # 搜索索引：中文名称的拼音键（纯 Python，无编译依赖）
     "pypinyin>=0.55.0",
