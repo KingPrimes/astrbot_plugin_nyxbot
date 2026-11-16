@@ -232,7 +232,14 @@ async def get_engine():
     """
     global _tortoise_initialized, _engine_lock
 
-    _db_path: str = str(Path(get_public_data_path()) / "nyxbot.db")
+    # SQLite 不会创建目录，缺目录时只报 "unable to open database file"，
+    # 看不出是路径问题。这里与其它写入点（export_downloader / arbitration /
+    # settings）保持一致，打开库之前先确保数据目录存在——不能只依赖
+    # ``get_public_data_path()`` 里 ``StarTools.get_data_dir()`` 的建目录副作用，
+    # 它被进程内缓存包着，目录被删（用户清理、迁移、重装）之后不会再触发。
+    _data_dir = Path(get_public_data_path())
+    _data_dir.mkdir(parents=True, exist_ok=True)
+    _db_path: str = str(_data_dir / "nyxbot.db")
     logger.debug(f"数据库路径: {_db_path}")
     if not _tortoise_initialized:
         if _engine_lock is None:

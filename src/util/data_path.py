@@ -23,9 +23,13 @@ def get_public_data_path() -> str:
     模块，而 ``data_path`` 不是注册过的插件主模块，反查必然抛
     ``RuntimeError``。显式传名后不依赖框架初始化状态，模块导入期也可用
     （``export_downloader`` 在导入时就取路径）。
+
+    缓存只在目录**仍然存在**时复用：``StarTools.get_data_dir()`` 建目录的
+    副作用跟着缓存一起被跳过的话，用户删掉数据目录（清理、迁移、重装）后
+    再重载插件，``sqlite3`` 只会报 ``unable to open database file``。
     """
     global _CACHED_DATA_DIR
 
-    if _CACHED_DATA_DIR is None:
+    if _CACHED_DATA_DIR is None or not _CACHED_DATA_DIR.is_dir():
         _CACHED_DATA_DIR = Path(StarTools.get_data_dir(get_plugin_name()))
     return str(_CACHED_DATA_DIR)
