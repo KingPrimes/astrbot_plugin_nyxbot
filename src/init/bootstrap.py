@@ -29,6 +29,9 @@ from ..config import (
     get_data_init_mode,
     normalize_data_init_mode,
 )
+# 补跑门控要查这两张参考表；模型只依赖 tortoise，顶层导入不构成循环
+from ..model.export.warframes import Warframes
+from ..model.export.weapons import Weapons as WeaponsModel
 from ..util.alias_cache import invalidate_alias_cache
 from ..util.search_index import invalidate as invalidate_search_index
 from ..util.search_index import start_prewarm as start_index_prewarm
@@ -130,6 +133,46 @@ async def _run_stage(name: str, func: SyncFunc) -> bool:
     return True
 
 
+async def _run_sync_tasks(tasks: list[tuple[str, SyncFunc]]) -> list[str]:
+    """并发执行同步任务，返回失败的阶段名（``_import_all`` 与补跑共用）。"""
+    if not tasks:
+        return []
+    results = await asyncio.gather(
+        *(func() for _, func in tasks), return_exceptions=True
+    )
+    failed: list[str] = []
+    for (name, _), result in zip(tasks, results, strict=True):
+        if isinstance(result, BaseException):
+            logger.error(f"数据同步失败：{name} — {result}")
+            failed.append(name)
+        elif result is False:
+            logger.error(f"数据同步失败：{name} — 返回 False")
+            failed.append(name)
+    return failed
+
+
+async def _reference_backfill_tasks() -> list[tuple[str, SyncFunc]]:
+    """参考表为空或关键列未回填时需要补跑的同步任务。
+
+    数据源从 stub 变成实现、或模型新增字段后，现有用户升级上来不该等到
+    下一次全量才落库。判断依据是「有没有数据」而不是版本号，跑过一次后
+    自然跳过。
+    """
+    # 服务层与 init 包互相引用（WarframesService → get_engine），
+    # 只能函数内导入，与本文件 _import_all 的做法一致
+    from ..service import WarframesService, WeaponsService
+
+    tasks: list[tuple[str, SyncFunc]] = []
+    try:
+        if await Warframes.all().count() == 0:
+            tasks.append(("战甲（首次落库）", WarframesService.sync_data))
+        if await WeaponsModel.filter(slamAttack__not_isnull=True).count() == 0:
+            tasks.append(("武器（补新列）", WeaponsService.sync_data))
+    except Exception as exc:
+        logger.debug(f"检查参考表是否需要补跑失败: {exc}")
+    return tasks
+
+
 async def _import_all(plan: UpdatePlan) -> bool:
     """按更新计划执行数据导入。
 
@@ -201,31 +244,11 @@ async def _import_all(plan: UpdatePlan) -> bool:
             ("战甲", WarframesService.sync_data),
         ]
     else:
-        # 参考表为空或关键列未回填时补跑一次：数据源从 stub 变成实现、
-        # 或模型新增字段后，现有用户升级上来不该等到下一次全量才落库。
-        # 判断依据是「有没有数据」而不是版本号，跑过一次后自然跳过。
-        from ..model.export.warframes import Warframes
-        from ..model.export.weapons import Weapons as WeaponsModel
-
-        try:
-            if await Warframes.all().count() == 0:
-                parallel.append(("战甲（首次落库）", WarframesService.sync_data))
-            if await WeaponsModel.filter(slamAttack__not_isnull=True).count() == 0:
-                parallel.append(("武器（补新列）", WeaponsService.sync_data))
-        except Exception as exc:
-            logger.debug(f"检查参考表是否需要补跑失败: {exc}")
+        # 参考表为空或关键列未回填时补跑一次（见 _reference_backfill_tasks）。
+        parallel += await _reference_backfill_tasks()
 
     if parallel:
-        results = await asyncio.gather(
-            *(func() for _, func in parallel), return_exceptions=True
-        )
-        for (name, _), result in zip(parallel, results, strict=True):
-            if isinstance(result, BaseException):
-                logger.error(f"数据同步失败：{name} — {result}")
-                failed.append(name)
-            elif result is False:
-                logger.error(f"数据同步失败：{name} — 返回 False")
-                failed.append(name)
+        failed += await _run_sync_tasks(parallel)
 
     # 阶段 3：依赖翻译/奖励数据的表，串行执行
     serial: list[tuple[str, SyncFunc]] = []
@@ -304,11 +327,22 @@ async def _bootstrap_data(mode: str | None) -> bool:
     # 数据齐备：只看 DataSource 版本差异，按变化数据集增量导入
     plan = await plan_update()
     if plan.empty:
+        # 参考表补跑**不依赖 DataSource 是否发版**：数据源从 stub 变成实现、
+        # 模型新增字段之后，老用户升级（tag 未变 → plan.empty → 直接返回）
+        # 也必须落库，否则战甲表永远空着、武器新列永远没数据。
+        # 这是评审发现的高危缺陷——补跑检查原本只写在 _import_all 里，
+        # 而全量导入之外的唯一入口恰恰会被 plan.empty 挡住。
+        backfill = await _reference_backfill_tasks()
+        if backfill:
+            logger.info(f"参考表需要补跑：{', '.join(name for name, _ in backfill)}")
+            failed = await _run_sync_tasks(backfill)
+            if failed:
+                logger.warning(f"参考表补跑未成功：{', '.join(failed)}")
         logger.info(
             f"DataSource 版本未变（{plan.tag or '未知'}），跳过数据导入"
             f"（{len(counts)} 张表 / {total_rows} 行）"
         )
-        return False
+        return bool(backfill)
 
     logger.info(
         f"DataSource 有新版本 {plan.tag or '（未知）'}，仅更新变化的数据集"
