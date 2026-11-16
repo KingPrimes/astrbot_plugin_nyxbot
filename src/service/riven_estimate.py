@@ -247,6 +247,14 @@ CRIT_DAMAGE_ATTR = "暴击伤害"
 SLAM_ATTR = "震地攻击伤害"
 HEAVY_ATTR = "重击伤害"
 
+#: 影响第四步（持续 DPS）的速度类词条。
+#: 这些词条此前完全没有参与估算：带 +100% 射速 / +100% 多重的紫卡，
+#: 算出来的 DPS 与不带时一模一样，等于在卡片上凭空抹掉了这几类词条。
+RATE_ATTR = "射速/攻击速度"
+MULTISHOT_ATTR = "多重射击"
+MAGAZINE_ATTR = "弹匣容量"
+RELOAD_ATTR = "装填速度"
+
 
 @dataclass(frozen=True)
 class RivenEstimate:
@@ -329,8 +337,10 @@ def build_estimate(profile: WeaponProfile | None, attributes) -> RivenEstimate |
         基础伤害'  = totalDamage × (1 + Σ伤害词条%)
         单发总伤害 = 基础伤害' × (1 + Σ元素词条%)
         单发期望   = 单发总伤害 × (1 + 暴击率' × (暴击倍率' - 1))
-        持续 DPS   = 单发期望 × 射速 × 多重 × 装填占空比
+        持续 DPS   = 单发期望 × 射速' × 多重' × 装填占空比'
 
+    * 带撇号的量都含紫卡词条：射速' / 攻击速度'、多重'、弹匣'、装填时间'
+      （装填速度 +X% → 时间 ÷ (1 + X%)）；不带撇号的只用于算 baseline；
     * 元素词条以修改后的基础伤害为基数；
     * 词条百分比一律**相对于基础值**（wiki ``Total = Base × (1 + Σ Bonus)``），
       不是直接加到最终值上的百分点；
@@ -414,32 +424,62 @@ def build_estimate(profile: WeaponProfile | None, attributes) -> RivenEstimate |
         if profile.slam_radial_damage:
             skipped.append("震地范围伤害")
 
-    fire_rate = profile.fire_rate
-    multishot = float(profile.multishot or 1)
+    # ── 第四步：射速 / 多重 / 弹匣 / 装填同样吃紫卡词条 ──
+    # ``baseline_dps`` 必须用未修改的基础速度算，否则「提升幅度」的分子分母
+    # 都含同一份加成，+100% 射速会显示成 +0%。
+    rate_bonus = _sum_attr(attributes, RATE_ATTR)
+    multishot_bonus = _sum_attr(attributes, MULTISHOT_ATTR)
+    magazine_bonus = _sum_attr(attributes, MAGAZINE_ATTR)
+    reload_bonus = _sum_attr(attributes, RELOAD_ATTR)
+
+    base_rate = profile.fire_rate
+    fire_rate = base_rate * (1 + rate_bonus / 100) if base_rate else None
+    base_multishot = float(profile.multishot or 1)
+    multishot = base_multishot * (1 + multishot_bonus / 100)
+
     duty: float | None = None
     dps: float | None = None
     baseline_dps: float | None = None
     if profile.melee:
         # 近战没有弹匣 / 装填 / 多重：持续 DPS 就是「单次期望 × 攻击速度」，
-        # 不乘装填占空比（那会把近战 DPS 算低一个量级）。
+        # 不乘装填占空比（那会把近战 DPS 算低一个量级）。攻击速度词条有效。
         if fire_rate and fire_rate > 0:
             dps = per_shot * fire_rate
-            baseline_dps = baseline_per_shot * fire_rate
+            baseline_dps = baseline_per_shot * base_rate
         else:
             skipped.append("持续 DPS")
-    elif (
-        fire_rate
-        and profile.magazine_size
-        and profile.reload_time is not None
-        and fire_rate > 0
-    ):
-        duty = profile.magazine_size / (
-            profile.magazine_size + profile.reload_time * fire_rate
-        )
-        dps = per_shot * fire_rate * multishot * duty
-        baseline_dps = baseline_per_shot * fire_rate * multishot * duty
     else:
-        skipped.append("持续 DPS")
+        magazine = (
+            profile.magazine_size * (1 + magazine_bonus / 100)
+            if profile.magazine_size
+            else None
+        )
+        # 装填速度 +X% 是「装得更快」，时间要除：t' = t / (1 + X%)。
+        reload_factor = 1 + reload_bonus / 100
+        reload_time = (
+            profile.reload_time / reload_factor
+            if profile.reload_time is not None and reload_factor > 0
+            else None
+        )
+        if (
+            fire_rate
+            and fire_rate > 0
+            and multishot > 0
+            and magazine
+            and magazine > 0
+            and reload_time is not None
+            and reload_time >= 0
+        ):
+            duty = magazine / (magazine + reload_time * fire_rate)
+            dps = per_shot * fire_rate * multishot * duty
+            baseline_duty = profile.magazine_size / (
+                profile.magazine_size + profile.reload_time * base_rate
+            )
+            baseline_dps = (
+                baseline_per_shot * base_rate * base_multishot * baseline_duty
+            )
+        else:
+            skipped.append("持续 DPS")
 
     return RivenEstimate(
         base_damage=base_damage,
