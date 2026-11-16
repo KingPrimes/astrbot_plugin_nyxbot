@@ -543,17 +543,24 @@ def _compact(text: str) -> str:
     return re.sub(r"[\s·・]+", "", text or "").lower()
 
 
-def _pinyin_key(name: str) -> str:
-    """名称的拼音键（带模糊音归一化），纯 ASCII 名称返回空串。"""
+def _pinyin_key(name: str, *, cache: bool = True) -> str:
+    """名称的拼音键（带模糊音归一化），纯 ASCII 名称返回空串。
+
+    ``cache=False`` 用于 **OCR 候选**：它们来自用户截图、几乎每次都不同，
+    缓存会让字典随使用无限增长（进程常驻、无淘汰）。武器库侧的名称
+    数量有限（~839 条），缓存它们才有收益。
+    """
     cached = _PINYIN_CACHE.get(name)
     if cached is not None:
         return cached
     if not re.search(r"[一-龥]", name):
-        _PINYIN_CACHE[name] = ""
+        if cache:
+            _PINYIN_CACHE[name] = ""
         return ""
     syllables = [s for s in lazy_pinyin(name, style=Style.NORMAL, errors="ignore") if s]
     key = fuzzy_pinyin("".join(syllables))
-    _PINYIN_CACHE[name] = key
+    if cache:
+        _PINYIN_CACHE[name] = key
     return key
 
 
@@ -585,7 +592,7 @@ def _match_weapon_name(
     """
     prepared = [(name, uid, _compact(name)) for name, uid in rows if name]
     queries = [
-        (cand, compact, _pinyin_key(cand))
+        (cand, compact, _pinyin_key(cand, cache=False))
         for cand in candidates
         if (compact := _compact(cand))
     ]
