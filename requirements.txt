@@ -26,8 +26,16 @@ pillow>=11.0.0
 # --- 插件私有：钉死版本保证可复现 ---
 cachetools==7.1.1
 orjson==3.11.9
-paddleocr==3.5.0
-paddlepaddle==3.3.1
+# OCR：RapidOCR(onnxruntime 后端) + PP-OCRv6 small 模型（随 wheel 内置，零下载）
+#
+# 不要换回 paddleocr / paddlepaddle：paddlepaddle 3.x 的 Linux wheel 是
+# 编译期硬编码 AVX 的，在没有 AVX 的 CPU（如 Pentium G2030 / Ivy Bridge）上
+# import 就触发 SIGILL，整个进程当场死亡，Python 层拦不住。
+# onnxruntime 的 CPU 内核按 CPUID 运行时选择，SSE/AVX/AVX2 机器都能跑。
+#
+# onnxruntime 钉 1.23.1 是与 NyxBot-Go 内嵌版本对齐的已验证组合，别随手升。
+rapidocr==3.10.0
+onnxruntime==1.23.1
 pypinyin==0.55.0
 pyyaml==6.0.3
 tortoise-orm==1.1.7

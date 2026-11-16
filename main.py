@@ -91,7 +91,8 @@ class NyxBotPlugin(Star):
             if not is_offline_mode(mode):
                 # 后台预热仲裁：缓存优先，never 模式完全不联网（不阻塞主流程）
                 ArbitrationService.start(allow_network=allows_network(mode))
-                # 初始化 OCR 引擎（PaddleOCR 模型下载 + 加载）
+                # 初始化 OCR 子进程（RapidOCR + onnxruntime，模型随 wheel 内置）
+                # 独立进程运行：原生层崩溃只死 worker，不会带走 bot 主进程
                 tasks.append(OcrService().initialize())
 
             results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -163,6 +164,9 @@ class NyxBotPlugin(Star):
             self._disable_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await self._disable_task
+
+        # 关闭 OCR 子进程（必须在事件循环还活着时做，否则 worker 会残留）
+        await OcrService().close()
 
         # 停止 WorldState 后台刷新
         await WorldStateService.stop_cache()

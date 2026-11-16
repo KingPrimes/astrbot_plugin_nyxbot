@@ -232,3 +232,6 @@ CLAUDE.md
 
 # 本地预览临时目录（mock bridge / 截图 / 脚本产物）
 .tmp/
+
+# pytest tmp_path 基准目录（Windows 下偶发落在仓库根）
+pytest-of-*/

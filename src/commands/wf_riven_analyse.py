@@ -4,7 +4,7 @@
   1. 用户发送 /紫卡分析（或 /分析紫卡 / /Wfen）
   2. 若同消息内已带图片 → 直接 OCR 分析
   3. 否则提示发送图片，进入 30 秒会话等待
-  4. 收到图片 → PaddleOCR 识别 → 武器/词条解析 → 倾向计算 → 卡片渲染
+  4. 收到图片 → OCR 识别（RapidOCR 子进程）→ 武器/词条解析 → 倾向计算 → 卡片渲染
 
 与 Java RivenAnalysePlugin 对应的别名 ``Wfen`` 来自
 ``CommandConstants.WARFRAME_RIVEN_ANALYSE_CMD``。

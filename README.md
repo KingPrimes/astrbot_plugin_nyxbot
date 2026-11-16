@@ -22,7 +22,7 @@ AstrBot 的 Warframe 助手插件，提供世界状态查询、市场交易、�
 | 💰 **市场交易** | 对接 Warframe.Market API，查询物品订单、紫卡拍卖、赤毒/信条武器行情、金/银垃圾回收价 |
 | 🔮 **紫卡分析** | OCR 识别紫卡截图 → 武器/词条解析 → wiki 常量表区间计算 → 伤害构成与紫卡加成估算 → 多卡片可视化渲染 |
 | 📢 **订阅通知** | 群组任务订阅，定时推送世界状态变更通知（警报/突击/裂隙/入侵/奸商/仲裁等） |
-| 🔍 **OCR 识别** | 基于 PaddleOCR PP-OCRv5 的文字识别，支持游戏截图解析 |
+| 🔍 **OCR 识别** | 基于 RapidOCR（PP-OCRv6 + onnxruntime）的文字识别，独立子进程运行，支持游戏截图解析 |
 | 🌐 **中英翻译** | Warframe 物品/状态中英文名称互查，支持别名模糊匹配 |
 | ⚙️ **数据管理** | Plugin Pages 管理后台：别名、翻译、紫卡词条等数据的可视化 CRUD，并可在页面内直接修改插件配置 |
 
@@ -142,7 +142,7 @@ WebUI 里只有一个视图 `nyxbot-admin`（`pages/nyxbot-admin/`），左侧�
 
 基础设施
   src/api/         →  Warframe.Market API / 世界状态 API / CDN 客户端
-  src/ocr/         →  PaddleOCR PP-OCRv5 文字识别服务
+  src/ocr/         →  RapidOCR 文字识别服务（独立子进程）
   src/wenum/       →  枚举定义（派系 / 任务类型 / 裂隙类型 / 元素 / 极性 / 伤害）
   src/util/        →  工具函数（HTTP 重试 / 缓存 / 时间格式化 / 字符串 / 压缩）
   src/init/        →  初始化引擎（TortoiseORM 连接 / 导出文件下载）
@@ -212,7 +212,19 @@ cd astrbot_plugin_nyxbot
 uv sync
 ```
 
-> **注意**：PaddleOCR 首次运行时会自动下载 PP-OCRv5 移动端模型（约 10MB）至 `~/.paddlex/official_models/`。
+> **注意**：OCR 模型（PP-OCRv6 small，约 31MB）随 `rapidocr` wheel 一起安装，
+> 首次运行不需要联网下载。推理在独立子进程中进行，原生层崩溃不会影响 bot 主进程。
+>
+> **从旧版本升级**：早期版本依赖 `paddleocr` / `paddlepaddle`，请先卸载，
+> 否则会残留约 200MB 无用依赖：
+>
+> ```bash
+> pip uninstall -y paddlepaddle paddleocr paddlex
+> ```
+>
+> `paddlepaddle` 3.x 的 Linux wheel 编译期硬编码 AVX，在没有 AVX 的 CPU
+> （如 Pentium G2030）上 `import` 即触发 SIGILL，会导致整个进程退出——
+> 这是本项目改用 onnxruntime 的直接原因。
 
 ---
 
@@ -292,7 +304,7 @@ astrbot_plugin_nyxbot/
 │   │   │   └── reward/        #     奖励池
 │   │   ├── market/            #   市场模型（订单、紫卡拍卖、赤毒信条、杜卡德）
 │   │   └── world_state/       #   世界状态模型（警报、突击、裂隙、入侵、周期…）
-│   ├── ocr/                   # PaddleOCR PP-OCRv5 文字识别服务
+│   ├── ocr/                   # RapidOCR 文字识别服务（worker 子进程 + 代理）
 │   ├── render/                # Pillow 卡片渲染引擎
 │   │   ├── fonts/             #   字体文件
 │   │   ├── styles/            #   看板娘立绘（1 默认 / 2 春 / 3 夏 / 4 秋 / 5 冬）
@@ -314,7 +326,7 @@ astrbot_plugin_nyxbot/
 | 框架 | [AstrBot](https://github.com/AstrBotDevs/AstrBot) | 插件框架（`>=4.23.5,<5`） |
 | 数据库 | TortoiseORM + SQLite | 异步 ORM，本地 SQLite 存储 |
 | 渲染 | Pillow | 信息卡片直接绘制，无需浏览器 |
-| OCR | PaddleOCR PP-OCRv5 | 移动端模型，CPU 推理 |
+| OCR | RapidOCR + onnxruntime | PP-OCRv6 small 模型内置，子进程隔离，CPU 推理 |
 | 调度 | asyncio | 原生异步定时任务 |
 | 网络 | httpx | 异步 HTTP 客户端 |
 | 序列化 | orjson / pydantic | 高性能 JSON 解析与数据校验 |

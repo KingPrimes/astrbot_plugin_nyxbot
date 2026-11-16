@@ -722,7 +722,7 @@ class RivenAnalyseService:
         try:
             texts = await ocr.recognize_text_only(image)
         except Exception as e:
-            logger.error(f"PaddleOCR 识别失败: {e}")
+            logger.error(f"OCR 识别失败: {e}")
             return RivenAnalyseOutcome(status=AnalyseStatus.OCR_FAILED)
         logger.debug(
             "OCR 耗时 %.2fs, 识别到 %d 行文本",
