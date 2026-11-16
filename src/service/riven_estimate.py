@@ -293,6 +293,12 @@ class RivenEstimate:
     baseline_slam: float | None = None
     baseline_heavy: float | None = None
     skipped: tuple[str, ...] = ()
+    heavy_crit_factor: float = 1.0
+    """重击用的暴击系数：重击专属词条（``重击时 x2``）的加成在此加倍。
+
+    与普通 :attr:`crit_factor` 分开，因为「暴击几率（重击时 x2）」这类词条
+    只在重击时生效——混进普通暴击率会同时把普通攻击多算、重击少算一倍。
+    """
 
     @property
     def per_shot_gain(self) -> float:
@@ -327,6 +333,22 @@ class RivenEstimate:
 
 def _sum_attr(attributes, name: str) -> float:
     return sum(attr.attr for attr in attributes or [] if attr.name == name)
+
+
+def _sum_crit_attr(attributes, *, heavy: bool) -> float:
+    """暴击率词条按「是否重击专属」分桶求和。
+
+    ``暴击几率（重击时 x2）`` 的正式名（``name``）与普通暴击几率相同，
+    区别只在 OCR 展示名（``attribute_name``）里带「重击」二字，所以分桶
+    必须看展示名。
+    """
+    total = 0.0
+    for attr in attributes or []:
+        if attr.name != CRIT_CHANCE_ATTR:
+            continue
+        if ("重击" in (attr.attribute_name or "")) == heavy:
+            total += attr.attr
+    return total
 
 
 def build_estimate(profile: WeaponProfile | None, attributes) -> RivenEstimate | None:
@@ -369,15 +391,19 @@ def build_estimate(profile: WeaponProfile | None, attributes) -> RivenEstimate |
         crit_chance = 0.0
         crit_multiplier = 1.0
         crit_factor = 1.0
+        heavy_crit_factor = 1.0
         skipped.append("暴击")
         base_crit_factor = 1.0
     else:
         # 暴击率词条是**相对基础暴击率**的加成（wiki：Braton 12% 配 Point Strike
         # +150% 与 Argon Scope +135% 得 12% × (1 + 150% + 135%) = 46.2%），
         # 不是往最终值上加百分点。写成加法会把 20% + 50% 算成 70%（应为 30%）。
-        raw_chance = profile.critical_chance * (
-            1 + _sum_attr(attributes, CRIT_CHANCE_ATTR) / 100
-        )
+        # 重击专属词条（卡面「重击时 x2」）只在重击时生效且加成翻倍，
+        # 不能混进普通暴击率——否则普通攻击被多算、重击又少算一倍。
+        normal_bonus = _sum_crit_attr(attributes, heavy=False)
+        heavy_only_bonus = _sum_crit_attr(attributes, heavy=True)
+
+        raw_chance = profile.critical_chance * (1 + normal_bonus / 100)
         # 上下界都要夹：负词条足够大时 raw_chance 会变负，代入
         # ``1 + chance × (倍率 - 1)`` 会算出负的暴击系数，卡片上就是负伤害
         # （实测 20% 基础配 -150% 词条 → chance -1.3、单发期望 -30）。
@@ -388,6 +414,15 @@ def build_estimate(profile: WeaponProfile | None, attributes) -> RivenEstimate |
             1 + _sum_attr(attributes, CRIT_DAMAGE_ATTR) / 100
         )
         crit_factor = 1 + crit_chance * (crit_multiplier - 1)
+
+        raw_heavy_chance = profile.critical_chance * (
+            1 + (normal_bonus + 2 * heavy_only_bonus) / 100
+        )
+        heavy_crit_chance = min(max(raw_heavy_chance, 0.0), 1.0)
+        if raw_heavy_chance > 1.0 and raw_chance <= 1.0:
+            skipped.append("重击暴击率溢出")
+        heavy_crit_factor = 1 + heavy_crit_chance * (crit_multiplier - 1)
+
         base_crit_factor = 1 + profile.critical_chance * (
             profile.critical_multiplier - 1
         )
@@ -415,11 +450,12 @@ def build_estimate(profile: WeaponProfile | None, attributes) -> RivenEstimate |
             skipped.append("震地")
         if profile.heavy_attack_damage:
             heavy_bonus = damage_bonus + _sum_attr(attributes, HEAVY_ATTR)
+            # 重击用重击专属暴击系数（「重击时 x2」在此加倍），不是普通系数。
             heavy = (
                 profile.heavy_attack_damage
                 * (1 + heavy_bonus / 100)
                 * element_factor
-                * crit_factor
+                * heavy_crit_factor
             )
             baseline_heavy = profile.heavy_attack_damage * base_crit_factor
         else:
@@ -504,6 +540,7 @@ def build_estimate(profile: WeaponProfile | None, attributes) -> RivenEstimate |
         baseline_slam=baseline_slam,
         baseline_heavy=baseline_heavy,
         skipped=tuple(skipped),
+        heavy_crit_factor=heavy_crit_factor,
     )
 
 
