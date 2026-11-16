@@ -194,6 +194,160 @@ def element_hints(shares: list[ElementShare]) -> list[str]:
     return hints
 
 
+# ---------------------------------------------------------------- 四步估算
+
+#: 暴击率词条 / 暴击伤害词条的正式名。
+CRIT_CHANCE_ATTR = "暴击几率"
+CRIT_DAMAGE_ATTR = "暴击伤害"
+
+
+@dataclass(frozen=True)
+class RivenEstimate:
+    """紫卡加成后的面板等效估算（§4.2 四步链路）。
+
+    每一步都是「能算到哪算到哪」：输入缺失的那一步整行不画，
+    并在 ``skipped`` 里登记，**不回退成 0 假装算过**。
+    """
+
+    base_damage: float
+    """第 1 步：``totalDamage × (1 + Σ伤害%)``。"""
+    total_damage: float
+    """第 2 步：``基础伤害' × (1 + Σ元素%)``。"""
+    per_shot: float
+    """第 3 步：单发期望（含暴击）。"""
+    dps: float | None
+    """第 4 步：持续 DPS；无射速 / 弹匣 / 装填时为 ``None``。"""
+    baseline_per_shot: float
+    """无紫卡时的单发期望（算加成幅度的分母）。"""
+    baseline_dps: float | None
+    damage_bonus: float
+    element_bonus: float
+    crit_chance: float
+    """夹到 1.0 之后的暴击率。"""
+    crit_multiplier: float
+    crit_factor: float
+    """``1 + 暴击率 × (暴击倍率 - 1)``。"""
+    fire_rate: float | None
+    multishot: float
+    duty: float | None
+    """装填占空比 ``弹匣 / (弹匣 + 装填 × 射速)``。"""
+    skipped: tuple[str, ...] = ()
+
+    @property
+    def per_shot_gain(self) -> float:
+        """单发期望相对无紫卡的提升百分比。"""
+        if not self.baseline_per_shot:
+            return 0.0
+        return (self.per_shot / self.baseline_per_shot - 1) * 100
+
+    @property
+    def dps_gain(self) -> float | None:
+        """DPS 相对无紫卡的提升百分比。"""
+        if not self.dps or not self.baseline_dps:
+            return None
+        return (self.dps / self.baseline_dps - 1) * 100
+
+    @property
+    def element_factor(self) -> float:
+        return 1 + self.element_bonus / 100
+
+
+def _sum_attr(attributes, name: str) -> float:
+    return sum(attr.attr for attr in attributes or [] if attr.name == name)
+
+
+def build_estimate(profile: WeaponProfile | None, attributes) -> RivenEstimate | None:
+    """按 §4.2 的四步链路算估算值。
+
+    ::
+
+        基础伤害'  = totalDamage × (1 + Σ伤害词条%)
+        单发总伤害 = 基础伤害' × (1 + Σ元素词条%)
+        单发期望   = 单发总伤害 × (1 + 暴击率' × (暴击倍率' - 1))
+        持续 DPS   = 单发期望 × 射速 × 多重 × 装填占空比
+
+    * 元素词条以修改后的基础伤害为基数；
+    * ``暴击率' = min(原暴击率 + Σ暴击率词条, 1.0)``，超出部分记「未计」；
+    * 多重按等效乘算（独立弹丸，期望可加）。
+
+    Args:
+        profile: 武器属性快照。
+        attributes: 词条结果。
+
+    Returns:
+        估算结果；连基础伤害都没有时返回 ``None``（画不出任何有意义的数）。
+    """
+    if profile is None or not profile.total_damage:
+        return None
+
+    damage_bonus = _sum_attr(attributes, DAMAGE_ATTR)
+    element_bonus = sum(
+        attr.attr for attr in attributes or [] if attr.name in ELEMENT_ATTRS
+    )
+    base_damage = profile.total_damage * (1 + damage_bonus / 100)
+    total_damage = base_damage * (1 + element_bonus / 100)
+
+    skipped: list[str] = []
+    if profile.critical_chance is None or profile.critical_multiplier is None:
+        crit_chance = 0.0
+        crit_multiplier = 1.0
+        crit_factor = 1.0
+        skipped.append("暴击")
+        base_crit_factor = 1.0
+    else:
+        raw_chance = profile.critical_chance + _sum_attr(attributes, CRIT_CHANCE_ATTR) / 100
+        crit_chance = min(raw_chance, 1.0)
+        if raw_chance > 1.0:
+            skipped.append("暴击率溢出")
+        crit_multiplier = profile.critical_multiplier * (
+            1 + _sum_attr(attributes, CRIT_DAMAGE_ATTR) / 100
+        )
+        crit_factor = 1 + crit_chance * (crit_multiplier - 1)
+        base_crit_factor = 1 + profile.critical_chance * (
+            profile.critical_multiplier - 1
+        )
+
+    per_shot = total_damage * crit_factor
+    baseline_per_shot = profile.total_damage * base_crit_factor
+
+    fire_rate = profile.fire_rate
+    multishot = float(profile.multishot or 1)
+    duty: float | None = None
+    dps: float | None = None
+    baseline_dps: float | None = None
+    if (
+        fire_rate
+        and profile.magazine_size
+        and profile.reload_time is not None
+        and fire_rate > 0
+    ):
+        duty = profile.magazine_size / (
+            profile.magazine_size + profile.reload_time * fire_rate
+        )
+        dps = per_shot * fire_rate * multishot * duty
+        baseline_dps = baseline_per_shot * fire_rate * multishot * duty
+    else:
+        skipped.append("持续 DPS")
+
+    return RivenEstimate(
+        base_damage=base_damage,
+        total_damage=total_damage,
+        per_shot=per_shot,
+        dps=dps,
+        baseline_per_shot=baseline_per_shot,
+        baseline_dps=baseline_dps,
+        damage_bonus=damage_bonus,
+        element_bonus=element_bonus,
+        crit_chance=crit_chance,
+        crit_multiplier=crit_multiplier,
+        crit_factor=crit_factor,
+        fire_rate=fire_rate,
+        multishot=multishot,
+        duty=duty,
+        skipped=tuple(skipped),
+    )
+
+
 def profile_from_weapon(weapon: Weapons) -> WeaponProfile:
     """把 ``Weapons`` 模型转成只读快照。
 

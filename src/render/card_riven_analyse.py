@@ -33,6 +33,7 @@ from typing import TYPE_CHECKING
 from ..service.riven_estimate import (
     DAMAGE_ATTR,
     build_elements,
+    build_estimate,
     element_hints,
 )
 from . import card_frame as frame
@@ -55,7 +56,7 @@ if TYPE_CHECKING:
     from PIL import Image
 
     from ..service.riven_analyse import RivenAnalyseResult
-    from ..service.riven_estimate import ElementShare, WeaponProfile
+    from ..service.riven_estimate import ElementShare, RivenEstimate, WeaponProfile
     from .card_renderer import CardRenderer
 
 # ---------------------------------------------------------------- 版式常量
@@ -83,6 +84,8 @@ _BAR_H = 10
 _LEGEND_SIZE = 15
 #: 图例色块边长（色块承担颜色语义，文字保持可读的中性色）。
 _SWATCH = 8
+#: 估算的乘数分解 / DPS 副行字号。
+_DECOMP_SIZE = 14
 #: 变体身份第二行（类型 · 段位）字号。
 _META_SIZE = 16
 #: 属性一致时的退化提示字号。
@@ -144,6 +147,8 @@ class _Variant:
     """图例，已按宽度折行。"""
     hints: list[str] = field(default_factory=list)
     """复合元素组合提示。"""
+    estimate: RivenEstimate | None = None
+    """紫卡加成后的估算（§4.2）。"""
     show_diff: bool = True
     """本卡是否展示与基准的差异。"""
     stack_diff: bool = False
@@ -517,6 +522,9 @@ def _build_card(group: list[RivenAnalyseResult], total: int, palette) -> _Card:
                 secondary="" if same_all else _secondary_text(result.profile),
                 segments=shares,
                 hints=element_hints(shares) if shares else [],
+                estimate=build_estimate(result.profile, head.attributes)
+                if not same_all
+                else None,
                 same=same_all,
             )
         )
@@ -571,7 +579,23 @@ def _variant_height(card: _Card, variant: _Variant) -> int:
     if variant.segments:
         height += SPACE["xl"]
         height += _composition_height(variant)
+    if variant.estimate is not None:
+        height += SPACE["xl"]
+        height += _estimate_height(variant, card.scale)
     return height
+
+
+def _estimate_height(variant: _Variant, scale: _Scale) -> int:
+    """估算段高度：小标题 + 大字 + 分解行 + DPS 行 + 未计项。"""
+    height = _LABEL_H + SPACE["xs"] + 2
+    height += scale.estimate_size + SPACE["xs"]
+    height += _DECOMP_SIZE
+    if variant.estimate is not None and variant.estimate.dps is not None:
+        height += _DECOMP_SIZE + 2
+    if variant.estimate is not None and variant.estimate.skipped:
+        height += SPACE["xs"] + _LABEL_SIZE + 2
+    # 末行字形会比标称行高多下探几像素，补一点避免贴边
+    return height + SPACE["xs"]
 
 
 def _composition_height(variant: _Variant) -> int:
@@ -807,6 +831,81 @@ def _draw_composition(page, variant: _Variant, x: int, y: int, width: int) -> in
     return y
 
 
+def _estimate_lines(
+    estimate: RivenEstimate, width: int
+) -> tuple[str, str | None, str | None]:
+    """估算段的文案：乘数分解优先给全，放不下就逐级简化。
+
+    Returns:
+        ``(分解行, DPS 副行, 未计项行)``，后两项可能为 ``None``。
+    """
+    full = (
+        f"{estimate.base_damage:,.0f} 基础"
+        f" ×{estimate.element_factor:.2f} 元素"
+        f" ×{estimate.crit_factor:.2f} 暴击"
+    )
+    short = f"×{estimate.element_factor:.2f} 元素 ×{estimate.crit_factor:.2f} 暴击"
+    decomp_font = font_px(_DECOMP_SIZE)
+    decomp = full if C.measure(full, decomp_font) <= width else short
+    if C.measure(decomp, decomp_font) > width:
+        decomp = C.fit_text(decomp, width, decomp_font)
+
+    dps_line: str | None = None
+    if estimate.dps is not None:
+        gain = estimate.dps_gain
+        suffix = f"  {gain:+.1f}%" if gain is not None else ""
+        dps_line = f"DPS {estimate.dps:,.0f}{suffix}"
+    skipped = "未计：" + "、".join(estimate.skipped) if estimate.skipped else None
+    return decomp, dps_line, skipped
+
+
+def _draw_estimate(page, variant: _Variant, scale: _Scale, x: int, y: int, width: int) -> int:
+    """紫卡加成后估算：单发期望大字 + 乘数分解 + DPS 副行 + 未计项（§4.2）。"""
+    estimate = variant.estimate
+    if estimate is None:
+        return y
+
+    palette = page.palette
+    cb = page.cb
+
+    _draw_section_label(page, "紫卡加成后 · 单发期望", x, y)
+    y += _LABEL_H + SPACE["xs"] + 2
+
+    big_font = font_px(scale.estimate_size, bold=True)
+    gain_font = font_px(16, bold=True)
+    number = f"{estimate.per_shot:,.0f}"
+    gain = f"{estimate.per_shot_gain:+.1f}%"
+    cb.set_color(palette.text).set_font(big_font)
+    cb.add_text(number, x, y)
+    cb.set_color(palette.gold).set_font(gain_font)
+    cb.add_text(
+        gain,
+        x + width - C.measure(gain, gain_font),
+        y + max(0, scale.estimate_size - 16 - 2),
+    )
+    y += scale.estimate_size + SPACE["xs"]
+
+    decomp, dps_line, skipped = _estimate_lines(estimate, width)
+    decomp_font = font_px(_DECOMP_SIZE)
+    cb.set_color(palette.text_dim).set_font(decomp_font)
+    cb.add_text(decomp, x, y)
+    y += _DECOMP_SIZE
+
+    if dps_line:
+        y += 2
+        cb.set_color(palette.text_muted).set_font(decomp_font)
+        cb.add_text(C.fit_text(dps_line, width, decomp_font), x, y)
+        y += _DECOMP_SIZE
+
+    if skipped:
+        y += SPACE["xs"]
+        skip_font = font_px(_LABEL_SIZE)
+        cb.set_color(palette.text_dim).set_font(skip_font)
+        cb.add_text(C.fit_text(skipped, width, skip_font), x, y)
+        y += _LABEL_SIZE + 2
+    return y
+
+
 def _draw_variant(page, card: _Card, variant: _Variant, x: int, y: int, width: int) -> None:
     """D 区：一张变体卡。"""
     palette = page.palette
@@ -876,6 +975,10 @@ def _draw_variant(page, card: _Card, variant: _Variant, x: int, y: int, width: i
     if variant.segments:
         cursor += SPACE["xl"]
         cursor = _draw_composition(page, variant, inner_x, cursor, inner_w)
+
+    if variant.estimate is not None:
+        cursor += SPACE["xl"]
+        cursor = _draw_estimate(page, variant, scale, inner_x, cursor, inner_w)
 
 
 def _draw_variant_header(page, card: _Card, y: int) -> int:
