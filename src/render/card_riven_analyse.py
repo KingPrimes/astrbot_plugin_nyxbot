@@ -72,7 +72,7 @@ _LABEL_TRACKING = 1.6
 _LABEL_H = _LABEL_SIZE + 2
 #: 属性行高（§2.4：20 → 30）。
 _ATTR_ROW_H = 30
-#: 差异另起一行时额外占用的高度（3 列窄卡）。
+#: 差异另起一行时额外占用的高度（两列 330px 窄卡遇到长词条时）。
 _DIFF_LINE_H = 16
 #: 属性行字号（§2.3：16 → 19）。
 _STAT_SIZE = 19
@@ -1115,9 +1115,10 @@ def _group_results(
 def _diff_fits(card: _Card, variant: _Variant, inner_w: int) -> bool:
     """本卡的差异值放得下吗。
 
-    3 列时列宽只有 216，``暴击几率 32.0% +45.5%`` 三段挤在一行会把属性名
-    截成「暴…」。宁可整卡不画差异，也不能把属性名截掉——属性名是识别
-    这一行是什么的唯一线索。
+    两列时 330px 的窄卡里，``暴击几率 32.0% +45.5%`` 三段挤在一行仍会把
+    属性名截成「暴…」（``暴击几率（重击时 x2）`` 这类 12 字词条最挤）。
+    宁可整卡不画差异，也不能把属性名截掉——属性名是识别这一行的唯一
+    线索；放不下时差异统一另起一行（``stack_diff``），保持跨列对齐。
     """
     label_font = font_px(card.scale.stat_size)
     value_font = font_px(card.scale.stat_size, bold=True)
