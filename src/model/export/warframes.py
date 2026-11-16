@@ -10,9 +10,16 @@ from tortoise.models import Model
 
 
 class WarframeAbility(Model):
-    """战甲技能"""
+    """战甲技能。
 
-    abilityUniqueName = fields.CharField(max_length=255, pk=True, description="技能唯一名称")
+    主键用自增 ``id`` 而不是 ``abilityUniqueName``：导出文件里同一技能会挂在
+    多个战甲上（508 条技能只有 295 个唯一名称，例如 Archwing 的
+    ``FireShieldAbility``、阴阳甲的 4 个技能），拿技能名当主键会把后一个战甲
+    的记录覆盖掉。
+    """
+
+    id = fields.IntField(pk=True)
+    abilityUniqueName = fields.CharField(max_length=255, description="技能唯一名称")
     abilityName = fields.CharField(max_length=255, null=True, description="技能名称")
     description = fields.TextField(null=True, description="技能描述")
 
@@ -38,8 +45,15 @@ class Warframes(Model):
     power = fields.IntField(null=True, description="能量")
     codexSecret = fields.BooleanField(null=True, description="是否保密")
     masteryReq = fields.IntField(null=True, description="段位需求")
-    sprintSpeed = fields.IntField(null=True, description="冲刺速度")
+    sprintSpeed = fields.FloatField(null=True, description="冲刺速度")
     productCategory = fields.CharField(max_length=100, null=True, description="类别")
+
+    # ── 说明文本与显赫武器：ExportWarframes 直接提供 ──
+
+    passiveDescription = fields.TextField(null=True, description="被动描述")
+    longDescription = fields.TextField(null=True, description="长描述")
+    exalted = fields.TextField(null=True, description="显赫武器 uniqueName 列表（JSON序列化）")
+    excludeFromCodex = fields.BooleanField(null=True, description="是否从资料库排除")
 
     abilities: fields.ReverseRelation[WarframeAbility]
 

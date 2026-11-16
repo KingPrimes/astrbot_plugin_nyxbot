@@ -248,7 +248,8 @@ uv sync
 
 判断依据是 `state_translation` / `nodes` / `weapons` / `relics` / `reward_pool` / `night_wave` /
 `alias` / `orders_items` 等核心表是否全部非空 —— 只看这 10 张真实会被填充的表，
-避免 `warframes` 这类尚未实现的空表把判断拉成"永远未初始化"。
+避免 `sentinels` / `upgrades` 这类尚未实现的空表把判断拉成"永远未初始化"。
+`warframes` 已实现落库，但同样不参与该判断：非全量启动时会单独检查它是否为空，为空则补跑一次。
 
 `auto` 模式下想刷新一次数据，把模式临时改成 `always` 重启，跑完再改回 `auto` 即可。
 旧版本的 `wf_runtime_env` / `wf_data_force_sync` 仍会被识别并自动映射到新模式，无需手动迁移。

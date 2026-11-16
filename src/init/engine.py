@@ -70,12 +70,72 @@ _SCHEMA_UPGRADES: tuple[tuple[str, str, str], ...] = (
     ("lichsisterweapons", "wikiLink", "VARCHAR(500)"),
     # ── statetranslation：倒序路径索引列（把后缀匹配从全表扫变成索引范围查询）──
     ("statetranslation", "suffix", "VARCHAR(512)"),
+    # ── weapons：对齐 ExportWeapons 的全部字段（近战震地/重击/滑行/范围等）──
+    ("weapons", "slamAttack", "INTEGER"),
+    ("weapons", "slamRadialDamage", "INTEGER"),
+    ("weapons", "slamRadius", "INTEGER"),
+    ("weapons", "heavyAttackDamage", "INTEGER"),
+    ("weapons", "heavySlamAttack", "INTEGER"),
+    ("weapons", "heavySlamRadialDamage", "INTEGER"),
+    ("weapons", "heavySlamRadius", "INTEGER"),
+    ("weapons", "slideAttack", "INTEGER"),
+    ("weapons", "comboDuration", "INTEGER"),
+    ("weapons", "range", "REAL"),
+    ("weapons", "followThrough", "REAL"),
+    ("weapons", "windUp", "REAL"),
+    ("weapons", "blockingAngle", "INTEGER"),
+    ("weapons", "excludeFromCodex", "INTEGER"),
+    # ── warframes：对齐 ExportWarframes 的全部字段 ──
+    ("warframes", "passiveDescription", "TEXT"),
+    ("warframes", "longDescription", "TEXT"),
+    ("warframes", "exalted", "TEXT"),
+    ("warframes", "excludeFromCodex", "INTEGER"),
 )
 
 _COLUMN_RENAMES: tuple[tuple[str, str, str], ...] = (
     # (表, 旧列名, 新列名) — 与 API 字段名对齐
     ("rivention", "units", "unit"),
 )
+
+
+async def _drop_incompatible_tables() -> None:
+    """丢弃结构与当前模型不兼容的表，交给 ``generate_schemas()`` 重建。
+
+    ``generate_schemas()`` 只建缺失的表，不会修改已存在表的结构。主键定义
+    变化时（``warframeability`` 从 ``abilityUniqueName`` 改为自增 ``id``）只能
+    先删表重建。这里只处理「数据完全来自导出文件、可重新生成」的表。
+    """
+    conn = connections.get("default")
+    checks: tuple[tuple[str, str, str], ...] = (
+        # (表名, 新结构必须存在的列, 变更原因)
+        ("warframeability", "id", "主键改为自增 id，以承载同一技能属于多个战甲"),
+    )
+    for table, required, reason in checks:
+        try:
+            rows = await conn.execute_query_dict(f"PRAGMA table_info({table})")
+        except Exception as exc:
+            logger.debug(f"检查表 {table} 结构失败: {exc}")
+            continue
+        if not rows:
+            continue  # 表不存在，交给 generate_schemas 新建
+        if required in {row.get("name") for row in rows}:
+            continue
+        try:
+            counted = await conn.execute_query_dict(
+                f"SELECT COUNT(*) AS n FROM {table}"
+            )
+            row_count = int(counted[0]["n"]) if counted else 0
+        except Exception:
+            row_count = 0
+        if row_count:
+            logger.warning(
+                f"{table} 结构过旧（{reason}），重建会丢弃 {row_count} 行旧数据"
+            )
+        try:
+            await conn.execute_script(f"DROP TABLE {table}")
+            logger.info(f"数据库结构升级：{table} 结构过旧（{reason}），已删除待重建")
+        except Exception as exc:
+            logger.warning(f"删除旧表 {table} 失败: {exc}")
 
 
 async def _apply_schema_upgrades() -> None:
@@ -297,6 +357,7 @@ async def get_engine():
                     db_url=db_url,
                     modules={"models": _MODELS_MODULES},
                 )
+                await _drop_incompatible_tables()
                 await Tortoise.generate_schemas()
                 await _apply_schema_upgrades()
 

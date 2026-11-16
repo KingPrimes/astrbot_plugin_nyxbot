@@ -198,7 +198,22 @@ async def _import_all(plan: UpdatePlan) -> bool:
             ("赤毒/信条武器", MarketSyncService.sync_lich_sister_weapons),
             ("电波任务", NightWaveService.sync_data),
             ("武器", WeaponsService.sync_data),
+            ("战甲", WarframesService.sync_data),
         ]
+    else:
+        # 参考表为空或关键列未回填时补跑一次：数据源从 stub 变成实现、
+        # 或模型新增字段后，现有用户升级上来不该等到下一次全量才落库。
+        # 判断依据是「有没有数据」而不是版本号，跑过一次后自然跳过。
+        from ..model.export.warframes import Warframes
+        from ..model.export.weapons import Weapons as WeaponsModel
+
+        try:
+            if await Warframes.all().count() == 0:
+                parallel.append(("战甲（首次落库）", WarframesService.sync_data))
+            if await WeaponsModel.filter(slamAttack__not_isnull=True).count() == 0:
+                parallel.append(("武器（补新列）", WeaponsService.sync_data))
+        except Exception as exc:
+            logger.debug(f"检查参考表是否需要补跑失败: {exc}")
 
     if parallel:
         results = await asyncio.gather(
@@ -219,7 +234,6 @@ async def _import_all(plan: UpdatePlan) -> bool:
             ("遗物", RelicsService.sync_data),
             ("守护（stub）", SentinelsService.sync_data),
             ("MOD（stub）", UpgradesService.sync_data),
-            ("战甲（stub）", WarframesService.sync_data),
         ]
     elif plan.needs("state_translation.json"):
         # 遗物奖励名在导入时按翻译表固化成中文（RelicsService._translate_relic_rewards），
