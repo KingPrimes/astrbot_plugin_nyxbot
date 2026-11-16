@@ -293,14 +293,30 @@ def _attr_rows(result: RivenAnalyseResult, palette) -> list[_AttrRow]:
 
 
 #: 核心属性的固定顺序与取值（§3.1）。返回 ``(标签, 原始值, 展示值)``。
+#:
+#: 枪械与近战各一套：近战没有多重射击，``fireRate`` 是攻击速度而不是射速，
+#: 并且有震地 / 重击 / 攻击范围这些枪械没有的项。按武器类型取真实属性，
+#: 不要给近战画一行恒为 1 的「多重射击」。
 def _raw_stats(profile: WeaponProfile | None) -> list[tuple[str, float | None, str]]:
     if profile is None:
         return []
-    return [
+    common = [
         ("基础伤害", profile.total_damage, _fmt_num(profile.total_damage)),
         ("暴击几率", profile.critical_chance, _fmt_pct(profile.critical_chance)),
         ("暴击倍率", profile.critical_multiplier, _fmt_mult(profile.critical_multiplier)),
         ("触发几率", profile.proc_chance, _fmt_pct(profile.proc_chance)),
+    ]
+    if profile.melee:
+        reach = profile.attack_range
+        return [
+            *common,
+            ("攻击速度", profile.fire_rate, _fmt_num(profile.fire_rate)),
+            ("震地", profile.slam_attack, _fmt_num(profile.slam_attack)),
+            ("重击", profile.heavy_attack_damage, _fmt_num(profile.heavy_attack_damage)),
+            ("攻击范围", reach, f"{_fmt_num(reach)}m" if reach else "—"),
+        ]
+    return [
+        *common,
         ("射速", profile.fire_rate, _fmt_num(profile.fire_rate)),
         ("多重射击", profile.multishot, _fmt_num(profile.multishot)),
     ]
@@ -339,10 +355,17 @@ def _stat_matrix(profiles: list[WeaponProfile | None]) -> list[list[_StatRow]]:
 
 
 def _secondary_text(profile: WeaponProfile | None) -> str:
-    """次要属性折成一行：``弹匣 12 · 装填 1.4s · 精度 100``（§3.1 第 4 条）。"""
+    """次要属性折成一行：``弹匣 12 · 装填 1.4s · 精度 100``（§3.1 第 4 条）。
+
+    近战没有弹匣 / 装填 / 精度，改给连击持续时间。
+    """
     if profile is None:
         return ""
     parts: list[str] = []
+    if profile.melee:
+        if profile.combo_duration:
+            parts.append(f"连击 {profile.combo_duration}s")
+        return " · ".join(parts)
     if profile.magazine_size:
         parts.append(f"弹匣 {profile.magazine_size}")
     if profile.reload_time:
@@ -581,19 +604,21 @@ def _variant_height(card: _Card, variant: _Variant) -> int:
         height += _composition_height(variant)
     if variant.estimate is not None:
         height += SPACE["xl"]
-        height += _estimate_height(variant, card.scale)
+        height += _estimate_height(variant, card.scale, card.scale.card_w - _CARD_PAD * 2)
     return height
 
 
-def _estimate_height(variant: _Variant, scale: _Scale) -> int:
-    """估算段高度：小标题 + 大字 + 分解行 + DPS 行 + 未计项。"""
+def _estimate_height(variant: _Variant, scale: _Scale, width: int) -> int:
+    """估算段高度：小标题 + 大字 + 分解行 + 副行（与绘制顺序一一对应）。"""
+    estimate = variant.estimate
+    if estimate is None:
+        return 0
     height = _LABEL_H + SPACE["xs"] + 2
     height += scale.estimate_size + SPACE["xs"]
     height += _DECOMP_SIZE
-    if variant.estimate is not None and variant.estimate.dps is not None:
-        height += _DECOMP_SIZE + SPACE["xs"]
-    if variant.estimate is not None and variant.estimate.skipped:
-        height += SPACE["xs"] + _LABEL_SIZE + 2
+    _, lines = _estimate_lines(estimate, width)
+    for line in lines:
+        height += SPACE["xs"] + line.size
     # 末行字形会比标称行高多下探几像素，补一点避免贴边
     return height + SPACE["xs"]
 
@@ -831,13 +856,23 @@ def _draw_composition(page, variant: _Variant, x: int, y: int, width: int) -> in
     return y
 
 
+@dataclass(frozen=True)
+class _EstimateLine:
+    """估算段的副行（DPS / 震地 / 重击 / 未计项）。"""
+
+    text: str
+    size: int
+    color: str
+    """``Palette`` 的字段名。"""
+
+
 def _estimate_lines(
     estimate: RivenEstimate, width: int
-) -> tuple[str, str | None, str | None]:
+) -> tuple[str, list[_EstimateLine]]:
     """估算段的文案：乘数分解优先给全，放不下就逐级简化。
 
     Returns:
-        ``(分解行, DPS 副行, 未计项行)``，后两项可能为 ``None``。
+        ``(分解行, 副行列表)``；副行含 DPS / 震地 / 重击 / 未计项。
     """
     full = (
         f"{estimate.base_damage:,.0f} 基础"
@@ -850,17 +885,32 @@ def _estimate_lines(
     if C.measure(decomp, decomp_font) > width:
         decomp = C.fit_text(decomp, width, decomp_font)
 
-    dps_line: str | None = None
+    lines: list[_EstimateLine] = []
     if estimate.dps is not None:
         gain = estimate.dps_gain
         suffix = f"  {gain:+.1f}%" if gain is not None else ""
-        dps_line = f"DPS {estimate.dps:,.0f}{suffix}"
-    skipped = "未计：" + "、".join(estimate.skipped) if estimate.skipped else None
-    return decomp, dps_line, skipped
+        lines.append(
+            _EstimateLine(f"DPS {estimate.dps:,.0f}{suffix}", _DECOMP_SIZE, "text_muted")
+        )
+    for label, value, gain in (
+        ("震地", estimate.slam, estimate.slam_gain),
+        ("重击", estimate.heavy, estimate.heavy_gain),
+    ):
+        if value is None:
+            continue
+        suffix = f"  {gain:+.1f}%" if gain is not None else ""
+        lines.append(
+            _EstimateLine(f"{label} {value:,.0f}{suffix}", _DECOMP_SIZE, "text_muted")
+        )
+    if estimate.skipped:
+        lines.append(
+            _EstimateLine("未计：" + "、".join(estimate.skipped), _LABEL_SIZE, "text_dim")
+        )
+    return decomp, lines
 
 
 def _draw_estimate(page, variant: _Variant, scale: _Scale, x: int, y: int, width: int) -> int:
-    """紫卡加成后估算：单发期望大字 + 乘数分解 + DPS 副行 + 未计项（§4.2）。"""
+    """紫卡加成后估算：单发期望大字 + 乘数分解 + 副行 + 未计项（§4.2）。"""
     estimate = variant.estimate
     if estimate is None:
         return y
@@ -885,24 +935,18 @@ def _draw_estimate(page, variant: _Variant, scale: _Scale, x: int, y: int, width
     )
     y += scale.estimate_size + SPACE["xs"]
 
-    decomp, dps_line, skipped = _estimate_lines(estimate, width)
+    decomp, lines = _estimate_lines(estimate, width)
     decomp_font = font_px(_DECOMP_SIZE)
     cb.set_color(palette.text_dim).set_font(decomp_font)
     cb.add_text(decomp, x, y)
     y += _DECOMP_SIZE
 
-    if dps_line:
+    for line in lines:
         y += SPACE["xs"]
-        cb.set_color(palette.text_muted).set_font(decomp_font)
-        cb.add_text(C.fit_text(dps_line, width, decomp_font), x, y)
-        y += _DECOMP_SIZE
-
-    if skipped:
-        y += SPACE["xs"]
-        skip_font = font_px(_LABEL_SIZE)
-        cb.set_color(palette.text_dim).set_font(skip_font)
-        cb.add_text(C.fit_text(skipped, width, skip_font), x, y)
-        y += _LABEL_SIZE + 2
+        line_font = font_px(line.size)
+        cb.set_color(getattr(palette, line.color)).set_font(line_font)
+        cb.add_text(C.fit_text(line.text, width, line_font), x, y)
+        y += line.size
     return y
 
 

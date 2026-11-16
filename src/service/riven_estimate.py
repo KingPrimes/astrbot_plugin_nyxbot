@@ -98,6 +98,8 @@ class WeaponProfile:
     mastery_req: int | None = None
     damage_per_shot: tuple[tuple[str, float], ...] = ()
     """伤害类型构成 ``(中文类型名, 数值)``，已过滤 0 值。"""
+    melee: bool = False
+    """近战武器。近战没有弹匣 / 多重射击，属性区与 DPS 口径都不同。"""
 
     # ── 近战专属（ExportWeapons 提供，供属性区与震地/重击估算）──
     slam_attack: int | None = None
@@ -241,6 +243,10 @@ def element_hints(shares: list[ElementShare]) -> list[str]:
 CRIT_CHANCE_ATTR = "暴击几率"
 CRIT_DAMAGE_ATTR = "暴击伤害"
 
+#: 近战特殊攻击词条（§6.5）。震地 / 重击各走一条独立估算分支。
+SLAM_ATTR = "震地攻击伤害"
+HEAVY_ATTR = "重击伤害"
+
 
 @dataclass(frozen=True)
 class RivenEstimate:
@@ -272,6 +278,12 @@ class RivenEstimate:
     multishot: float
     duty: float | None
     """装填占空比 ``弹匣 / (弹匣 + 装填 × 射速)``。"""
+    slam: float | None = None
+    """震地攻击的单发期望（近战专属）。"""
+    heavy: float | None = None
+    """重击的单发期望（近战专属）。"""
+    baseline_slam: float | None = None
+    baseline_heavy: float | None = None
     skipped: tuple[str, ...] = ()
 
     @property
@@ -287,6 +299,18 @@ class RivenEstimate:
         if not self.dps or not self.baseline_dps:
             return None
         return (self.dps / self.baseline_dps - 1) * 100
+
+    @property
+    def slam_gain(self) -> float | None:
+        if not self.slam or not self.baseline_slam:
+            return None
+        return (self.slam / self.baseline_slam - 1) * 100
+
+    @property
+    def heavy_gain(self) -> float | None:
+        if not self.heavy or not self.baseline_heavy:
+            return None
+        return (self.heavy / self.baseline_heavy - 1) * 100
 
     @property
     def element_factor(self) -> float:
@@ -351,12 +375,48 @@ def build_estimate(profile: WeaponProfile | None, attributes) -> RivenEstimate |
     per_shot = total_damage * crit_factor
     baseline_per_shot = profile.total_damage * base_crit_factor
 
+    # 近战分支：震地 / 重击各自算一条，词条加成叠加在通用 +伤害% 之上。
+    # 两段震地（直接命中 + 范围冲击波，随距离衰减）的公式还没钉死，
+    # 只算直接命中，并在「未计」里说明范围伤害没算。
+    slam: float | None = None
+    heavy: float | None = None
+    baseline_slam: float | None = None
+    baseline_heavy: float | None = None
+    element_factor = 1 + element_bonus / 100
+    if profile.slam_attack:
+        slam_bonus = damage_bonus + _sum_attr(attributes, SLAM_ATTR)
+        slam = profile.slam_attack * (1 + slam_bonus / 100) * element_factor * crit_factor
+        baseline_slam = profile.slam_attack * base_crit_factor
+    else:
+        skipped.append("震地")
+    if profile.heavy_attack_damage:
+        heavy_bonus = damage_bonus + _sum_attr(attributes, HEAVY_ATTR)
+        heavy = (
+            profile.heavy_attack_damage
+            * (1 + heavy_bonus / 100)
+            * element_factor
+            * crit_factor
+        )
+        baseline_heavy = profile.heavy_attack_damage * base_crit_factor
+    else:
+        skipped.append("重击")
+    if profile.slam_radial_damage:
+        skipped.append("震地范围伤害")
+
     fire_rate = profile.fire_rate
     multishot = float(profile.multishot or 1)
     duty: float | None = None
     dps: float | None = None
     baseline_dps: float | None = None
-    if (
+    if profile.melee:
+        # 近战没有弹匣 / 装填 / 多重：持续 DPS 就是「单次期望 × 攻击速度」，
+        # 不乘装填占空比（那会把近战 DPS 算低一个量级）。
+        if fire_rate and fire_rate > 0:
+            dps = per_shot * fire_rate
+            baseline_dps = baseline_per_shot * fire_rate
+        else:
+            skipped.append("持续 DPS")
+    elif (
         fire_rate
         and profile.magazine_size
         and profile.reload_time is not None
@@ -385,11 +445,15 @@ def build_estimate(profile: WeaponProfile | None, attributes) -> RivenEstimate |
         fire_rate=fire_rate,
         multishot=multishot,
         duty=duty,
+        slam=slam,
+        heavy=heavy,
+        baseline_slam=baseline_slam,
+        baseline_heavy=baseline_heavy,
         skipped=tuple(skipped),
     )
 
 
-def profile_from_weapon(weapon: Weapons) -> WeaponProfile:
+def profile_from_weapon(weapon: Weapons, *, melee: bool = False) -> WeaponProfile:
     """把 ``Weapons`` 模型转成只读快照。
 
     ``damagePerShot`` 走模型自带的解析（JSON 阵列 → 中文类型名 + 数值），
@@ -397,6 +461,12 @@ def profile_from_weapon(weapon: Weapons) -> WeaponProfile:
 
     字段一律 ``getattr`` 读取：单测用轻量替身、旧版本模型都可能少几个
     近战字段，缺字段按「无此属性」处理即可，不该让整张卡崩掉。
+
+    Args:
+        weapon: 武器模型（或其轻量替身）。
+        melee: 是否近战武器。由调用方按 ``productCategory`` 判定——
+            近战的 ``fireRate`` 是攻击速度、没有多重射击，
+            渲染与估算都要走另一套口径。
     """
     getter = getattr(weapon, "get_damage_per_shot_list", None)
     try:
@@ -421,6 +491,7 @@ def profile_from_weapon(weapon: Weapons) -> WeaponProfile:
         accuracy=value("accuracy"),
         mastery_req=value("masteryReq"),
         damage_per_shot=damage,
+        melee=melee,
         slam_attack=value("slamAttack"),
         slam_radial_damage=value("slamRadialDamage"),
         slam_radius=value("slamRadius"),

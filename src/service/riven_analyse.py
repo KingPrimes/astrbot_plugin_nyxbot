@@ -877,5 +877,9 @@ class RivenAnalyseService:
             attributes=attrs,
             layout=layout.label,
             layout_source=layout_source,
-            profile=profile_from_weapon(weapon),
+            profile=profile_from_weapon(
+                weapon,
+                melee=weapon.productCategory
+                in (ProductCategory.MELEE.value, ProductCategory.SPACE_MELEE.value),
+            ),
         )
