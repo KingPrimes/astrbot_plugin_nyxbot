@@ -378,7 +378,10 @@ def build_estimate(profile: WeaponProfile | None, attributes) -> RivenEstimate |
         raw_chance = profile.critical_chance * (
             1 + _sum_attr(attributes, CRIT_CHANCE_ATTR) / 100
         )
-        crit_chance = min(raw_chance, 1.0)
+        # 上下界都要夹：负词条足够大时 raw_chance 会变负，代入
+        # ``1 + chance × (倍率 - 1)`` 会算出负的暴击系数，卡片上就是负伤害
+        # （实测 20% 基础配 -150% 词条 → chance -1.3、单发期望 -30）。
+        crit_chance = min(max(raw_chance, 0.0), 1.0)
         if raw_chance > 1.0:
             skipped.append("暴击率溢出")
         crit_multiplier = profile.critical_multiplier * (
