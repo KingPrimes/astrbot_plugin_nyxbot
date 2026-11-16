@@ -6,7 +6,11 @@
 
 1. 武器名（金色加粗）+ ``紫卡: xxx``（紫色后缀）；
 2. 分隔线 + ``倾向点 / 倾向数值``（同行左右）+ ``武器类型``；
-3. 分隔线 + 词条逐条：左侧名称，右侧 ``(最低% - 最高%)`` 与 ``| 差异``（负向红、正向绿）。
+3. 分隔线 + 词条逐条，每条两行：
+   - 第一行 ``词条名``（左） + ``本张卡的数值``（右，加粗）：百分比词条 ``+342.1%``、
+     歧视词条 ``x1.06``、平值词条（穿透 / 攻击范围 / 连击持续时间 / 初始连击）``+3.5``；
+   - 第二行 ``理论区间``（左，弱化，单位与数值一致）
+     + ``| 差异``（右，负向红、正向绿；歧视词条同样是倍率，如 ``-0.09x``）。
 
 卡片高度按词条数实时累加，同一行的卡片取较高者，底边对齐。
 """
@@ -36,17 +40,22 @@ _CARD_PAD = SPACE["lg"]
 #: 卡片宽下限 / 上限。
 _MIN_CARD_W = 400
 _MAX_CARD_W = 490
-#: 单条词条的两行（区间 + 差异）合计高度。
-_ATTR_H = FONT["xs"] + SPACE["xs"] + FONT["sm"]
+#: 单条词条两行（实际数值 / 区间 + 差异）合计高度。
+_ATTR_H = FONT["sm"] + SPACE["xs"] + FONT["sm"]
 #: 分隔线占位（线 + 上下呼吸）。
 _DIVIDER_H = SPACE["sm"] * 2 + 1
 
 
 @dataclass(frozen=True)
 class _AttrRow:
-    """一条词条的绘制文案。"""
+    """一条词条的绘制文案。
+
+    第一行是「词条名 + 本张紫卡的实际数值」，第二行是「理论区间 + 与中位数的差异」：
+    玩家最关心的是自己这张卡到底出了多少，原来只给区间和差异，等于看不到原值。
+    """
 
     name: str
+    value: str
     span: str
     diff: str
     color: RGB
@@ -65,22 +74,62 @@ class _AnalyseCard:
     height: int
 
 
-def _format_float(value: float) -> str:
-    """保留必要的小数位：整数补一位小数，其余最多 4 位有效数字。"""
-    return f"{value:.1f}" if value == int(value) else f"{value:.4g}"
+def _format_float(value: float, digits: int = 1) -> str:
+    """按固定小数位四舍五入（wiki 区间表是 0.1 精度：``220.5% - 269.5%``）。
+
+    不做「去尾零」处理：``-99.0`` 去掉会变成 ``-99``，和同列的 ``151.9``
+    位数不一致，读起来更乱。
+    """
+    return f"{round(value, digits):.{digits}f}"
+
+
+def _signed(value: float) -> str:
+    """平值词条的带符号文本：``+3.5`` / ``-0.4``（不带 %）。"""
+    text = _format_float(abs(value))
+    return f"+{text}" if value >= 0 else f"-{text}"
+
+
+def _format_roll(attr) -> tuple[str, str]:
+    """词条的实际数值与理论区间。
+
+    三种单位各按卡面走：
+
+    * 歧视词条 ``x1.06`` → 数值与区间都是倍率（``x1.46 - x1.56``）；
+    * 平值词条（穿透 / 攻击范围 / 连击持续时间 / 初始连击 / 格挡角度）→ 数字本身，不带 %；
+    * 其余百分比词条 → ``+342.1%`` / ``(293.5% - 358.7%)``。
+
+    区间数据缺失时给「未知」，不要印一个 ``0% - 0%`` 假装算过。
+    """
+    if attr.discrimination:
+        value = f"x{attr.attr:.2f}"
+        span = f"(x{1 + attr.low / 100:.2f} - x{1 + attr.high / 100:.2f})"
+    elif attr.flat:
+        value = _signed(attr.attr)
+        span = f"({_format_float(attr.low, 2)} - {_format_float(attr.high, 2)})"
+    else:
+        value = f"{attr.attr:+.1f}%"
+        span = f"({_format_float(attr.low)}% - {_format_float(attr.high)}%)"
+    if attr.low == 0 and attr.high == 0:
+        span = "(区间未知)"
+    return value, span
 
 
 def _build_card(result: RivenAnalyseResult, palette) -> _AnalyseCard:
     """把一条分析结果转成绘制文案。"""
-    attrs = [
-        _AttrRow(
-            name=attr.attribute_name,
-            span=f"({_format_float(attr.low)}% - {_format_float(attr.high)}%)",
-            diff=f"| {attr.diff}",
-            color=palette.red if "-" in attr.diff else palette.green,
+    attrs: list[_AttrRow] = []
+    for attr in result.attributes or []:
+        value, span = _format_roll(attr)
+        known = not (attr.low == 0 and attr.high == 0)
+        diff = f"| {attr.diff}" if known else ""
+        attrs.append(
+            _AttrRow(
+                name=attr.attribute_name,
+                value=value,
+                span=span,
+                diff=diff,
+                color=palette.red if "-" in diff else palette.green,
+            )
         )
-        for attr in result.attributes or []
-    ]
 
     height = (
         _CARD_PAD * 2
@@ -90,7 +139,7 @@ def _build_card(result: RivenAnalyseResult, palette) -> _AnalyseCard:
         + FONT["sm"] + SPACE["xs"]
         + FONT["sm"] + SPACE["sm"]
         + _DIVIDER_H
-        + len(attrs) * (_ATTR_H + SPACE["xs"])
+        + len(attrs) * (_ATTR_H + SPACE["md"])
     )
     return _AnalyseCard(
         weapon=result.weapon_name,
@@ -107,6 +156,7 @@ def _row_width(card: _AnalyseCard, theme) -> int:
     """单张卡的自然宽度（不含内边距）。"""
     name_font = font("md", bold=True)
     small_font = font("sm")
+    bold_font = font("sm", bold=True)
     tiny_font = font("xs")
 
     width = C.measure(card.weapon, name_font)
@@ -118,8 +168,11 @@ def _row_width(card: _AnalyseCard, theme) -> int:
         C.measure(card.weapon_type, small_font),
     )
     for attr in card.attrs:
-        right = max(C.measure(attr.span, tiny_font), C.measure(attr.diff, small_font))
-        width = max(width, C.measure(attr.name, small_font) + SPACE["xl"] + right)
+        width = max(
+            width,
+            C.measure(attr.name, small_font) + SPACE["xl"] + C.measure(attr.value, bold_font),
+            C.measure(attr.span, tiny_font) + SPACE["xl"] + C.measure(attr.diff, small_font),
+        )
     return width
 
 
@@ -140,6 +193,7 @@ def _draw_card(page, card: _AnalyseCard, x: int, y: int, width: int, height: int
     inner_right = inner_x + inner_w
     name_font = font("md", bold=True)
     small_font = font("sm")
+    bold_font = font("sm", bold=True)
     tiny_font = font("xs")
     cursor = y + _CARD_PAD
 
@@ -174,26 +228,31 @@ def _draw_card(page, card: _AnalyseCard, x: int, y: int, width: int, height: int
     cb.draw_line(inner_x, cursor, inner_right, cursor, width=1)
     cursor += 1 + SPACE["sm"]
 
-    # 词条
+    # 词条：第一行「名称 + 实际数值」，第二行「理论区间 + 差异」
     for attr in card.attrs:
-        right_w = max(C.measure(attr.span, tiny_font), C.measure(attr.diff, small_font))
+        value_w = C.measure(attr.value, bold_font)
         cb.set_color(palette.text).set_font(small_font)
         cb.add_text(
-            C.fit_text(attr.name, inner_w - right_w - SPACE["md"], small_font),
+            C.fit_text(attr.name, inner_w - value_w - SPACE["md"], small_font),
             inner_x,
-            cursor + FONT["xs"] - SPACE["xs"],
+            cursor,
         )
 
+        cb.set_color(palette.text).set_font(bold_font)
+        cb.add_text(attr.value, inner_right - value_w, cursor)
+
+        line2 = cursor + FONT["sm"] + SPACE["xs"]
         cb.set_color(palette.text_muted).set_font(tiny_font)
-        cb.add_text(attr.span, inner_right - C.measure(attr.span, tiny_font), cursor)
+        cb.add_text(attr.span, inner_x, line2)
 
         cb.set_color(attr.color).set_font(small_font)
-        cb.add_text(
-            attr.diff,
-            inner_right - C.measure(attr.diff, small_font),
-            cursor + FONT["xs"] + SPACE["xs"],
-        )
-        cursor += _ATTR_H + SPACE["xs"]
+        if attr.diff:
+            cb.add_text(
+                attr.diff,
+                inner_right - C.measure(attr.diff, small_font),
+                line2 - (FONT["sm"] - FONT["xs"]),
+            )
+        cursor += _ATTR_H + SPACE["md"]
 
 
 def render_riven_analyse_card(

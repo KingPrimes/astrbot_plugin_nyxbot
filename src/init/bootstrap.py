@@ -180,8 +180,8 @@ async def _import_all(plan: UpdatePlan) -> bool:
         parallel.append(("紫卡倾向", RivenService.sync_tion_data))
     if plan.needs("market_riven_tion_alias.json"):
         parallel.append(("紫卡别名", RivenService.sync_tion_alias_data))
-    if plan.needs("riven_analyse_trend.json"):
-        parallel.append(("紫卡趋势", RivenService.sync_analyse_trend_data))
+    # 紫卡分析的基础值已改为 src/service/riven_base.py 的 wiki 常量表，
+    # 不再同步 riven_analyse_trend.json（CDN 数据与当前版本公式不一致）。
     if plan.needs("reward_pool.json"):
         parallel.append(("奖励池", RewardService.sync_data))
     if plan.needs("nodes.json"):
