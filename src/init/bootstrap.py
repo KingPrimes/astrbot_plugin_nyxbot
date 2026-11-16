@@ -30,7 +30,7 @@ from ..config import (
     normalize_data_init_mode,
 )
 # 补跑门控要查这两张参考表；模型只依赖 tortoise，顶层导入不构成循环
-from ..model.export.warframes import Warframes
+from ..model.export.warframes import WarframeAbility, Warframes
 from ..model.export.weapons import Weapons as WeaponsModel
 from ..util.alias_cache import invalidate_alias_cache
 from ..util.search_index import invalidate as invalidate_search_index
@@ -164,7 +164,12 @@ async def _reference_backfill_tasks() -> list[tuple[str, SyncFunc]]:
 
     tasks: list[tuple[str, SyncFunc]] = []
     try:
-        if await Warframes.all().count() == 0:
+        # 技能表也要看：旧库升级（warframeability 主键改自增）会整表 DROP 重建，
+        # 只看战甲表的话，重建失败一次就永远空着且不会被重试。
+        if (
+            await Warframes.all().count() == 0
+            or await WarframeAbility.all().count() == 0
+        ):
             tasks.append(("战甲（首次落库）", WarframesService.sync_data))
         if await WeaponsModel.filter(slamAttack__not_isnull=True).count() == 0:
             tasks.append(("武器（补新列）", WeaponsService.sync_data))
