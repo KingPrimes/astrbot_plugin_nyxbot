@@ -371,6 +371,12 @@ class StateTranslationService:
                 await StateTranslation.filter(conditions).values_list("suffix", "name")
             )
 
+        # 同一后缀可能对应多条记录（例如仅大小写不同的 uniqueName），匹配时
+        # 取第一条。SQL 未加 ORDER BY，结果顺序取决于查询计划/索引顺序，因此
+        # 这里在内存里排一次：行数只有几十条，代价可忽略，但同一份数据每次
+        # 得到的译文一致（旧实现是「字典首个写入者」，同样不保证稳定）。
+        rows.sort(key=lambda row: (row[0] or "", row[1] or ""))
+
         result: dict[str, str] = {}
         for keyword, prefix in keyword_prefixes:
             for suffix, name in rows:

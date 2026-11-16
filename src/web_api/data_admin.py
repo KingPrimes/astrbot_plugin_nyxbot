@@ -73,6 +73,18 @@ _INTERNAL_FIELDS = frozenset({"suffix"})
 """
 
 
+def _public_fields(meta: Any) -> list[str]:
+    """模型对外暴露的数据字段名（按名排序，跳过内部派生列）。
+
+    ``/models`` 的 ``fields`` 与 ``_serialize_instance`` 的行键必须同口径：
+    前者用于空表时生成新增表单，漏过滤就会给用户一个 ``suffix`` 输入框，
+    而该列会被下一次 ``save()`` 覆盖。
+    """
+    return sorted(
+        field for field in meta.db_fields if field not in _INTERNAL_FIELDS
+    )
+
+
 def _invalidate_search_caches(model: str) -> None:
     """让搜索索引与别名缓存失效（只对参与搜索的表）。"""
     if model not in _INDEXED_MODELS:
@@ -254,9 +266,9 @@ def register_data_apis(context: Context) -> None:
                 "name": name,
                 "search_fields": meta["search_fields"],
                 "has_sync": meta["sync_func"] is not None,
-                # CodeRabbit R5：暴露全部数据字段（与 _serialize_instance 的
-                # 行键同口径），空模型（零记录）也能生成可提交的新增表单
-                "fields": sorted(model_cls._meta.db_fields),
+                # 暴露全部数据字段（与 _serialize_instance 的行键同口径），
+                # 空模型（零记录）也能生成可提交的新增表单
+                "fields": _public_fields(model_cls._meta),
             })
         return jsonify({"models": models})
 

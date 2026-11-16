@@ -58,11 +58,35 @@ class RetryLogLevel(Enum):
     ERROR = "error"
 
 
+_RETRYABLE_CLIENT_ERRORS = frozenset({408, 429})
+"""4xx 里**可以重试**的两个状态码。
+
+408（Request Timeout）与 429（Too Many Requests）都是瞬时状态：前者多为
+服务端等待请求体超时，后者是限流，过一会儿重试有实际意义。其余 4xx 是
+请求本身有问题（地址拼错、文件不存在、鉴权失败），重试只会重复失败。
+"""
+
+
+def is_retryable_client_error(status: int) -> bool:
+    """该 4xx 状态码是否值得重试 / Whether a 4xx status is transient.
+
+    Args:
+        status: HTTP 状态码（调用方保证已是 4xx）。
+
+    Returns:
+        ``True`` 表示 408（请求超时）或 429（限流）——过一会儿重试有实际
+        意义；其余 4xx 是请求本身有问题，重试只会重复失败。
+    """
+    return status in _RETRYABLE_CLIENT_ERRORS
+
+
 class NonRetryableHttpError(Exception):
     """4xx 客户端错误 — 重试不会改变结果，直接放弃。
 
     典型场景：CDN 地址拼错（空版本号）、仓库/文件不存在、鉴权失败。
     以前这类错误也被当作可重试，一次初始化要白等 3 次退避（5/10/20 秒）。
+
+    408/429 不在此列（见 :data:`_RETRYABLE_CLIENT_ERRORS`），它们仍走重试。
     """
 
     def __init__(self, status: int, url: str) -> None:
@@ -191,8 +215,12 @@ async def _fetch(
             if resp.status < 200 or resp.status >= 300:
                 logger.warning(f"HTTP {resp.status} 请求失败: {url}")
                 # 4xx 是客户端错误（地址拼错、文件不存在、鉴权失败），重试无意义；
-                # 429（限流）除外，它过一会儿是可能恢复的。
-                if raise_on_client_error and 400 <= resp.status < 500 and resp.status != 429:
+                # 408/429 是瞬时状态，留给重试层处理。
+                if (
+                    raise_on_client_error
+                    and 400 <= resp.status < 500
+                    and not is_retryable_client_error(resp.status)
+                ):
                     raise NonRetryableHttpError(resp.status, url)
                 return None
             return await response_handler(resp)
@@ -226,14 +254,15 @@ async def fetch_json(
         headers: 额外请求头。
         timeout: 超时设置。
         content_type: 强制指定 content_type（某些 API 返回类型不标准）。
-        raise_on_client_error: 4xx（429 除外）抛 ``NonRetryableHttpError``
+        raise_on_client_error: 4xx（408/429 除外）抛 ``NonRetryableHttpError``
             而不是返回 None，供重试层区分"重试无意义"。
 
     Returns:
         解析后的 JSON 数据，失败返回 None。
 
     Raises:
-        NonRetryableHttpError: ``raise_on_client_error=True`` 且响应为 4xx 时。
+        NonRetryableHttpError: ``raise_on_client_error=True`` 且响应为
+            不可重试的 4xx（408/429 之外）时。
     """
     return await _fetch(
         url, lambda resp: resp.json(content_type=content_type),
@@ -312,7 +341,8 @@ async def fetch_json_with_retry(
                 raise_on_client_error=True,
             )
         except NonRetryableHttpError as exc:
-            # 4xx：地址拼错 / 文件不存在 / 鉴权失败，重试只会白等退避时间
+            # 不可重试的 4xx（408/429 之外）：地址拼错 / 文件不存在 / 鉴权失败，
+            # 重试只会白等退避时间
             logger.error(f"HTTP {exc.status} 不可重试，放弃: {exc.url}")
             return None
         if data is not None:

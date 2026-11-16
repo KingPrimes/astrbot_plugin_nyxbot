@@ -184,13 +184,21 @@ def _menu_lines(
     return lines
 
 
-def _compact_lines(sections: Sequence[HelpSection]) -> list[str]:
+def _compact_lines(
+    sections: Sequence[HelpSection], page_hint: str = ""
+) -> list[str]:
     """精简版正文：分割线后只列需要参数的指令 / Compact body: params only.
 
     无参数指令全部由按钮承载，正文不再介绍；管理员运维指令与
     ``wfhelp`` 也不做介绍（按钮能力由配色区分，见 ``src/help/buttons.py``）。
+
+    ``page_hint`` 非空时紧跟首句（与链接菜单形态同一位置）：关掉内联链接
+    之后，正文就只剩这一处能告诉用户"当前第几页、还有没有下一页"。
     """
-    lines: list[str] = ["点击下方按钮直接查询对应数据", ""]
+    lines: list[str] = ["点击下方按钮直接查询对应数据"]
+    if page_hint:
+        lines.append(f"> {page_hint}")
+    lines.append("")
 
     listed: list[str] = []
     example: str | None = None
@@ -238,7 +246,7 @@ def format_help_markdown(
             指令由按钮承载，正文不重复；``False`` 时菜单覆盖全部可查询
             指令（按钮不可用时的完整菜单）。
         page_hint: 按钮分页说明（如「共 2 页，点「更多 ›」查看其余指令」）；
-            仅在 ``link_menu`` + ``menu_params_only`` 形态下追加，空串不显示。
+            链接菜单与 ``compact`` 精简正文都会追加，空串不显示。
 
     Returns:
         可直接交给 ``event.plain_result()`` 的 Markdown 文本；
@@ -261,7 +269,7 @@ def format_help_markdown(
     else:
         lines = [*_logo_lines(logo_url, size), f"# {HELP_TITLE}", ""]
         if compact:
-            lines.extend(_compact_lines(sections))
+            lines.extend(_compact_lines(sections, page_hint))
         else:
             for section in sections:
                 if not section.entries:
