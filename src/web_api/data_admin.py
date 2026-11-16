@@ -197,22 +197,22 @@ def register_data_apis(context: Context) -> None:
     _register_model(
         "state_translation",
         StateTranslation,
-        search_fields=["name", "unique_name"],
+        search_fields=["name", "uniqueName"],
         sync_func=StateTranslationService.sync_data,
     )
 
     # ── Exprot ──
     _register_model(
-        "night_wave", NightWave, search_fields=["name", "unique_name"], sync_func=NightWaveService.sync_data
+        "night_wave", NightWave, search_fields=["name", "uniqueName"], sync_func=NightWaveService.sync_data
     )
-    _register_model("relics", Relics, search_fields=["name", "unique_name"], sync_func=RelicsService.sync_data)
-    _register_model("relic_rewards", RelicRewards, search_fields=["reward_name"], sync_func=None)
-    _register_model("sentinels", Sentinels, search_fields=["name", "unique_name"], sync_func=SentinelsService.sync_data)
-    _register_model("upgrades", Upgrades, search_fields=["name", "unique_name"], sync_func=UpgradesService.sync_data)
-    _register_model("warframes", Warframes, search_fields=["name", "unique_name"], sync_func=WarframesService.sync_data)
-    _register_model("warframe_ability", WarframeAbility, search_fields=["ability_name"], sync_func=None)
-    _register_model("weapons", Weapons, search_fields=["name", "unique_name"], sync_func=WeaponsService.sync_data)
-    _register_model("reward_pool", RewardPool, search_fields=["unique_name"], sync_func=RewardService.sync_data)
+    _register_model("relics", Relics, search_fields=["name", "uniqueName"], sync_func=RelicsService.sync_data)
+    _register_model("relic_rewards", RelicRewards, search_fields=["rewardName"], sync_func=None)
+    _register_model("sentinels", Sentinels, search_fields=["name", "uniqueName"], sync_func=SentinelsService.sync_data)
+    _register_model("upgrades", Upgrades, search_fields=["name", "uniqueName"], sync_func=UpgradesService.sync_data)
+    _register_model("warframes", Warframes, search_fields=["name", "uniqueName"], sync_func=WarframesService.sync_data)
+    _register_model("warframe_ability", WarframeAbility, search_fields=["abilityName"], sync_func=None)
+    _register_model("weapons", Weapons, search_fields=["name", "uniqueName"], sync_func=WeaponsService.sync_data)
+    _register_model("reward_pool", RewardPool, search_fields=["uniqueName"], sync_func=RewardService.sync_data)
     _register_model("reward", Reward, search_fields=["id"])
 
     # ========================================================================
