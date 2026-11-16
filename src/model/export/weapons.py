@@ -68,7 +68,7 @@ class Weapons(Model):
     name = fields.CharField(max_length=255, null=True, description="武器名称")
     codexSecret = fields.BooleanField(null=True, description="是否从资料库隐藏")
     damagePerShot = fields.TextField(null=True, description="武器伤害阵列（JSON序列化）")
-    totalDamage = fields.IntField(null=True, description="总伤害")
+    totalDamage = fields.FloatField(null=True, description="总伤害")
     description = fields.TextField(null=True, description="描述")
     englishName = fields.CharField(max_length=255, null=True, description="英文名称")
     criticalChance = fields.FloatField(null=True, description="暴击率")
@@ -87,6 +87,26 @@ class Weapons(Model):
     reloadTime = fields.FloatField(null=True, description="装填时间")
     sentinel = fields.BooleanField(null=True, description="是否为守护武器")
     multishot = fields.IntField(null=True, description="多重射击")
+
+    # ── 近战专属：ExportWeapons 直接提供，供紫卡估算与属性展示 ──
+
+    slamAttack = fields.IntField(null=True, description="震地攻击伤害")
+    slamRadialDamage = fields.IntField(null=True, description="震地范围伤害")
+    slamRadius = fields.IntField(null=True, description="震地半径")
+    heavyAttackDamage = fields.IntField(null=True, description="重击伤害")
+    heavySlamAttack = fields.IntField(null=True, description="重击震地伤害")
+    heavySlamRadialDamage = fields.IntField(null=True, description="重击震地范围伤害")
+    heavySlamRadius = fields.IntField(null=True, description="重击震地半径")
+    slideAttack = fields.IntField(null=True, description="滑行攻击伤害")
+    comboDuration = fields.IntField(null=True, description="连击持续时间")
+    range = fields.FloatField(null=True, description="攻击范围")
+    followThrough = fields.FloatField(null=True, description="穿透")
+    windUp = fields.FloatField(null=True, description="蓄力时间")
+    blockingAngle = fields.IntField(null=True, description="格挡角度")
+
+    # ── 资料库可见性 ──
+
+    excludeFromCodex = fields.BooleanField(null=True, description="是否从资料库排除")
 
     class Meta:
         table = "weapons"

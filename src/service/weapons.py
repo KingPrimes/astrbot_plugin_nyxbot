@@ -143,6 +143,16 @@ class WeaponsService:
             return
 
         logger.info(f"已解析 {filename}: {len(items)} 条")
+
+        # 导出文件里同一 uniqueName 可能重复（如「惩戒者」出现 3 次，字段完全相同），
+        # 主键会自然去重。这里只提示数量，避免日志里的落库数比导出数少让人误判。
+        unique_count = len({item["uniqueName"] for item in items})
+        if unique_count != len(items):
+            logger.info(
+                f"导出文件存在 {len(items) - unique_count} 条重复 uniqueName，"
+                f"按主键去重后写入 {unique_count} 条"
+            )
+
         total_upserted = await DataSyncService.batch_upsert(
             model_cls=Weapons,
             items=items,
@@ -155,6 +165,13 @@ class WeaponsService:
                 "masteryReq", "productCategory", "slot", "accuracy",
                 "omegaAttenuation", "maxLevelCap", "noise", "trigger",
                 "magazineSize", "reloadTime", "sentinel", "multishot",
+                # 近战专属（震地 / 重击 / 滑行 / 范围等）
+                "slamAttack", "slamRadialDamage", "slamRadius",
+                "heavyAttackDamage", "heavySlamAttack",
+                "heavySlamRadialDamage", "heavySlamRadius",
+                "slideAttack", "comboDuration", "range",
+                "followThrough", "windUp", "blockingAngle",
+                "excludeFromCodex",
             ],
         )
         total = await Weapons.all().count()

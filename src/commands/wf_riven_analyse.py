@@ -26,7 +26,7 @@ from ...registry import wf
 from ..init import init_ready
 from ..render.card_renderer import CardRenderer
 from ..render.card_riven_analyse import render_riven_analyse_card
-from ..service.riven_analyse import RivenAnalyseService
+from ..service.riven_analyse import AnalyseStatus, RivenAnalyseService
 
 if TYPE_CHECKING:
     from astrbot.core.utils.session_waiter import SessionController
@@ -107,14 +107,37 @@ async def _do_analyse(ev: AstrMessageEvent, img_comp: Comp.Image) -> None:
         Path(path).unlink(missing_ok=True)
 
     try:
-        results = await RivenAnalyseService.analyse_image(pil)
+        outcome = await RivenAnalyseService.analyse_image(pil)
     except Exception as exc:
         logger.error(f"紫卡分析失败: {exc}", exc_info=True)
         await ev.send(ev.plain_result(f"紫卡分析失败: {exc}"))
         return
 
+    if outcome.status is AnalyseStatus.OCR_FAILED:
+        await ev.send(
+            ev.plain_result("紫卡图片识别失败，请重新发送；连续失败请查看后台日志")
+        )
+        return
+    if outcome.status is AnalyseStatus.NO_WEAPON_NAME:
+        await ev.send(
+            ev.plain_result(
+                "没从图片里认出武器名。请发游戏内的原图（保留卡片四周），"
+                "不要裁切或缩放后再发"
+            )
+        )
+        return
+    if outcome.status is AnalyseStatus.NOT_FOUND:
+        await ev.send(
+            ev.plain_result(
+                f"识别到武器名「{outcome.query}」，但武器库里没有对应武器。"
+                "请确认武器数据已同步，或改发更清晰的截图"
+            )
+        )
+        return
+
+    results = outcome.results
     if not results:
-        await ev.send(ev.plain_result("OCR 未识别到紫卡武器名"))
+        await ev.send(ev.plain_result("没有解析出可分析的词条，请重新截图"))
         return
 
     # 渲染多卡片并发送

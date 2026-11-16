@@ -20,7 +20,7 @@ AstrBot 的 Warframe 助手插件，提供世界状态查询、市场交易、�
 |------|------|
 | 🌍 **世界状态** | 查询警报、突击、裂隙、入侵、平原周期、虚空商人、仲裁、钢铁之路等实时数据 |
 | 💰 **市场交易** | 对接 Warframe.Market API，查询物品订单、紫卡拍卖、赤毒/信条武器行情、金/银垃圾回收价 |
-| 🔮 **紫卡分析** | OCR 识别紫卡截图 → 武器/词条解析 → 倾向趋势计算 → 多卡片可视化渲染 |
+| 🔮 **紫卡分析** | OCR 识别紫卡截图 → 武器/词条解析 → wiki 常量表区间计算 → 伤害构成与紫卡加成估算 → 多卡片可视化渲染 |
 | 📢 **订阅通知** | 群组任务订阅，定时推送世界状态变更通知（警报/突击/裂隙/入侵/奸商/仲裁等） |
 | 🔍 **OCR 识别** | 基于 PaddleOCR PP-OCRv5 的文字识别，支持游戏截图解析 |
 | 🌐 **中英翻译** | Warframe 物品/状态中英文名称互查，支持别名模糊匹配 |
@@ -116,7 +116,7 @@ WebUI 里只有一个视图 `nyxbot-admin`（`pages/nyxbot-admin/`），左侧�
 服务层 (src/service/ — 22 个服务模块)
   WorldStateService          ↔  世界状态缓存 + 自动刷新 + 翻译管道
   MarketService / Orders / Riven / Ducats / Sync  ↔  Warframe.Market 全链路
-  RivenAnalyseService        ↔  紫卡 OCR 解析 + 武器匹配 + 倾向趋势计算
+  RivenAnalyseService        ↔  紫卡 OCR 解析 + 武器匹配 + wiki 常量表区间与加成估算
   StateTranslationService    ↔  中英文名称翻译
   AliasService               ↔  别名模糊匹配
   SubscriptionService        ↔  群组任务订阅管理
@@ -248,7 +248,8 @@ uv sync
 
 判断依据是 `state_translation` / `nodes` / `weapons` / `relics` / `reward_pool` / `night_wave` /
 `alias` / `orders_items` 等核心表是否全部非空 —— 只看这 10 张真实会被填充的表，
-避免 `warframes` 这类尚未实现的空表把判断拉成"永远未初始化"。
+避免 `sentinels` / `upgrades` 这类尚未实现的空表把判断拉成"永远未初始化"。
+`warframes` 已实现落库，但同样不参与该判断：非全量启动时会单独检查它是否为空，为空则补跑一次。
 
 `auto` 模式下想刷新一次数据，把模式临时改成 `always` 重启，跑完再改回 `auto` 即可。
 旧版本的 `wf_runtime_env` / `wf_data_force_sync` 仍会被识别并自动映射到新模式，无需手动迁移。
