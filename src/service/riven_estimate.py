@@ -15,7 +15,12 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from ..model.export.weapons import Weapons
+    # 估算以 ResultAttribute 为输入（鸭子类型：name / attribute_name / attr）；
+    # riven_analyse 反向导入本模块，这里必须挂在 TYPE_CHECKING 下避免环。
+    from .riven_analyse import ResultAttribute
 
 #: 基础伤害词条（正式名）。
 DAMAGE_ATTR = "伤害/近战伤害"
@@ -169,7 +174,7 @@ def combine_riven_elements(items: list[tuple[str, float]]) -> list[tuple[str, fl
 
 def build_elements(
     profile: WeaponProfile,
-    attributes,
+    attributes: Sequence[ResultAttribute] | None,
     damage_bonus: float,
 ) -> list[ElementShare]:
     """把武器自带伤害与紫卡元素词条合并成构成条的分段。
@@ -331,11 +336,15 @@ class RivenEstimate:
         return 1 + self.element_bonus / 100
 
 
-def _sum_attr(attributes, name: str) -> float:
+def _sum_attr(
+    attributes: Sequence[ResultAttribute] | None, name: str
+) -> float:
     return sum(attr.attr for attr in attributes or [] if attr.name == name)
 
 
-def _sum_crit_attr(attributes, *, heavy: bool) -> float:
+def _sum_crit_attr(
+    attributes: Sequence[ResultAttribute] | None, *, heavy: bool
+) -> float:
     """暴击率词条按「是否重击专属」分桶求和。
 
     ``暴击几率（重击时 x2）`` 的正式名（``name``）与普通暴击几率相同，
@@ -351,7 +360,10 @@ def _sum_crit_attr(attributes, *, heavy: bool) -> float:
     return total
 
 
-def build_estimate(profile: WeaponProfile | None, attributes) -> RivenEstimate | None:
+def build_estimate(
+    profile: WeaponProfile | None,
+    attributes: Sequence[ResultAttribute] | None,
+) -> RivenEstimate | None:
     """按 §4.2 的四步链路算估算值。
 
     ::
@@ -567,7 +579,8 @@ def profile_from_weapon(weapon: Weapons, *, melee: bool = False) -> WeaponProfil
     except Exception:  # pragma: no cover - 解析失败只影响构成条
         damage = ()
 
-    def value(name: str):
+    def value(name: str) -> float | None:
+        """按字段名读数值；导出缺列时返回 ``None``（按「无此属性」处理）。"""
         return getattr(weapon, name, None)
 
     return WeaponProfile(
