@@ -28,15 +28,15 @@ ELEMENT_ATTRS: frozenset[str] = frozenset({
 })
 
 #: 复合元素：两种基础元素组合后的名字。
-#: 组合顺序依赖 mod 排列（左上优先），数据层没有 mod 顺序信息，
-#: 所以只给提示、不展示组合后的数值（§3.2）。
+#: 名字带「伤害」后缀，与 ``damagePerShot`` 的类型名对齐，才能与武器自带
+#: 的复合元素按名合并；展示时由 :func:`short_element` 去掉后缀。
 COMPOSITES: dict[frozenset[str], str] = {
-    frozenset({"冰冻伤害", "毒素伤害"}): "病毒",
-    frozenset({"电击伤害", "毒素伤害"}): "腐蚀",
-    frozenset({"火焰伤害", "冰冻伤害"}): "爆炸",
-    frozenset({"火焰伤害", "电击伤害"}): "辐射",
-    frozenset({"电击伤害", "冰冻伤害"}): "磁力",
-    frozenset({"火焰伤害", "毒素伤害"}): "毒气",
+    frozenset({"冰冻伤害", "毒素伤害"}): "病毒伤害",
+    frozenset({"电击伤害", "毒素伤害"}): "腐蚀伤害",
+    frozenset({"火焰伤害", "冰冻伤害"}): "爆炸伤害",
+    frozenset({"火焰伤害", "电击伤害"}): "辐射伤害",
+    frozenset({"电击伤害", "冰冻伤害"}): "磁力伤害",
+    frozenset({"火焰伤害", "毒素伤害"}): "毒气伤害",
 }
 
 
@@ -129,6 +129,42 @@ class WeaponProfile:
         return self == other
 
 
+def combine_riven_elements(items: list[tuple[str, float]]) -> list[tuple[str, float]]:
+    """把紫卡自己的元素按卡面顺序两两组合成复合元素。
+
+    一张紫卡就是一个 mod：它的两条元素词条在游戏里必然先互相组合
+    （mod 内部优先级），再与武器自带元素相加。所以紫卡带「毒素 + 电击」时，
+    构成条与估算都应按「腐蚀」这一条算，而不是两条独立元素。
+
+    跨 mod 的组合（紫卡元素 vs 武器自带元素）仍然算不准——那取决于 mod
+    排列顺序，数据层没有这个信息，只给提示。但**紫卡内部**的顺序就是
+    卡面从上到下的顺序，OCR 已按这个顺序给出词条，因此可以算准。
+
+    组合规则：按顺序取第一个元素，与后面第一个能组合的元素合并成复合元素，
+    复合元素不再参与后续组合（游戏里复合元素也不会再与基础元素组合）。
+
+    Args:
+        items: ``(元素名, 数值)``，按卡面顺序。
+
+    Returns:
+        组合后的 ``(元素名, 数值)`` 列表。
+    """
+    result = list(items)
+    index = 0
+    while index < len(result):
+        for other in range(index + 1, len(result)):
+            composite = COMPOSITES.get(
+                frozenset({result[index][0], result[other][0]})
+            )
+            if composite is None:
+                continue
+            result[index] = (composite, result[index][1] + result[other][1])
+            del result[other]
+            break
+        index += 1
+    return result
+
+
 def build_elements(
     profile: WeaponProfile,
     attributes,
@@ -136,11 +172,12 @@ def build_elements(
 ) -> list[ElementShare]:
     """把武器自带伤害与紫卡元素词条合并成构成条的分段。
 
-    两条口径（§4.3）：
+    三条口径（§4.3 + 紫卡内部复合）：
 
     1. 元素词条的基数是**修改后的基础伤害**（含 +伤害% 词条），不是该元素原值；
     2. 自带元素也按 ``1 + Σ伤害%`` 缩放，否则构成条的总和与估算的单发总伤害
-       对不上——玩家一眼就能看出两个数字打架。
+       对不上——玩家一眼就能看出两个数字打架；
+    3. 紫卡自己的两条元素词条先按卡面顺序组合成复合元素，再并入构成条。
 
     Args:
         profile: 武器属性快照。
@@ -159,14 +196,16 @@ def build_elements(
     index = {share.name: position for position, share in enumerate(shares)}
     base_damage = (profile.total_damage or 0) * scale
 
-    for attr in attributes or []:
-        if attr.name not in ELEMENT_ATTRS or not attr.attr:
-            continue
-        added = base_damage * attr.attr / 100
-        position = index.get(attr.name)
+    riven_items = [
+        (attr.name, base_damage * attr.attr / 100)
+        for attr in attributes or []
+        if attr.name in ELEMENT_ATTRS and attr.attr
+    ]
+    for name, added in combine_riven_elements(riven_items):
+        position = index.get(name)
         if position is None:
-            index[attr.name] = len(shares)
-            shares.append(ElementShare(attr.name, added, "riven_new", added))
+            index[name] = len(shares)
+            shares.append(ElementShare(name, added, "riven_new", added))
         else:
             current = shares[position]
             shares[position] = ElementShare(
@@ -178,8 +217,10 @@ def build_elements(
 def element_hints(shares: list[ElementShare]) -> list[str]:
     """紫卡元素与自带元素能组合成什么（只提示，不给数值）。
 
-    §3.2：复合元素的组合顺序依赖 mod 排列，数据层没有 mod 顺序信息，
-    算不准就不算。
+    跨 mod 的组合顺序依赖 mod 排列（左上优先），数据层没有这个信息，
+    算不准就不算——这里只给「可以这么配」的提示。
+    紫卡**内部**的两条元素已经在 :func:`combine_riven_elements` 里算过了，
+    组合后的复合元素不会再出现在提示里。
     """
     owned = [share.name for share in shares if not share.from_riven]
     added = [share.name for share in shares if share.source == "riven_new"]
@@ -189,7 +230,7 @@ def element_hints(shares: list[ElementShare]) -> list[str]:
             composite = COMPOSITES.get(frozenset({riven_name, own}))
             if composite:
                 hints.append(
-                    f"可与 {short_element(own)} 组合为 {composite}"
+                    f"可与 {short_element(own)} 组合为 {short_element(composite)}"
                 )
     return hints
 
